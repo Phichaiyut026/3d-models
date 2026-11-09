@@ -1,0 +1,4 @@
+.godot/
+native/godot-cpp/
+native/**/*.os
+native/.sconsign.dblite
