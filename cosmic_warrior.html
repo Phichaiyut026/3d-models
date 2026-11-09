@@ -1,0 +1,638 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Cosmic Warrior 3D</title>
+<style>
+  html,body{margin:0;height:100%;overflow:hidden;background:#2c6690;font-family:ui-monospace,Menlo,monospace;color:#e6f6ff}
+  canvas{display:block}
+  #title{position:fixed;left:20px;top:16px;font:600 22px/1.1 system-ui,sans-serif;letter-spacing:.03em;pointer-events:none}
+  #title small{display:block;font:500 12px/1.6 system-ui,sans-serif;opacity:.75;letter-spacing:0}
+  #bar{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);display:flex;gap:6px;flex-wrap:wrap;justify-content:center;width:max-content;max-width:calc(100vw - 32px)}
+  button{font:600 12px ui-monospace,Menlo,monospace;padding:9px 12px;background:#14325a;color:#dff4ff;border:1px solid #6fc8ee;border-radius:3px;cursor:pointer}
+  button:hover{background:#245083}
+  button.on{background:#5a34d0;border-color:#b9a4ff;color:#fff}
+  .gap{width:10px}
+</style>
+<script type="importmap">
+{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}
+</script>
+</head>
+<body>
+<div id="title">COSMIC WARRIOR<small>ลากเพื่อหมุน · เลื่อนเพื่อซูม · คลิกขวาลากเพื่อเลื่อน</small></div>
+<div id="bar">
+  <button data-view="front">FRONT</button>
+  <button data-view="side">SIDE</button>
+  <button data-view="back">BACK</button>
+  <button data-view="iso">ISO</button>
+  <span class="gap"></span>
+  <button id="idle" class="on">IDLE</button>
+  <button id="energy">ENERGY</button>
+  <span class="gap"></span>
+  <button id="download">DOWNLOAD GLB</button>
+</div>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+
+/* ---------- scene ---------- */
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x2c6690);
+const camera = new THREE.PerspectiveCamera(26, innerWidth / innerHeight, .1, 200);
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFShadowMap;
+document.body.appendChild(renderer.domElement);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.target.set(0, 2.95, 0);
+controls.minDistance = 5; controls.maxDistance = 60;
+
+scene.add(new THREE.HemisphereLight(0xe4e6ff, 0x5a4fb0, 1.9));
+const key = new THREE.DirectionalLight(0xffffff, 2.2);
+key.position.set(-4, 11, 9); key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048);
+Object.assign(key.shadow.camera, { left: -7, right: 7, top: 9, bottom: -5, far: 40 });
+key.shadow.bias = -.001; key.shadow.normalBias = .03;
+scene.add(key);
+const backLight = new THREE.DirectionalLight(0xcfd4ff, 1.7);
+backLight.position.set(3, 6, -10); scene.add(backLight);
+
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), new THREE.ShadowMaterial({ opacity: .28, color: 0x0b2240 }));
+ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+const grid = new THREE.GridHelper(24, 48, 0x8fd8f5, 0x4d8fb5);
+grid.position.y = .002; scene.add(grid);
+
+/* ---------- surfaces ---------- */
+let seed = 11;
+const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+const TILE = 4;
+
+function canvasTexture(size, draw, repeat) {
+  const c = document.createElement('canvas'); c.width = c.height = size;
+  draw(c.getContext('2d'), size);
+  const t = new THREE.CanvasTexture(c);
+  if (repeat) t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
+  return t;
+}
+function blob(x, px, py, r, color, alpha) {
+  const g = x.createRadialGradient(px, py, 0, px, py, r);
+  const [a, b, c] = color;
+  g.addColorStop(0, `rgba(${a},${b},${c},${alpha})`);
+  g.addColorStop(1, `rgba(${a},${b},${c},0)`);
+  x.fillStyle = g; x.fillRect(px - r, py - r, r * 2, r * 2);
+}
+function stars(x, S, count, wrap) {
+  for (let i = 0; i < count; i++) {
+    const px = rnd() * S, py = rnd() * S, v = rnd();
+    x.fillStyle = v > .7 ? '#fff' : v > .35 ? '#c8d6ff' : '#b89aff';
+    const s = v > .94 ? 2.4 : v > .6 ? 1.6 : 1;
+    x.fillRect(px, py, s, s);
+  }
+  x.fillStyle = '#fff';
+  for (let i = 0; i < count / 22; i++) {
+    const px = rnd() * S, py = rnd() * S, r = 3 + rnd() * 5;
+    x.fillRect(px - r, py - .6, r * 2, 1.2); x.fillRect(px - .6, py - r, 1.2, r * 2);
+  }
+}
+const NEBULA = [[122, 53, 224], [52, 86, 255], [192, 80, 224]];
+const cosmicTex = canvasTexture(512, (x, S) => {
+  x.fillStyle = '#120c48'; x.fillRect(0, 0, S, S);
+  x.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < 34; i++) {
+    const px = rnd() * S, py = rnd() * S, r = 50 + rnd() * 90, col = NEBULA[rnd() * 3 | 0];
+    for (const dx of [-S, 0, S]) for (const dy of [-S, 0, S]) blob(x, px + dx, py + dy, r, col, .26);
+  }
+  x.globalCompositeOperation = 'source-over';
+}, true);
+// Wing image: u runs from the spine outward, v from the lowest spike to the top tip.
+const wingTex = canvasTexture(1024, (x, S) => {
+  x.fillStyle = '#17105a'; x.fillRect(0, 0, S, S);
+  x.globalCompositeOperation = 'lighter';
+  const spot = (wx, wy, r, col, a) => blob(x, (wx / 2.9) * S, (1 - (wy - 2.1) / 3.1) * S, r * S / 2.9, col, a);
+  spot(1.1, 4.15, .75, [52, 96, 255], .75);
+  spot(1.55, 3.45, .85, [150, 60, 240], .8);
+  spot(1.95, 3.1, .55, [226, 96, 230], .55);
+  spot(1.35, 3.85, .35, [150, 190, 255], .55);
+  for (let i = 0; i < 22; i++) spot(.7 + rnd() * 1.7, 2.7 + rnd() * 1.8, .1 + rnd() * .25, NEBULA[rnd() * 3 | 0], .3);
+  x.globalCompositeOperation = 'source-over';
+});
+
+const ramp = new THREE.DataTexture(new Uint8Array([120, 185, 255]), 3, 1, THREE.RedFormat);
+ramp.magFilter = ramp.minFilter = THREE.NearestFilter; ramp.needsUpdate = true;
+const toon = color => new THREE.MeshToonMaterial({ color, gradientMap: ramp });
+const flat = color => new THREE.MeshBasicMaterial({ color, toneMapped: false });
+const M = {
+  armor: toon(0x4f2db4), lite: toon(0x7450e4), deep: toon(0x35197f), suit: toon(0x211d6a), sole: toon(0x241254),
+  cosmic: new THREE.MeshBasicMaterial({ map: cosmicTex, toneMapped: false }),
+  wing: new THREE.MeshBasicMaterial({ map: wingTex, toneMapped: false }),
+  white: flat(0xffffff), ice: flat(0xc4ecff), line: flat(0xbfdcff), neon: flat(0x6f8dff),
+};
+
+/* Live stars: nebula images stay still while shader layers orbit and twinkle over them.
+   glTF cannot carry a shader, so the GLB uses a copy of each image with stars painted in. */
+const starTime = { value: 0 };
+const STAR_GLSL = `
+  uniform float uStarTime, uScale; uniform vec2 uCenter;
+  float starHash(vec2 p){ p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
+  vec3 starLayer(vec2 uv, float density, float speed, float radius, float prob, float glint){
+    float a = uStarTime * speed, c = cos(a), s = sin(a);
+    vec2 p = mat2(c, -s, s, c) * uv * density + prob * 37.;
+    vec2 id = floor(p), f = fract(p);
+    float h = starHash(id);
+    if (h > prob) return vec3(0.);
+    vec2 d = f - (.3 + .4 * vec2(fract(h * 91.7), fract(h * 47.3)));
+    float v = fract(h * 13.1);
+    float tw = .3 + .7 * pow(.5 + .5 * sin(uStarTime * (1.2 + v * 4.) + h * 80.), 2.);
+    float core = smoothstep(radius * (.6 + .8 * v), 0., length(d));
+    float arms = glint * (smoothstep(.3, 0., abs(d.x)) * smoothstep(.022, 0., abs(d.y)) + smoothstep(.3, 0., abs(d.y)) * smoothstep(.022, 0., abs(d.x)));
+    vec3 tint = v > .66 ? vec3(1.) : v > .33 ? vec3(.7, .8, 1.) : vec3(.78, .6, 1.);
+    return tint * (core + arms) * tw * 1.6;
+  }`;
+function liveStars(mat, scale, center, exportCount) {
+  const nebula = mat.map;
+  mat.userData.exportMap = canvasTexture(nebula.image.width, (x, S) => { x.drawImage(nebula.image, 0, 0); stars(x, S, exportCount); }, nebula.wrapS === THREE.RepeatWrapping);
+  mat.onBeforeCompile = shader => {
+    Object.assign(shader.uniforms, { uStarTime: starTime, uScale: { value: scale }, uCenter: { value: new THREE.Vector2(...center) } });
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', `#include <common>\n${STAR_GLSL}`)
+      .replace('#include <map_fragment>', `#include <map_fragment>
+        vec2 starUv = vMapUv * uScale - uCenter;
+        diffuseColor.rgb += starLayer(starUv, 9., .028, .1, .62, 0.) + starLayer(starUv, 5.5, .05, .12, .55, 0.) + starLayer(starUv, 3., .085, .11, .4, 1.);`);
+  };
+}
+liveStars(M.cosmic, TILE, [0, 0], 1400);
+liveStars(M.wing, 2.9, [1.5, 1.4], 2400); // the wing layers orbit the brightest part of the galaxy
+
+// hands get their own materials so they can light up without brightening the suit
+M.handSuit = toon(0x211d6a); M.handDeep = toon(0x35197f);
+for (const m of [M.handSuit, M.handDeep]) { m.emissive.setHex(0xb49cff); m.emissiveIntensity = 0; }
+
+const hull = (color, t) => new THREE.ShaderMaterial({
+  side: THREE.BackSide,
+  uniforms: { t: { value: t }, c: { value: new THREE.Color(color).convertLinearToSRGB() } },
+  vertexShader: `attribute vec3 smoothNormal; uniform float t;
+    void main(){ gl_Position = projectionMatrix * modelViewMatrix * vec4(position + smoothNormal * t, 1.); }`,
+  fragmentShader: `uniform vec3 c; void main(){ gl_FragColor = vec4(c, 1.); }`,
+});
+const outlineMat = hull(0x120a3a, .02), wingRim = hull(0x4a27b0, .05);
+
+function prepare(geo, smooth) {
+  let g = geo;
+  if (smooth) { g.computeVertexNormals(); g = g.toNonIndexed(); }
+  else { if (g.index) g = g.toNonIndexed(); g.computeVertexNormals(); }
+  const p = g.attributes.position, n = g.attributes.normal, count = p.count;
+  const uv = new Float32Array(count * 2), ou = rnd(), ov = rnd(), k = 1 / TILE;
+  for (let i = 0; i < count; i++) {
+    const ax = Math.abs(n.getX(i)), ay = Math.abs(n.getY(i)), az = Math.abs(n.getZ(i));
+    let u, v;
+    if (ax >= ay && ax >= az) { u = p.getZ(i); v = p.getY(i); }
+    else if (ay >= az) { u = p.getX(i); v = p.getZ(i); }
+    else { u = p.getX(i); v = p.getY(i); }
+    uv[i * 2] = u * k + ou; uv[i * 2 + 1] = v * k + ov;
+  }
+  g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  const sum = new Map(), keys = [];
+  for (let i = 0; i < count; i++) {
+    const key = `${Math.round(p.getX(i) * 1e3)},${Math.round(p.getY(i) * 1e3)},${Math.round(p.getZ(i) * 1e3)}`;
+    keys.push(key);
+    const v = sum.get(key) || new THREE.Vector3();
+    v.x += n.getX(i); v.y += n.getY(i); v.z += n.getZ(i); sum.set(key, v);
+  }
+  const out = new Float32Array(count * 3);
+  keys.forEach((key, i) => { const v = sum.get(key).clone().normalize(); out.set([v.x, v.y, v.z], i * 3); });
+  g.setAttribute('smoothNormal', new THREE.BufferAttribute(out, 3));
+  return g;
+}
+
+function add(parent, geo, mat, pos = [0, 0, 0], { rot = [0, 0, 0], outline = outlineMat, smooth = false } = {}) {
+  const g = prepare(geo, smooth);
+  const m = new THREE.Mesh(g, mat);
+  m.position.set(...pos); m.rotation.set(...rot);
+  m.castShadow = true; m.receiveShadow = !mat.isMeshBasicMaterial;
+  if (outline) { const h = new THREE.Mesh(g, outline); h.userData.helper = true; m.add(h); }
+  parent.add(m);
+  return m;
+}
+
+/* Lofted solid: rings are [height, halfWidth, halfDepth, depthOffset] */
+function loftGeo(rings, N = 14, p = .8) {
+  const pos = [], idx = [];
+  rings.forEach(([y, w, d, o = 0]) => {
+    for (let i = 0; i < N; i++) {
+      const a = i / N * Math.PI * 2, c = Math.cos(a), s = Math.sin(a);
+      pos.push(w * Math.sign(c) * Math.abs(c) ** p, y, d * Math.sign(s) * Math.abs(s) ** p + o);
+    }
+  });
+  const R = rings.length, bottom = pos.length / 3; pos.push(0, rings[0][0], rings[0][3] || 0);
+  const top = pos.length / 3; pos.push(0, rings[R - 1][0], rings[R - 1][3] || 0);
+  for (let j = 0; j < R - 1; j++) for (let i = 0; i < N; i++) {
+    const a = j * N + i, b = j * N + (i + 1) % N, c = a + N, d = b + N;
+    idx.push(a, c, d, a, d, b);
+  }
+  for (let i = 0; i < N; i++) {
+    idx.push(bottom, i, (i + 1) % N);
+    idx.push(top, (R - 1) * N + (i + 1) % N, (R - 1) * N + i);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setIndex(idx);
+  return g;
+}
+const loft = (parent, rings, mat, pos, p, N) => add(parent, loftGeo(rings, N, p), mat, pos, { smooth: true });
+const UP = new THREE.Vector3(0, 1, 0);
+
+/* Limb from a to b: rings are [fraction, halfWidth, halfDepth] */
+function limb(parent, a, b, rings, mat, p = 1, N = 12) {
+  const A = new THREE.Vector3(...a), d = new THREE.Vector3(...b).sub(A), len = d.length();
+  const m = loft(parent, rings.map(([t, w, h = w, o = 0]) => [t * len, w, h, o]), mat, a, p, N);
+  m.quaternion.setFromUnitVectors(UP, d.normalize());
+  return m;
+}
+function shapeGeo(points, depth, bevel = 0) {
+  const s = new THREE.Shape(points.map(q => new THREE.Vector2(...q)));
+  const g = new THREE.ExtrudeGeometry(s, { depth, bevelEnabled: bevel > 0, bevelSize: bevel, bevelThickness: bevel, bevelSegments: 1 });
+  g.translate(0, 0, -depth / 2);
+  return g;
+}
+const plate = (parent, pts, depth, mat, pos, opts) => add(parent, shapeGeo(pts, depth, opts?.bevel ?? 0), mat, pos, opts);
+const star4 = (r, w = r * .24, h = r) => [[r, 0], [w, w], [0, h], [-w, w], [-r, 0], [-w, -w], [0, -h], [w, -w]];
+function orient(obj, normal, up = [0, 1, 0]) {
+  const z = new THREE.Vector3(...normal).normalize();
+  const x = new THREE.Vector3(...up).cross(z).normalize(), y = z.clone().cross(x);
+  obj.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(x, y, z));
+}
+
+const glowTex = canvasTexture(128, (x, S) => {
+  const g = x.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
+  g.addColorStop(0, 'rgba(255,255,255,.85)'); g.addColorStop(.4, 'rgba(255,255,255,.25)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+  x.fillStyle = g; x.fillRect(0, 0, S, S);
+});
+const pulses = [];
+function glow(parent, pos, size, color, strength = 1) {
+  const mat = new THREE.MeshBasicMaterial({ map: glowTex, color, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(size, size), mat);
+  m.position.set(...pos); m.userData.base = strength; pulses.push(m);
+  parent.add(m); return m;
+}
+
+/* ---------- character ---------- */
+const root = new THREE.Group(); root.name = 'CosmicWarrior'; scene.add(root);
+const upper = new THREE.Group(); upper.name = 'UpperBody'; root.add(upper);
+
+/* helmet: a four-point star with a bulged mask and a rear spike */
+{
+  const C = [0, 4.72];
+  const rim = [[1.05, 4.76], [.3, 4.93], [0, 5.73], [-.3, 4.93], [-1.05, 4.76], [-.42, 4.42], [0, 3.97], [.42, 4.42]];
+  const ring = (f, z) => rim.map(([x, y]) => [C[0] + (x - C[0]) * f, C[1] + (y - C[1]) * f, z]);
+  const shell = (outer, inner, flip) => {
+    const v = [];
+    for (let i = 0; i < 8; i++) {
+      const j = (i + 1) % 8, a = outer[i], b = outer[j], c = inner[j], d = inner[i];
+      if (flip) v.push(...a, ...c, ...b, ...a, ...d, ...c);
+      else v.push(...a, ...b, ...c, ...a, ...c, ...d);
+    }
+    return v;
+  };
+  const geo = v => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(v, 3)); return g; };
+  const R = [ring(1, 0), ring(.87, .2), ring(.5, .52), ring(.001, .62)];
+  add(upper, geo(shell(R[0], R[1])), M.lite);
+  add(upper, geo([...shell(R[1], R[2]), ...shell(R[2], R[3])]), M.cosmic);
+  // the rear stays shallow before the spike, which gives the concave star profile from the side
+  const waist = ring(.38, -.2), apex = ring(.001, -.9);
+  add(upper, geo([...shell(R[0], waist, true), ...shell(waist, apex, true)]), M.armor);
+
+  for (const s of [-1, 1]) {
+    const eye = k => [[-.15 * k, -.075 * k], [.06 * k, -.075 * k], [.17 * k, .085 * k], [-.03 * k, .085 * k]].map(([o, y]) => [s * o, y]);
+    const g = new THREE.Group(); g.position.set(s * .24, 4.66, .61); g.rotation.y = s * .3; upper.add(g);
+    add(g, shapeGeo(eye(1), .02), M.white, [0, 0, 0], { outline: null });
+    glow(g, [0, 0, .02], .9, 0x5f8dff, .9);
+  }
+}
+
+/* neck, torso and hips */
+loft(upper, [[3.9, .3, .28], [4.25, .26, .26]], M.suit, [0, 0, 0]);
+loft(upper, [[3.92, .46, .38], [4.14, .34, .32]], M.deep, [0, 0, -.02]);
+loft(upper, [[2.5, .5, .34], [2.75, .46, .31], [3.25, .55, .38]], M.suit, [0, 0, 0], .75);
+loft(upper, [[3.1, .56, .38], [3.5, .66, .47], [3.82, .64, .46], [4.02, .38, .32]], M.armor, [0, 0, 0], .7);
+loft(upper, [[2.5, .55, .375], [2.64, .56, .385]], M.armor, [0, 0, 0], .7);
+loft(root, [[2.03, .22, .24], [2.3, .42, .32], [2.54, .5, .34]], M.suit, [0, 0, 0], .75);
+plate(root, [[-.2, 2.42], [.2, 2.42], [.09, 2.12], [0, 2.03], [-.09, 2.12]], .3, M.deep, [0, 0, .25], { bevel: .02 });
+for (const s of [-1, 1]) plate(root, [[s * .28, 2.52], [s * .56, 2.5], [s * .54, 2.2], [s * .36, 2.1]], .5, M.armor, [0, 0, 0], { bevel: .02 });
+
+// chest plate, star medallion and lower glowing panel
+plate(upper, [[-.62, 3.92], [-.66, 3.52], [-.36, 3.26], [0, 3.03], [.36, 3.26], [.66, 3.52], [.62, 3.92], [.26, 3.99], [0, 3.86], [-.26, 3.99]], .5, M.lite, [0, 0, .28], { bevel: .03 });
+plate(upper, [[-.52, 3.82], [-.56, 3.54], [-.3, 3.32], [0, 3.14], [.3, 3.32], [.56, 3.54], [.52, 3.82], [.25, 3.88], [0, 3.76], [-.25, 3.88]], .5, M.armor, [0, 0, .3], { outline: null });
+plate(upper, star4(.47, .17, .55), .08, M.lite, [0, 3.48, .57], { bevel: .015 });
+plate(upper, star4(.35, .09, .42), .02, M.white, [0, 3.48, .625], { outline: null });
+glow(upper, [0, 3.48, .645], 1.5, 0x8fb8ff, 1);
+
+plate(upper, [[-.48, 3.22], [.48, 3.22], [.46, 2.76], [0, 2.38], [-.46, 2.76]], .55, M.suit, [0, 0, .12]);
+function neonPath(parent, pts, z, width, mat) {
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [ax, ay] = pts[i], [bx, by] = pts[i + 1], len = Math.hypot(bx - ax, by - ay);
+    const m = add(parent, new THREE.BoxGeometry(len + width, width, .012), mat, [(ax + bx) / 2, (ay + by) / 2, z], { outline: null });
+    m.rotation.z = Math.atan2(by - ay, bx - ax);
+  }
+}
+for (const s of [-1, 1]) neonPath(upper, [[s * .13, 3.74], [s * .3, 3.74], [s * .46, 3.62]], .535, .018, M.neon);
+neonPath(upper, [[-.4, 3], [-.37, 2.8], [0, 2.47], [.37, 2.8], [.4, 3]], .402, .035, M.line);
+neonPath(upper, [[-.25, 3.02], [-.22, 2.88], [0, 2.66], [.22, 2.88], [.25, 3.02]], .402, .035, M.line);
+glow(upper, [0, 2.76, .415], 1.5, 0x4d6cff, .9);
+
+// back shield, thruster rings and spine lights
+plate(upper, [[-.55, 4.0], [.55, 4.0], [.6, 3.45], [.36, 3.12], [0, 2.86], [-.36, 3.12], [-.6, 3.45]], .12, M.armor, [0, 0, -.47], { bevel: .03 });
+plate(upper, [[-.3, 3.9], [.3, 3.9], [.3, 3.32], [0, 3.05], [-.3, 3.32]], .08, M.lite, [0, 0, -.55], { bevel: .02 });
+for (const s of [-1, 1]) {
+  neonPath(upper, [[s * .34, 3.0], [s * .28, 2.8]], -.37, .03, M.neon);
+  limb(upper, [s * .55, 3.73, -.3], [s * .73, 3.73, -.78], [[0, .17], [1, .2]], M.deep);
+  const t = add(upper, new THREE.TorusGeometry(.2, .07, 8, 18), M.armor, [s * .73, 3.73, -.8], { smooth: true });
+  add(upper, new THREE.CylinderGeometry(.13, .13, .05, 16), M.deep, [s * .73, 3.73, -.8], { rot: [Math.PI / 2, 0, 0] });
+  add(upper, new THREE.TorusGeometry(.07, .025, 6, 14), M.lite, [s * .73, 3.73, -.83], { smooth: true });
+}
+
+/* wings: flat star plates swept backward, with mirrored galaxy images */
+const WINGS = {};
+for (const s of [-1, 1]) {
+  const anchor = [s * .6, 3.6, -.72];
+  const g = new THREE.Group(); g.name = s < 0 ? 'WingR' : 'WingL'; g.position.set(...anchor); upper.add(g); WINGS[s] = g;
+  const sweep = geo => {
+    const p = geo.attributes.position;
+    for (let i = 0; i < p.count; i++) p.setZ(i, p.getZ(i) - .72 - Math.max(0, Math.abs(p.getX(i)) - .5) * .55);
+    return geo;
+  };
+  const mapUV = m => { // the image is keyed to sheet coordinates, so each wing shows the same galaxy
+    const q = m.geometry.attributes.position, uv = m.geometry.attributes.uv;
+    for (let i = 0; i < q.count; i++) uv.setXY(i, Math.abs(q.getX(i) + anchor[0]) / 2.9, (q.getY(i) + anchor[1] - 2.1) / 3.1);
+  };
+  const toLocal = geo => { geo.translate(-anchor[0], -anchor[1], -anchor[2]); return geo; };
+  const flip = pts => pts.map(([x, y]) => [s * x, y]);
+  mapUV(add(g, toLocal(sweep(shapeGeo(flip([[.55, 4.12], [2.55, 5.1], [2.02, 4.08], [2.73, 3.51], [1.72, 3.1], [2.0, 2.28], [1.08, 2.85], [.55, 3.0]]), .05))), M.wing, [0, 0, 0], { outline: wingRim }));
+  const blade = add(g, toLocal(sweep(shapeGeo(flip([[.62, 3.42], [1.16, 3.3], [1.13, 2.18], [.74, 2.72]]), .05).translate(0, 0, .12))), M.wing, [0, 0, 0], { outline: wingRim });
+  mapUV(blade);
+}
+
+/* arms */
+const ARMS = {};
+for (const s of [-1, 1]) {
+  const S = [s * .88, 3.72, 0], E = [s * 1.42, 2.95, .02], W = [s * 1.88, 2.32, .1];
+  const arm = new THREE.Group(); arm.name = s < 0 ? 'ArmR' : 'ArmL'; arm.position.set(...S); upper.add(arm);
+  const toE = E.map((v, i) => v - S[i]), toW = W.map((v, i) => v - E[i]);
+  add(arm, new THREE.SphereGeometry(.27, 12, 10), M.suit, [0, 0, 0], { smooth: true });
+  limb(arm, [0, 0, 0], toE, [[0, .24], [.5, .25], [1, .2]], M.suit);
+
+  // shoulder shield with a galaxy inset and a star
+  const pad = new THREE.Group(); pad.position.set(s * .25, .1, .06); orient(pad, [s * .86, .22, .46]); arm.add(pad);
+  const hex = k => [[0, .45 * k], [.35 * k, .27 * k], [.38 * k, -.16 * k], [.11 * k, -.46 * k], [-.16 * k, -.46 * k], [-.4 * k, -.16 * k], [-.35 * k, .27 * k]];
+  plate(pad, hex(1), .14, M.lite, [0, 0, 0], { bevel: .03 });
+  plate(pad, hex(.76), .02, M.cosmic, [0, 0, .09], { outline: outlineMat });
+  plate(pad, star4(.26, .055, .29), .02, M.ice, [0, 0, .115], { outline: null });
+  glow(pad, [0, 0, .135], .8, 0x7fc8ff, .9);
+
+  const fore = new THREE.Group(); fore.position.set(...toE); arm.add(fore); ARMS[s] = { arm, fore };
+  limb(fore, [0, 0, 0], toW, [[0, .2], [.18, .3], [.72, .28], [1, .19]], M.cosmic, .85);
+  limb(fore, [0, 0, 0], toW, [[.0, .23], [.15, .32], [.2, .31], [.2, .2]], M.lite, .85);
+  limb(fore, [0, 0, 0], toW, [[.8, .2], [.84, .28], [.98, .23], [.98, .15]], M.lite, .85);
+
+  // outer forearm kite with a small lens
+  const d = new THREE.Vector3(...toW).normalize();
+  const n = new THREE.Vector3(s, .1, -.05); n.addScaledVector(d, -n.dot(d)).normalize();
+  const kitePos = new THREE.Vector3(...toW).multiplyScalar(.5).addScaledVector(n, .29);
+  const kite = new THREE.Group(); kite.position.copy(kitePos); kite.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(d.clone().cross(n).normalize(), d, n)); fore.add(kite);
+  const kp = k => [[0, .62 * k], [.24 * k, .28 * k], [.25 * k, -.3 * k], [0, -.68 * k], [-.25 * k, -.3 * k], [-.24 * k, .28 * k]];
+  plate(kite, kp(1), .1, M.lite, [0, 0, 0], { bevel: .02 });
+  plate(kite, kp(.72), .02, M.cosmic, [0, 0, .065], { outline: outlineMat });
+  add(kite, new THREE.TorusGeometry(.08, .022, 6, 16), M.ice, [0, .24, .09], { outline: null, smooth: true });
+  neonPath(kite, [[0, .1], [0, -.4]], .085, .022, M.ice);
+  glow(kite, [0, .24, .105], .42, 0x7fc8ff, .8);
+
+  // hand
+  const hand = new THREE.Group(); hand.position.set(...toW); fore.add(hand); ARMS[s].hand = hand;
+  // Built palm-forward with the thumb on the outside, the anatomical reference pose; pose() then twists it about the wrist.
+  const palm = new THREE.Group(); palm.name = s < 0 ? 'HandR' : 'HandL'; hand.add(palm); ARMS[s].palm = palm;
+  limb(palm, [0, .04, 0], [0, -.3, .03], [[0, .15, .11], [.5, .2, .1], [1, .2, .09]], M.handSuit, .75);
+  [-.135, -.045, .045, .135].forEach((o, i) => {
+    const b = [s * o, -.28, .04], m = [b[0] + s * o * .25, -.48 - (i === 1 || i === 2 ? .04 : 0), .09], e = [m[0] + s * o * .05, -.66 - (i === 1 || i === 2 ? .05 : 0), .19];
+    limb(palm, b, m, [[0, .05], [1, .046]], M.handSuit, 1, 8);
+    limb(palm, m, e, [[0, .046], [.7, .04], [1, .012]], M.handDeep, 1, 8);
+  });
+  const th = [s * .18, -.1, .08], tm = [s * .36, -.28, .15];
+  limb(palm, th, tm, [[0, .065], [1, .05]], M.handSuit, 1, 8);
+  limb(palm, tm, [s * .39, -.46, .2], [[0, .05], [1, .014]], M.handDeep, 1, 8);
+}
+
+/* legs */
+const LEGS = {};
+for (const s of [-1, 1]) {
+  const H = [s * .33, 2.4, 0], K = [s * .57, 1.42, .03], A = [s * .71, .34, .02];
+  const leg = new THREE.Group(); leg.name = s < 0 ? 'LegR' : 'LegL'; leg.position.set(...H); root.add(leg);
+  const toK = K.map((v, i) => v - H[i]), toA = A.map((v, i) => v - K[i]);
+  limb(leg, [0, 0, 0], toK, [[0, .32, .33], [.5, .33, .34], [1, .24, .26]], M.suit);
+  limb(leg, [s * .13, -.06, .03], [toK[0] + s * .11, toK[1] + .2, toK[2] + .02], [[0, .17, .28], [.5, .22, .3], [1, .13, .22]], M.armor, .8);
+
+  const shin = new THREE.Group(); shin.position.set(...toK); leg.add(shin);
+  add(shin, new THREE.SphereGeometry(.26, 12, 10), M.suit, [0, 0, 0], { smooth: true });
+  limb(shin, [0, -.12, -.01], toA, [[0, .33, .34], [.2, .34, .37], [.65, .26, .31], [1, .24, .28]], M.armor, .8);
+  limb(shin, [0, -.12, -.01], toA, [[0, .24, .25], [.0, .36, .36], [.09, .37, .4], [.09, .25, .26]], M.lite, .8);
+
+  const neonX = toA[0] * .5;
+  for (const o of [-1, 1]) {
+    const g = add(shin, new THREE.BoxGeometry(.014, .52, .012), M.neon, [neonX + o * .13, toA[1] * .5 - .05, .33], { outline: null });
+    g.rotation.x = -.1; g.rotation.z = s * .1;
+  }
+
+  // knee guard
+  const guard = new THREE.Group(); guard.position.set(0, .05, .3); orient(guard, [s * .14, .12, 1]); shin.add(guard);
+  const kk = k => [[0, .46 * k], [.2 * k, .12 * k], [.17 * k, -.3 * k], [0, -.56 * k], [-.17 * k, -.3 * k], [-.2 * k, .12 * k]];
+  plate(guard, kk(1), .12, M.lite, [0, 0, 0], { bevel: .02 });
+  plate(guard, kk(.7), .02, M.cosmic, [0, 0, .075], { outline: outlineMat });
+
+  const foot = new THREE.Group(); foot.position.set(...toA); shin.add(foot); LEGS[s] = { leg, shin, foot };
+  const f = limb(foot, [0, -.14, -.42], [0, -.14, .7], [[0, .22, .16], [.3, .3, .2, .01], [.7, .28, .15, .05], [1, .15, .09, .1]], M.armor, .75);
+  add(foot, new THREE.BoxGeometry(.54, .07, 1.0), M.sole, [0, -.3, .1]);
+  loft(foot, [[-.17, .27, .3, .12], [-.08, .27, .3, .12]], M.lite, [0, 0, 0], .75);
+}
+
+/* energy flames on the hands */
+const FLAMES = [], HAND_LIGHTS = [];
+function addFlames(hand, s) {
+  const mat = new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+    uniforms: { t: { value: 0 }, p: { value: 0 }, seed: { value: s > 0 ? 3.7 : 11.3 }, size: { value: 1.15 } },
+    // a camera-facing quad, so the fire always rises up the screen whatever the arm is doing
+    vertexShader: `uniform float size; varying vec2 vP;
+      void main(){
+        vP = position.xy;
+        vec4 mv = modelViewMatrix * vec4(0., 0., 0., 1.);
+        mv.z += .5;
+        mv.xy += position.xy * size;
+        gl_Position = projectionMatrix * mv;
+      }`,
+    fragmentShader: `uniform float t, p, seed; varying vec2 vP;
+      float h(vec2 v){ return fract(sin(dot(v, vec2(127.1, 311.7))) * 43758.5453); }
+      float vn(vec2 v){
+        vec2 i = floor(v), f = fract(v); f = f * f * (3. - 2. * f);
+        return mix(mix(h(i), h(i + vec2(1., 0.)), f.x), mix(h(i + vec2(0., 1.)), h(i + vec2(1., 1.)), f.x), f.y);
+      }
+      float fbm(vec2 v){ float a = .5, s = 0.; for (int i = 0; i < 4; i++) { s += a * vn(v); v = v * 2.03 + 17.; a *= .5; } return s; }
+      void main(){
+        float T = t + seed;
+        vec2 q = vP + vec2(0., .28);
+        float up = clamp(q.y + .55, 0., 1.6);
+        q.x += (fbm(vec2(q.x * 1.6 + seed, q.y * 1.4 - T * 1.3)) - .5) * (.25 + .7 * up);   // sway grows with height
+        float n = fbm(vec2(q.x * 3.4, q.y * 2.1 - T * 2.6));
+        float r = length(q * vec2(1.25, q.y > 0. ? .62 : 1.25));                              // teardrop
+        float body = smoothstep(.72, .08, r + (n - .5) * .85);
+        float core = smoothstep(.34, .02, r + (n - .5) * .3);
+        float ridge = 1. - abs(fbm(vec2(q.x * 4.5 + 3., q.y * 3. - T * 3.2)) * 2. - 1.);
+        float wisp = pow(ridge, 10.) * smoothstep(.95, .25, r);
+        vec2 c = vP + vec2(0., .2);
+        float halo = exp(-dot(c, c) * 3.2) * .38;
+        float spark = 0.;
+        for (int i = 0; i < 12; i++) {
+          float s = float(i) * 1.37 + seed;
+          float k = fract(T * (.3 + .25 * fract(s * .7)) + fract(s * 3.1));
+          vec2 pos = vec2(sin(s * 5.) * (.2 + .55 * k) + sin(T * 2. + s) * .07, -.45 + k * 1.35);
+          float d = length(vP - pos);
+          spark += smoothstep(.04, 0., d) * (1. - k);
+        }
+        float flicker = .93 + .07 * sin(T * 13.);
+        vec3 col = vec3(.36, .22, 1.) * halo + vec3(.34, .26, .8) * body * flicker
+                 + vec3(.85, .9, 1.) * wisp * 1.1 + vec3(.8, .75, 1.) * core * .3 + vec3(.9, .88, 1.) * spark;
+        gl_FragColor = vec4(col * smoothstep(1., .72, length(vP)) * p, 1.);
+      }`,
+  });
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), mat);
+  m.position.set(0, -.36, 0); m.frustumCulled = false; m.renderOrder = 5; m.userData.helper = true;
+  hand.add(m); FLAMES.push(m);
+  const light = new THREE.PointLight(0xb49cff, 0, 3.2, 1.6);
+  light.position.copy(m.position); hand.add(light); HAND_LIGHTS.push(light);
+}
+addFlames(ARMS[-1].hand, -1); addFlames(ARMS[1].hand, 1);
+function updateEnergy(time, p) {
+  for (const f of FLAMES) {
+    f.visible = p > .01;
+    f.material.uniforms.t.value = time;
+    f.material.uniforms.p.value = p;
+    f.material.uniforms.size.value = 1.15 * (.55 + .45 * p);
+  }
+  HAND_LIGHTS.forEach((l, i) => { l.intensity = p * (9 + Math.sin(time * 11 + i) * 1.5); });
+  M.handSuit.emissiveIntensity = M.handDeep.emissiveIntensity = p * .85;
+}
+
+/* ---------- poses ---------- */
+function pose(time, power) {
+  const p = power, lift = Math.sin(time * 1.4) * .04 * p;
+  root.position.y = p * .62 + lift;
+  root.rotation.set(p * .05, p * .12, p * .08);
+  upper.position.y = Math.sin(time * 1.8) * .012 * (1 - p);
+  const sway = Math.sin(time * 1.5) * .02;
+  ARMS[-1].arm.rotation.set(p * -.45, p * .1, p * -.82 + sway);
+  ARMS[-1].fore.rotation.set(p * -.15, 0, p * -.18);
+  ARMS[1].arm.rotation.set(p * -.32, 0, p * .2 - sway);
+  ARMS[1].fore.rotation.set(p * -.72, 0, p * -.22);
+  // relaxed: palm toward the body with the thumb forward; energy: open palm facing out
+  for (const s of [-1, 1]) ARMS[s].palm.rotation.y = -s * (2.18 * (1 - p) + .3 * p);
+  LEGS[-1].leg.rotation.set(p * -.85, 0, p * -.12);
+  LEGS[-1].shin.rotation.set(p * 1.75, 0, 0);
+  LEGS[-1].foot.rotation.set(p * -.3, 0, 0);
+  LEGS[1].leg.rotation.set(p * .22, 0, p * .05);
+  LEGS[1].shin.rotation.set(p * .3, 0, 0);
+  LEGS[1].foot.rotation.set(p * .45, 0, 0);
+  const flap = Math.sin(time * 1.2) * .035;
+  WINGS[-1].rotation.y = flap; WINGS[1].rotation.y = -flap;
+  const pulse = .84 + Math.sin(time * 2.4) * .16;
+  pulses.forEach(m => { m.material.opacity = m.userData.base * pulse; });
+}
+
+/* ---------- GLB export ---------- */
+const exportMats = new Map();
+function exportMaterial(mat) {
+  if (!exportMats.has(mat)) {
+    exportMats.set(mat, mat.isMeshToonMaterial
+      ? new THREE.MeshStandardMaterial({ color: mat.color, roughness: .55, metalness: .1 })
+      : mat.userData.exportMap
+        ? new THREE.MeshBasicMaterial({ map: mat.userData.exportMap, toneMapped: false })
+        : mat);
+  }
+  return exportMats.get(mat);
+}
+function exportGeometry(src) {
+  const g = new THREE.BufferGeometry();
+  for (const name of ['position', 'normal', 'uv']) g.setAttribute(name, src.attributes[name].clone());
+  return g;
+}
+function exportTree(src) {
+  const out = src.isMesh ? new THREE.Mesh(exportGeometry(src.geometry), exportMaterial(src.material)) : new THREE.Group();
+  out.name = src.name;
+  out.position.copy(src.position); out.quaternion.copy(src.quaternion); out.scale.copy(src.scale);
+  for (const child of src.children) {
+    // outlines, flames and additive glows are viewer effects glTF cannot carry
+    if (child.userData.helper || child.isLight || child.material?.blending === THREE.AdditiveBlending) continue;
+    out.add(exportTree(child));
+  }
+  return out;
+}
+document.getElementById('download').onclick = async e => {
+  const button = e.target, label = 'DOWNLOAD GLB';
+  button.disabled = true; button.textContent = 'EXPORTING…';
+  try {
+    pose(0, 0); // always export the neutral stance, which is the one to rig from
+    const glb = await new GLTFExporter().parseAsync(exportTree(root), { binary: true });
+    const url = URL.createObjectURL(new Blob([glb], { type: 'model/gltf-binary' }));
+    const a = document.createElement('a'); a.href = url; a.download = 'cosmic_warrior.glb'; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    button.textContent = label;
+  } catch (err) {
+    console.error(err);
+    button.textContent = 'EXPORT FAILED';
+  }
+  button.disabled = false;
+};
+
+/* ---------- ui ---------- */
+const VIEWS = { front: [0, 2.95, 23], side: [23, 2.95, 0], back: [0, 2.95, -23], iso: [13, 10.2, 20] };
+let goal = null;
+camera.position.set(...VIEWS.iso);
+document.querySelectorAll('[data-view]').forEach(b => b.onclick = () => { goal = new THREE.Vector3(...VIEWS[b.dataset.view]); });
+controls.addEventListener('start', () => { goal = null; });
+
+let idle = true, energy = false, power = 0;
+document.getElementById('idle').onclick = e => { idle = !idle; e.target.classList.toggle('on', idle); };
+document.getElementById('energy').onclick = e => { energy = !energy; e.target.classList.toggle('on', energy); };
+
+function applySize() {
+  camera.aspect = innerWidth / innerHeight;
+  camera.fov = camera.aspect < 1 ? Math.min(50, 20 / camera.aspect) : 20; // long lens keeps front and back wing spans alike
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+}
+applySize();
+addEventListener('resize', applySize);
+
+const clock = new THREE.Clock();
+let t = 0, flameTime = 0;
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), .1);
+  if (idle) t += dt;
+  power += ((energy ? 1 : 0) - power) * (1 - Math.exp(-dt * 6));
+  pose(t, power);
+  flameTime += dt; // flames and stars keep going even when IDLE is off
+  updateEnergy(flameTime, power);
+  starTime.value = flameTime;
+  if (goal) {
+    camera.position.lerp(goal, 1 - Math.exp(-dt * 7));
+    if (camera.position.distanceTo(goal) < .02) goal = null;
+  }
+  controls.update();
+  renderer.render(scene, camera);
+}
+animate();
+</script>
+</body>
+</html>
