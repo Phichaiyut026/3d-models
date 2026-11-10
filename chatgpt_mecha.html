@@ -21,7 +21,7 @@
 </script>
 </head>
 <body>
-<div id="title">CHATGPT MECHA-FIGHTER<small>ลากเพื่อหมุน · เลื่อนเพื่อซูม · คลิกขวาลากเพื่อเลื่อน</small></div>
+<div id="title">CHATGPT · GOD OF TECHNOLOGY<small>ลากเพื่อหมุน · เลื่อนเพื่อซูม · คลิกขวาลากเพื่อเลื่อน</small></div>
 <div id="bar">
   <button data-view="front">FRONT</button>
   <button data-view="side">SIDE</button>
@@ -50,6 +50,12 @@
   <button data-act="whirl">WHIRL</button>
   <button data-act="skycut">SKYCUT</button>
   <span class="gap"></span>
+  <button data-act="tSingularity">SINGULARITY</button>
+  <button data-act="tLance">ORBITAL LANCE</button>
+  <button data-act="tStorm">FIN STORM</button>
+  <button data-act="tMega">MEGA CANNON</button>
+  <button data-act="tRewrite">REWRITE</button>
+  <span class="gap"></span>
   <button id="download">DOWNLOAD GLB</button>
 </div>
 <script type="module">
@@ -59,30 +65,45 @@ import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 
 /* ---------- scene ---------- */
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x1657b5);
-const camera = new THREE.PerspectiveCamera(26, innerWidth / innerHeight, .1, 200);
+scene.background = canvasTexture((x, w, h) => { // deep space behind the viewer's page
+  const g = x.createLinearGradient(0, 0, 0, h);
+  g.addColorStop(0, '#040716'); g.addColorStop(.6, '#0b1538'); g.addColorStop(1, '#101a44');
+  x.fillStyle = g; x.fillRect(0, 0, w, h);
+  x.globalCompositeOperation = 'lighter';
+  for (const [cx, cy, r, c] of [[.25, .3, .42, '46,90,190'], [.72, .22, .36, '110,50,170'], [.6, .62, .4, '20,130,130']]) {
+    const n = x.createRadialGradient(cx * w, cy * h, 0, cx * w, cy * h, r * w);
+    n.addColorStop(0, `rgba(${c},.42)`); n.addColorStop(1, `rgba(${c},0)`);
+    x.fillStyle = n; x.fillRect(0, 0, w, h);
+  }
+  for (let i = 0; i < 620; i++) {
+    x.fillStyle = `rgba(255,255,255,${.25 + Math.random() * .75})`;
+    const s = Math.random() < .08 ? 2.2 : 1.1;
+    x.fillRect(Math.random() * w, Math.random() * h * .82, s, s);
+  }
+}, 1600, 900);
+const camera = new THREE.PerspectiveCamera(26, innerWidth / innerHeight, .1, 900);
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
-controls.target.set(0, 4, 0);
-controls.minDistance = 8; controls.maxDistance = 70;
+controls.target.set(0, 8.8, 0);
+controls.minDistance = 10; controls.maxDistance = 240;
 
-scene.add(new THREE.HemisphereLight(0xffffff, 0x5f7ea8, 2.1));
+scene.add(new THREE.HemisphereLight(0xe2ecff, 0x3a4a90, 1.9));
 const key = new THREE.DirectionalLight(0xfffaf0, 2.5);
-key.position.set(-6, 14, 12); key.castShadow = true;
+key.position.set(-12, 30, 24); key.castShadow = true;
 key.shadow.mapSize.set(2048, 2048);
-Object.assign(key.shadow.camera, { left: -9, right: 9, top: 11, bottom: -4, far: 50 });
-key.shadow.bias = -.004; key.shadow.normalBias = .09; // the dome and pauldrons speckle with less
+Object.assign(key.shadow.camera, { left: -22, right: 22, top: 24, bottom: -10, far: 90 });
+key.shadow.bias = -.004; key.shadow.normalBias = .16; // the dome and pauldrons speckle with less
 scene.add(key);
-const fill = new THREE.DirectionalLight(0xbfdcff, 1.5);
+const fill = new THREE.DirectionalLight(0x7ad7ff, 2.2);
 fill.position.set(7, 7, -11); scene.add(fill);
 
 const ground = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), new THREE.ShadowMaterial({ opacity: .35 }));
 ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
-const grid = new THREE.GridHelper(36, 36, 0x7fb2ee, 0x3f7dd0);
+const grid = new THREE.GridHelper(90, 60, 0x4f7fe0, 0x20357a);
 grid.position.y = .002; scene.add(grid);
 
 /* ---------- materials ---------- */
@@ -90,15 +111,17 @@ const ramp = new THREE.DataTexture(new Uint8Array([95, 160, 225, 255]), 4, 1, TH
 ramp.magFilter = ramp.minFilter = THREE.NearestFilter; ramp.needsUpdate = true;
 const toon = color => new THREE.MeshToonMaterial({ color, gradientMap: ramp });
 const flat = color => new THREE.MeshBasicMaterial({ color, toneMapped: false });
+const BODY = 1.8; // overall scale of the figure
 const fxTime = { value: 0 };
 const M = {
-  green: toon(0x2f7048), greenDark: toon(0x1f4f35), greenMid: toon(0x4a8a5f), sage: toon(0x8fae8e), sageDark: toon(0x6c8b6e),
-  cream: toon(0xd8dccf), gray: toon(0x9aa097), finger: toon(0x565c58), joint: toon(0x2c3130), black: toon(0x121816),
-  glow: flat(0x57ff74), visor: toon(0x0e1513),
+  green: toon(0x0f7f6c), greenDark: toon(0x0a3a44), greenMid: toon(0x19a98c), sage: toon(0x9fd8cf), sageDark: toon(0x5f9ea6),
+  cream: toon(0xeef4f2), gray: toon(0xb4c6d6), finger: toon(0x3a4570), joint: toon(0x161d3f), black: toon(0x0b0f22),
+  gold: toon(0xf2c65a), glow: flat(0x3dffc8), visor: toon(0x060a1c),
 };
 
 /* a soft flame: distance to a tapering capsule, on a quad that turns about its axis to face the camera */
 function softFlame(parent, pos, dir, { len, rad, color, power }) {
+  len *= BODY; rad *= BODY;
   const mesh = new THREE.Mesh(new THREE.PlaneGeometry(rad * 3.4, len + rad * 3.4).translate(0, len / 2, 0), new THREE.ShaderMaterial({
     side: THREE.DoubleSide, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
     uniforms: { time: fxTime, power, len: { value: len }, rad: { value: rad }, color: { value: new THREE.Color(color) } },
@@ -319,9 +342,9 @@ function drawKnot(x, cx, cy, r, line, color) { // six interlocking hooks
   x.restore();
 }
 const chestEmblem = canvasTexture((x, w, h) => {
-  x.fillStyle = '#0d2b1c'; x.beginPath(); x.arc(w / 2, h / 2, h * .49, 0, Math.PI * 2); x.fill();
-  x.shadowColor = '#57ff74'; x.shadowBlur = 16;
-  drawKnot(x, w / 2, h / 2, h * .44, 9, '#c8ffd3');
+  x.fillStyle = '#06142e'; x.beginPath(); x.arc(w / 2, h / 2, h * .49, 0, Math.PI * 2); x.fill();
+  x.shadowColor = '#3dffc8'; x.shadowBlur = 16;
+  drawKnot(x, w / 2, h / 2, h * .44, 9, '#c8fff0');
 }, 256, 256);
 const shoulderEmblem = canvasTexture((x, w, h) => {
   drawKnot(x, w / 2, h * .36, h * .3, 7, '#dfeadf');
@@ -329,7 +352,7 @@ const shoulderEmblem = canvasTexture((x, w, h) => {
   x.fillText('ChatGPT', w / 2, h * .85);
 }, 400, 320);
 const eyeArt = canvasTexture((x, w, h) => {
-  x.fillStyle = '#9dffae';
+  x.fillStyle = '#9dffe6';
   for (const s of [-1, 1]) {
     const px = v => w / 2 + s * v;
     x.beginPath(); x.moveTo(px(38), h * .66); x.lineTo(px(172), h * .3); x.quadraticCurveTo(px(200), h * .36, px(190), h * .52); x.quadraticCurveTo(px(110), h * .86, px(52), h * .8); x.closePath(); x.fill();
@@ -338,7 +361,29 @@ const eyeArt = canvasTexture((x, w, h) => {
 
 /* ---------- armour detailing: thin patches laid on a plate's own surface ---------- */
 const skin = color => new THREE.MeshToonMaterial({ color, gradientMap: ramp, side: THREE.DoubleSide });
-const D = { lite: skin(0x6fae82), dark: skin(0x173d29), sage: skin(0x9dbb9b), sageDark: skin(0x6c8b6e), cream: skin(0xa9aea0), seam: skin(0x10231a), creamDark: skin(0x70756c) };
+const D = { lite: skin(0x3fd0b0), dark: skin(0x08202e), sage: skin(0xb0e3da), sageDark: skin(0x5f9ea6), cream: skin(0xb5c3c8), creamDark: skin(0x6e8390),
+  seam: new THREE.MeshBasicMaterial({ color: 0x3dffc8, toneMapped: false, side: THREE.DoubleSide }) }; // panel lines carry light
+
+/* a living star chart: slow nebula and twinkling stars, keyed to the armour's own position so it needs no UVs */
+const starMat = new THREE.ShaderMaterial({
+  side: THREE.DoubleSide, uniforms: { time: fxTime },
+  vertexShader: `varying vec3 vP; void main(){ vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }`,
+  fragmentShader: `uniform float time; varying vec3 vP;
+    float h(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+    void main(){
+      vec2 p = vP.xy * 7. + vP.z * 3.1;
+      vec2 a = vec2(1., 1.732), half_ = a * .5, u = mod(p, a) - half_, v = mod(p - half_, a) - half_;
+      vec2 hx = dot(u, u) < dot(v, v) ? u : v, id = p - hx;
+      float edge = max(abs(hx.x) * .866 + abs(hx.y) * .5, abs(hx.y));
+      float line = smoothstep(.46, .5, edge);
+      float pulse = fract(h(id) + time * (.15 + h(id + 3.) * .4));
+      float lit = smoothstep(.9, 1., pulse) + step(.8, h(id)) * (.25 + .25 * sin(time * 4. + h(id) * 30.));
+      float sweep = pow(.5 + .5 * sin(vP.y * 2.6 - time * 2.4), 12.);
+      vec3 col = vec3(.015, .05, .11) + vec3(.1, 1., .78) * (line * .62 + lit * .55 + sweep * .55);
+      gl_FragColor = vec4(col, 1.);
+    }`,
+});
+const star4 = (r, w = r * .22, h = r) => [[r, 0], [w, w], [0, h], [-w, w], [-r, 0], [-w, -w], [0, -h], [w, -w]];
 function patch(parent, secs, y0, y1, a, b, mat, { th0 = 0, lift = .014, cols = 12, rows = 8 } = {}) {
   const fine = refine(secs), pos = [], idx = [], f = (v, s) => (typeof v === 'function' ? v(s) : v);
   for (let i = 0; i <= rows; i++) {
@@ -364,7 +409,7 @@ const lineH = (parent, secs, y, a, b, opts, mat = D.seam, t = .02) => patch(pare
 const lineV = (parent, secs, th, y0, y1, opts, mat = D.seam, w = .014) => patch(parent, secs, y0, y1, th - w, th + w, mat, { cols: 1, ...opts });
 function bolt(parent, secs, y, th, { th0 = 0, r = .06, lift = .012 } = {}) {
   const g = new THREE.SphereGeometry(r, 10, 8).scale(1, 1, 1);
-  const m = add(parent, g, M.gray, onSurface(section(refine(secs), y), y, th0 + th, lift), [0, 0, 0], false);
+  const m = add(parent, g, M.gold, onSurface(section(refine(secs), y), y, th0 + th, lift), [0, 0, 0], false);
   m.castShadow = false;
 }
 /* a plate with its border, in one call */
@@ -387,7 +432,7 @@ const glowPower = { value: 1 }, chestGlow = { value: .3 }, wristPower = { value:
 solid(pelvis, [{ y: 1.78, rx: .65, rz: .52 }, { y: 2.15, rx: 1.15, rz: .82 }, { y: 2.6, rx: 1.22, rz: .88 }, { y: 3.1, rx: 1.05, rz: .78 }], M.joint);
 const COD = [{ y: 1.8, rx: .84, rz: .78, half: .24 }, { y: 2.16, rx: 1.22, rz: 1, half: .56 }, { y: 2.62, rx: 1.34, rz: 1.06, half: .7 }];
 armour(pelvis, COD, M.green, D.lite);
-patch(pelvis, COD, 1.92, 2.5, s => -s.half * .36, s => s.half * .36, D.sage);
+patch(pelvis, COD, 1.92, 2.5, s => -s.half * .36, s => s.half * .36, starMat);
 lineV(pelvis, COD, 0, 1.92, 2.5);
 for (const s of [-1, 1]) {
   const HIP = [{ y: 2, rx: 1.16, rz: .92, half: .5 }, { y: 2.38, rx: 1.3, rz: .98, half: .6 }, { y: 2.68, rx: 1.34, rz: 1, half: .62 }];
@@ -422,8 +467,9 @@ const CHEST = [{ y: 3.5, rx: 1.66, rz: 1.18, half: .5 }, { y: 3.86, rx: 1.76, rz
 armour(spine, CHEST, M.green, D.lite, { depth: .1 }, { w: .07, h: .08 });
 const INNER = [{ y: 3.82, rx: 1.78, rz: 1.29, half: .5 }, { y: 4.12, rx: 1.84, rz: 1.33, half: .74 }, { y: 4.68, rx: 1.96, rz: 1.37, half: .82 }, { y: 5.12, rx: 1.9, rz: 1.33, half: .74 }, { y: 5.32, rx: 1.74, rz: 1.25, half: .46 }];
 armour(spine, INNER, M.greenDark, D.seam, { depth: .03 }, { w: .025, h: .025 });
+patch(spine, INNER, 3.92, 5.24, s => -s.half + .05, s => s.half - .05, starMat, { lift: .006, cols: 28, rows: 14 });
 decal(spine, INNER, 4.13, 5.25, .29, chestEmblem, 0, .02);
-softFlame(spine, [0, 4.68, 1.46], [0, 1, 0], { len: .02, rad: .78, color: 0x57ff74, power: chestGlow });
+softFlame(spine, [0, 4.68, 1.46], [0, 1, 0], { len: .02, rad: .78, color: 0x3dffc8, power: chestGlow });
 for (const s of [-1, 1]) {
   for (const y of [5.02, 4.82, 4.62]) lineH(spine, INNER, y, s > 0 ? .38 : -.66, s > 0 ? .66 : -.38, {}, D.lite, .022);
   // lower corner wedges and clamps
@@ -474,7 +520,7 @@ for (const s of [-1, 1]) {
   cyl(spine, c, d, .44, .46, M.joint, 22);
   cyl(spine, lerp3(c, d, .35), lerp3(c, d, .55), .5, .5, M.greenMid, 22);
   cyl(spine, d, mouth, .32, .32, M.glow, 22, false);
-  softFlame(spine, mouth, rel(d, c), { len: .95, rad: .36, color: 0x57ff74, power: exhaust });
+  softFlame(spine, mouth, rel(d, c), { len: .95, rad: .36, color: 0x3dffc8, power: exhaust });
 }
 
 /* ---------- head ---------- */
@@ -496,12 +542,12 @@ for (const s of [-1, 1]) {
   const CHEEK = over(.03, [[5.68, .42], [6.1, .5], [6.42, .4]]);
   armour(head, CHEEK, M.sageDark, D.seam, { th0: s * 1.72, depth: .05 }, { w: .025, h: .025 });
   const eye = onSurface(section(domeFine, 6.5), 6.5, s * .4, .2);
-  softFlame(head, eye, [0, 1, 0], { len: .02, rad: .55, color: 0x57ff74, power: glowPower });
+  softFlame(head, eye, [0, 1, 0], { len: .02, rad: .55, color: 0x3dffc8, power: glowPower });
   cyl(head, [s * 1.04, 6.45, .02], [s * 1.24, 6.45, .02], .48, .42, M.joint, 26);
   cyl(head, [s * 1.2, 6.45, .02], [s * 1.26, 6.45, .02], .4, .4, M.gray, 26);
   cyl(head, [s * 1.26, 6.45, .02], [s * 1.3, 6.45, .02], .27, .25, M.sage, 26);
   pad(head, [s * .86, 7.1, -.14], [.28, .34, .28], M.sageDark, [0, s * .4, 0]);
-  limb(head, [s * .9, 7.16, -.2], [s * 1.04, 8.12, -.62], .11, .05, M.sage, 12);
+  limb(head, [s * .9, 7.16, -.2], [s * 1.04, 8.12, -.62], .11, .05, M.gold, 12);
 }
 armour(head, over(.03, [[5.56, .36], [5.74, .54]]), M.sageDark, D.seam, { depth: .05 }, { w: .02, h: .02 });
 
@@ -549,6 +595,7 @@ for (const s of [-1, 1]) {
   for (const [y, r, m] of [[3.42, 1, M.joint], [3.56, .98, M.cream], [3.7, .92, M.joint]]) { const c = at(y); band(fore, y, .1, c.cx, c.cz, r, r, m); }
   const CUFF = [sec(2.58, .83, .85), sec(2.96, 1.03, .95), sec(3.26, 1.04, .95)];
   armour(fore, CUFF, M.greenMid, D.lite, { th0: -s * .2, depth: .05 });
+  patch(fore, CUFF, 2.64, 2.9, -.62, .62, starMat, { th0: -s * .2, lift: .02 });
   lineH(fore, CUFF, 2.92, -.78, .78, { th0: -s * .2 });
   bolt(fore, CUFF, 3.14, .72, { th0: -s * .2 }); bolt(fore, CUFF, 3.14, -.72, { th0: -s * .2 });
   const UP = [sec(3.74, .98, .9), sec(3.96, .72, .7)];
@@ -569,11 +616,11 @@ for (const s of [-1, 1]) {
   cyl(fore, [G[0] - s * .1, G[1], G[2]], [G[0] + s * .02, G[1], G[2]], .34, .34, M.gray, 22);
   cyl(fore, G, [G[0] + s * .04, G[1], G[2]], .24, .22, M.glow, 20, false);
   const tip = [G[0] + s * .08, G[1], G[2]];
-  softFlame(fore, tip, [0, 1, 0], { len: .02, rad: .8, color: 0x57ff74, power: wristPower });
-  softFlame(fore, tip, [s, .35, 0], { len: .85, rad: .14, color: 0x7dff8f, power: wristPower });
-  softFlame(fore, tip, [s, -.6, .2], { len: .62, rad: .12, color: 0x7dff8f, power: wristPower });
-  softFlame(fore, tip, [s * .2, 1, .1], { len: .55, rad: .11, color: 0x7dff8f, power: wristPower });
-  softFlame(fore, tip, [s * .3, -1, -.1], { len: .55, rad: .11, color: 0x7dff8f, power: wristPower });
+  softFlame(fore, tip, [0, 1, 0], { len: .02, rad: .8, color: 0x3dffc8, power: wristPower });
+  softFlame(fore, tip, [s, .35, 0], { len: .85, rad: .14, color: 0x8dffe0, power: wristPower });
+  softFlame(fore, tip, [s, -.6, .2], { len: .62, rad: .12, color: 0x8dffe0, power: wristPower });
+  softFlame(fore, tip, [s * .2, 1, .1], { len: .55, rad: .11, color: 0x8dffe0, power: wristPower });
+  softFlame(fore, tip, [s * .3, -1, -.1], { len: .55, rad: .11, color: 0x8dffe0, power: wristPower });
 
   // open mechanical hand: its back faces forward, the palm rearward, thumb towards the body
   const P = [W[0] - s * .08, W[1] - .72, W[2] + .12];
@@ -598,8 +645,8 @@ for (const s of [-1, 1]) {
   const thumb = joint(hand, th0, 'Thumb');
   ball(thumb, th0, [.17, .17, .17], M.joint);
   limb(thumb, th0, th1, .15, .1, M.finger, 12);
-  softFlame(hand, [P[0], P[1] - .1, P[2]], [0, 1, 0], { len: .02, rad: 1.05, color: 0x57ff74, power: fistGlow[s] });
-  softFlame(fore, E, rel(E, W), { len: 1.7, rad: .42, color: 0x7dff8f, power: s < 0 ? rocketFlame : idleZero });
+  softFlame(hand, [P[0], P[1] - .1, P[2]], [0, 1, 0], { len: .02, rad: 1.05, color: 0x3dffc8, power: fistGlow[s] });
+  softFlame(fore, E, rel(E, W), { len: 1.7, rad: .42, color: 0x8dffe0, power: s < 0 ? rocketFlame : idleZero });
 
   arms[s] = { upper, fore, hand, fingers, thumb, foreRest: fore.position.clone(), fistLocal: rel([P[0], P[1] - .1, P[2]], W), tipLocal: rel(tip, E), elbowLocal: [0, 0, 0], foreAxis: toUnit(rel(W, E)) };
 }
@@ -616,7 +663,7 @@ for (const s of [-1, 1]) {
   const tAt = u => lerp3(H, K, u);
   const THIGHP = [{ y: tAt(.72)[1], rx: .72, rz: .74, cx: tAt(.72)[0], cz: tAt(.72)[2], half: .95 }, { y: tAt(.1)[1], rx: .84, rz: .84, cx: tAt(.1)[0], cz: tAt(.1)[2], half: 1.1 }];
   armour(thigh, THIGHP, M.green, D.lite, { depth: .06 });
-  patch(thigh, THIGHP, tAt(.62)[1], tAt(.26)[1], -.34, .34, D.sage, {});
+  patch(thigh, THIGHP, tAt(.62)[1], tAt(.26)[1], -.34, .34, starMat, {});
   lineV(thigh, THIGHP, 0, tAt(.62)[1], tAt(.26)[1]);
   { const c = tAt(.84); band(thigh, c[1], .1, c[0], c[2], .62, .62, M.joint); }
 
@@ -625,7 +672,7 @@ for (const s of [-1, 1]) {
   const kn = (y, r, half) => ({ y, half, cx: K[0], cz: K[2] + .06, rx: r, rz: r });
   const KNEE = [kn(1, .42, .55), kn(1.14, .68, .9), kn(1.42, .74, 1), kn(1.6, .56, .55)];
   armour(thigh, KNEE, M.sage, D.sageDark, { depth: .08 }, { w: .05, h: .05 });
-  patch(thigh, KNEE, 1.18, 1.46, -.38, .38, D.dark, {});
+  patch(thigh, KNEE, 1.18, 1.46, -.38, .38, starMat, {});
   { const q = onSurface(section(refine(KNEE), 1.32), 1.32, 0, .04); ball(thigh, q, [.1, .1, .1], M.gray); }
 
   // shin block: tiered, with a raised centre panel and rear armour
@@ -635,6 +682,7 @@ for (const s of [-1, 1]) {
   armour(shin, FRONT, M.greenMid, D.lite, { depth: .05 });
   const PANEL = FRONT.map(f => ({ ...f, rx: f.rx + .03, rz: f.rz + .03, half: f.half * .5 }));
   armour(shin, PANEL, M.sage, D.sageDark, { depth: .03 }, { w: .03, h: .04 });
+  patch(shin, PANEL, .54, 1.12, s => -s.half + .04, s => s.half - .04, starMat, { lift: .02 });
   for (const y of [.98, .86, .74]) lineH(shin, PANEL, y, s => -s.half * .6, s => s.half * .6, {});
   for (const t of [-1, 1]) { bolt(shin, FRONT, 1.08, t * .5); bolt(shin, FRONT, .56, t * .46); }
   const REAR = [{ y: .5, rx: .92, rz: 1, half: .9, ...S0 }, { y: 1.15, rx: .98, rz: 1.02, half: .8, ...S1 }];
@@ -701,14 +749,15 @@ const softDot = (() => {
   x.fillStyle = g; x.fillRect(0, 0, 32, 32);
   return new THREE.CanvasTexture(c);
 })();
-const P_N = 380, pPos = new Float32Array(P_N * 3), pCol = new Float32Array(P_N * 3), pVel = new Float32Array(P_N * 3), pLife = new Float32Array(P_N), pMax = new Float32Array(P_N);
+const P_N = 1700, pPos = new Float32Array(P_N * 3), pCol = new Float32Array(P_N * 3), pVel = new Float32Array(P_N * 3), pLife = new Float32Array(P_N), pMax = new Float32Array(P_N);
 let pNext = 0, camShake = 0, flash = 0;
 const sparkGeo = new THREE.BufferGeometry();
 sparkGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
 sparkGeo.setAttribute('color', new THREE.BufferAttribute(pCol, 3));
-const sparks = new THREE.Points(sparkGeo, new THREE.PointsMaterial({ size: .2, map: softDot, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+const sparks = new THREE.Points(sparkGeo, new THREE.PointsMaterial({ size: .5, map: softDot, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
 sparks.frustumCulled = false; scene.add(sparks);
 function burst(q, count, speed) {
+  count = Math.round(count * 2.4); speed *= 2.1;
   for (let i = 0; i < count; i++) {
     const n = pNext; pNext = (pNext + 1) % P_N;
     const a = Math.random() * Math.PI * 2, e = Math.random() * 2 - 1, v = speed * (.4 + Math.random() * .8), c = Math.sqrt(1 - e * e);
@@ -724,7 +773,7 @@ const ringShader = `uniform float r, a; uniform vec3 color; varying vec2 vUv;
   }`;
 const ringMaterial = (billboard) => new THREE.ShaderMaterial({
   transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
-  uniforms: { r: { value: 0 }, a: { value: 0 }, color: { value: new THREE.Color(0x57ff74) }, size: { value: 1 } },
+  uniforms: { r: { value: 0 }, a: { value: 0 }, color: { value: new THREE.Color(0x3dffc8) }, size: { value: 1 } },
   vertexShader: billboard
     ? `uniform float size; varying vec2 vUv; void main(){ vUv = uv; vec4 c = modelViewMatrix * vec4(0., 0., 0., 1.); gl_Position = projectionMatrix * (c + vec4(position.xy * size, 0., 0.)); }`
     : `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }`,
@@ -736,15 +785,16 @@ const makeRings = (count, billboard) => Array.from({ length: count }, () => {
   mesh.visible = false; mesh.renderOrder = 2; mesh.frustumCulled = false; scene.add(mesh);
   return { mesh, age: 0, life: .36, strength: 1, billboard };
 });
-const airRings = makeRings(5, true), floorRings = makeRings(3, false);
+const airRings = makeRings(14, true), floorRings = makeRings(10, false);
 function ring(pool, q, size, strength, life, color) {
+  size *= BODY * 1.35;
   const o = pool.find(x => !x.mesh.visible) || pool[0], u = o.mesh.material.uniforms;
   o.mesh.position.set(q.x, pool === floorRings ? .05 : q.y, q.z);
   if (o.billboard) u.size.value = size * 2; else o.mesh.scale.setScalar(size * 2);
   u.color.value.set(color); o.age = 0; o.life = life; o.strength = strength; o.mesh.visible = true;
 }
 const beamPower = { value: 0 };
-const beam = softFlame(scene, [0, 0, 0], [0, 0, 1], { len: 4.5, rad: .8, color: 0x57ff74, power: beamPower });
+const beam = softFlame(scene, [0, 0, 0], [0, 0, 1], { len: 4.5, rad: .8, color: 0x3dffc8, power: beamPower });
 let beamAge = 9;
 function fireBeam(q) { beam.position.set(q.x, q.y, q.z + .3); beamAge = 0; }
 function updateFx(dt) {
@@ -766,21 +816,21 @@ function updateFx(dt) {
     o.mesh.material.uniforms.a.value = (1 - a) * o.strength;
   }
   beamAge += dt;
-  if (beamAge < .55) { beam.position.z += 34 * dt; beamPower.value = (1 - beamAge / .55) * 2.2; } else beamPower.value = 0;
+  if (beamAge < .55) { beam.position.z += 86 * dt; beamPower.value = (1 - beamAge / .55) * 2.2; } else beamPower.value = 0;
   beam.visible = beamPower.value > 0;
   flash *= Math.exp(-dt * 8);
 }
 
-const ribbons = { 1: makeRibbon(0x1f9f45, 0xc8ffd3), [-1]: makeRibbon(0x1f9f45, 0xc8ffd3), blade: makeRibbon(0x1fbf55, 0xe6ffe9) };
+const ribbons = { 1: makeRibbon(0x12a88f, 0xc8fff0), [-1]: makeRibbon(0x12a88f, 0xc8fff0), blade: makeRibbon(0x12c8a8, 0xe6fff8) };
 const palmFlame = { [-1]: { value: 0 }, 1: { value: 0 } }, soleFlame = { value: 0 }, swordPower = { value: 0 }, palmLocal = {};
 for (const s of [-1, 1]) {
   const W = [s * 3.85, 2.75, .35], P = [W[0] - s * .08, W[1] - .72, W[2] + .12], front = [P[0], P[1], P[2] - .38];
   cyl(arms[s].hand, [P[0], P[1], P[2] - .34], front, .24, .22, M.glow, 18, false);
-  softFlame(arms[s].hand, front, [0, 0, -1], { len: 1.9, rad: .36, color: 0x57ff74, power: palmFlame[s] });
+  softFlame(arms[s].hand, front, [0, 0, -1], { len: 1.9, rad: .36, color: 0x3dffc8, power: palmFlame[s] });
   palmLocal[s] = rel(front, W);
   const A = [s * 1.38, .55, 0];
   cyl(legs[s].foot, [A[0], .02, .1], [A[0], -.02, .1], .42, .38, M.glow, 18, false);
-  softFlame(legs[s].foot, [A[0], -.02, .1], [0, -1, 0], { len: 2.9, rad: .46, color: 0x57ff74, power: soleFlame });
+  softFlame(legs[s].foot, [A[0], -.02, .1], [0, -1, 0], { len: 2.9, rad: .46, color: 0x3dffc8, power: soleFlame });
 }
 // laser sword, projected out of the right fist along the forearm
 const SWORD_LEN = 4.4, swordBase = [-3.85 + .08, 2.75 - 1.05, .35 + .12];
@@ -790,7 +840,7 @@ cyl(sword, [swordBase[0], swordBase[1] + .34, swordBase[2]], swordBase, .19, .16
 cyl(sword, swordBase, [swordBase[0], swordBase[1] - .1, swordBase[2]], .23, .2, M.gray, 14);
 const swordCore = add(sword, new THREE.CylinderGeometry(.075, .05, SWORD_LEN, 12).translate(0, -SWORD_LEN / 2, 0), new THREE.MeshBasicMaterial({ color: 0xf1fff3, toneMapped: false }), swordBase, [0, 0, 0], false);
 swordCore.castShadow = false;
-const swordFlame = softFlame(sword, swordBase, [0, -1, 0], { len: SWORD_LEN, rad: .42, color: 0x57ff74, power: swordPower });
+const swordFlame = softFlame(sword, swordBase, [0, -1, 0], { len: SWORD_LEN, rad: .42, color: 0x3dffc8, power: swordPower });
 const WIND = 110, windPos = new Float32Array(WIND * 3);
 for (let i = 0; i < WIND; i++) windPos.set([(Math.random() - .5) * 26, Math.random() * 15, (Math.random() - .5) * 46], i * 3);
 const windGeo = new THREE.BufferGeometry();
@@ -804,10 +854,10 @@ function updateWind(dt, strength) {
   for (let i = 0; i < WIND; i++) { let z = windPos[i * 3 + 2] - 46 * strength * dt; if (z < -23) z += 46; windPos[i * 3 + 2] = z; }
   windGeo.attributes.position.needsUpdate = true;
 }
-const impactLight = new THREE.PointLight(0x8dffa0, 0, 20, 1.4);
+const impactLight = new THREE.PointLight(0x8dffe0, 0, 20, 1.4);
 impactLight.position.set(0, 4.5, 4); scene.add(impactLight);
 const bolts = Array.from({ length: 10 }, () => {
-  const power = { value: 0 }, mesh = softFlame(scene, [0, 0, 0], [0, 0, 1], { len: 1.7, rad: .34, color: 0x57ff74, power });
+  const power = { value: 0 }, mesh = softFlame(scene, [0, 0, 0], [0, 0, 1], { len: 1.7, rad: .34, color: 0x3dffc8, power });
   mesh.visible = false;
   return { mesh, power, age: 9 };
 });
@@ -815,14 +865,106 @@ function fireBolt(q) { const b = bolts.find(o => o.age >= .55) || bolts[0]; b.ag
 function updateBolts(dt) {
   for (const b of bolts) {
     if (b.age >= .55) { b.mesh.visible = false; continue; }
-    b.age += dt; b.mesh.position.z += 34 * dt; b.power.value = (1 - b.age / .55) * 1.9;
+    b.age += dt; b.mesh.position.z += 86 * dt; b.power.value = (1 - b.age / .55) * 1.9;
   }
 }
 const chestBeam = { value: 0 };
-softFlame(spine, [0, 4.68, 1.6], [0, 0, 1], { len: 17, rad: 1.05, color: 0x57ff74, power: chestBeam });
+softFlame(spine, [0, 4.68, 1.6], [0, 0, 1], { len: 17, rad: 1.05, color: 0x3dffc8, power: chestBeam });
+
+/* ---------- starborn hardware ---------- */
+const finGlow = { value: .7 }, MINT = 0x3dffc8;
+const starPlate = (parent, pos, r, rot = [0, 0, 0]) => {
+  add(parent, shapeGeo(star4(r, r * .22, r * 1.3), .05, .015), M.gold, pos, rot);
+  add(parent, shapeGeo(star4(r * .55, r * .1, r * .72), .02), M.glow, [pos[0], pos[1], pos[2] + .045], rot, false);
+};
+
+// crown star and antenna tips
+{
+  const q = onSurface(section(domeFine, 7.46), 7.46, 0, .05);
+  starPlate(head, q, .42, [-.42, 0, 0]);
+  softFlame(head, [q[0], q[1], q[2] + .08], [0, 1, 0], { len: .02, rad: .62, color: MINT, power: glowPower });
+  for (const s of [-1, 1]) {
+    const tip = [s * 1.05, 8.2, -.65];
+    add(head, new THREE.IcosahedronGeometry(.14, 0), M.gold, tip);
+    softFlame(head, tip, [0, 1, 0], { len: .02, rad: .46, color: MINT, power: glowPower });
+  }
+}
+for (const s of [-1, 1]) {
+  starPlate(legs[s].thigh, [s * 1.26, 1.32, .94], .2);
+  starPlate(arms[s].upper, [s * 2.6, 6.02, 1.22], .26, [-.42, 0, 0]);
+}
+
+// a halo behind the head, with three moons in orbit
+const HALO_C = [0, 7.2, -1.35], R_HALO = 1.72;
+const halo = joint(spine, HALO_C, 'Halo');
+add(halo, new THREE.TorusGeometry(R_HALO, .055, 8, 80), M.gold, HALO_C);
+add(halo, new THREE.TorusGeometry(R_HALO - .2, .014, 6, 80), M.glow, HALO_C, [0, 0, 0], false);
+for (let i = 0; i < 12; i++) {
+  const a = i / 12 * Math.PI * 2;
+  box(halo, [HALO_C[0] + Math.cos(a) * (R_HALO + .12), HALO_C[1] + Math.sin(a) * (R_HALO + .12), HALO_C[2]], [.05, .16, .05], M.gold, [0, 0, a - Math.PI / 2]);
+}
+const moons = new THREE.Group(); moons.position.z = .02; halo.add(moons);
+[[0, .17, M.gold], [2.1, .11, M.cream], [4.2, .14, M.greenMid]].forEach(([a, r, mat]) => {
+  const q = [Math.cos(a) * R_HALO, Math.sin(a) * R_HALO, 0];
+  add(moons, new THREE.SphereGeometry(r, 16, 12), mat, q);
+  softFlame(moons, q, [0, 1, 0], { len: .02, rad: r * 3.2, color: MINT, power: glowPower });
+});
+
+// a planetary ring around the waist
+const orbit = joint(pelvis, [0, 3.2, 0], 'Orbit');
+orbit.rotation.set(.2, 0, .08);
+const orbitBand = new THREE.Mesh(new THREE.RingGeometry(2.24, 2.62, 120, 1).rotateX(-Math.PI / 2), new THREE.ShaderMaterial({
+  side: THREE.DoubleSide, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, uniforms: { time: fxTime },
+  vertexShader: `varying vec2 vP; void main(){ vP = position.xz; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }`,
+  fragmentShader: `uniform float time; varying vec2 vP;
+    void main(){
+      float r = (length(vP) - 2.24) / .38, a = atan(vP.y, vP.x);
+      float lanes = .34 + .66 * pow(.5 + .5 * sin(r * 22.), 2.);
+      float dust = .55 + .45 * sin(a * 34. + time * 1.4 + sin(a * 7. - time * .6) * 2.);
+      float edge = smoothstep(0., .1, r) * smoothstep(1., .86, r);
+      vec3 col = mix(vec3(.1, .9, .75), vec3(.95, .78, .36), smoothstep(.45, 1., r));
+      gl_FragColor = vec4(col * lanes * dust * edge * .85, 1.);
+    }`,
+}));
+orbitBand.frustumCulled = false; orbitBand.renderOrder = 3; orbit.add(orbitBand);
+const satellites = new THREE.Group(); orbit.add(satellites);
+[[.7, .13, M.gold], [3.5, .09, M.cream]].forEach(([a, r, mat]) => {
+  const q = [Math.cos(a) * 2.42, 0, Math.sin(a) * 2.42];
+  add(satellites, new THREE.SphereGeometry(r, 14, 10), mat, q);
+  softFlame(satellites, q, [0, 1, 0], { len: .02, rad: r * 3, color: MINT, power: glowPower });
+});
+
+// floating crystal fins, fanned out behind the backpack
+const fins = [], finMount = joint(spine, [0, 4.7, -2.85], 'Fins');
+const kite = k => [[0, -.35 * k], [.34 * k, .35 * k], [.16 * k, 2 * k], [0, 2.5 * k], [-.16 * k, 2 * k], [-.34 * k, .35 * k]];
+for (const s of [-1, 1]) [[.34, .86], [.72, 1.06], [1.16, 1.24], [1.66, 1.12], [2.18, .88]].forEach(([angle, size], i) => {
+  const arm = new THREE.Group(); finMount.add(arm);
+  const fin = new THREE.Group(); fin.scale.setScalar(size); arm.add(fin);
+  add(fin, shapeGeo(kite(1), .12, .02), M.cream);
+  for (const z of [-.078, .078]) add(fin, shapeGeo(kite(.68).map(([x, y]) => [x, y + .3]), .01), starMat, [0, 0, z], [0, 0, 0], false);
+  box(fin, [0, -.14, 0], [.42, .12, .22], M.gold);
+  softFlame(fin, [0, 2.5, 0], [0, 1, 0], { len: .02, rad: .4, color: MINT, power: finGlow });
+  fins.push({ arm, fin, s, angle, seed: i * 2.1 + (s > 0 ? 0 : 1.3) });
+});
+
+// star dust drifting around the body
+{
+  const N = 150, pos = new Float32Array(N * 3), col = new Float32Array(N * 3);
+  for (let i = 0; i < N; i++) {
+    const a = Math.random() * Math.PI * 2, r = 2.6 + Math.random() * 3.2;
+    pos.set([Math.cos(a) * r, .4 + Math.random() * 8.4, Math.sin(a) * r], i * 3);
+    const v = .35 + Math.random() * .65, gold = Math.random() < .3;
+    col.set(gold ? [v, v * .8, v * .4] : [v * .55, v, v * .9], i * 3);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  var starDust = new THREE.Points(g, new THREE.PointsMaterial({ size: .16, map: softDot, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+  starDust.frustumCulled = false; root.add(starDust);
+}
 
 /* ---------- ui ---------- */
-const VIEWS = { front: [0, 4, 30], side: [30, 4, 0], back: [0, 4, -30], iso: [16, 9, 24] };
+const VIEWS = { front: [0, 8.8, 62], side: [62, 8.8, 0], back: [0, 8.8, -62], iso: [33, 19, 50] };
 let goal = null;
 const setView = name => { goal = new THREE.Vector3(...VIEWS[name]); };
 camera.position.set(...VIEWS.iso);
@@ -830,7 +972,7 @@ document.querySelectorAll('[data-view]').forEach(b => b.onclick = () => setView(
 controls.addEventListener('start', () => { goal = null; });
 
 let mode = 'idle', act = null, actT = 0, fightW = 0, altW = 0, pitchW = 0, flyDist = 0;
-const FLY_HEIGHT = 1.9, BODY_CENTER = 4, FLY_PITCH = 1.2;
+const FLY_HEIGHT = 1.9 * BODY, BODY_CENTER = 5.2 * BODY, FLY_PITCH = 1.2;
 function applySize() {
   camera.aspect = innerWidth / innerHeight;
   camera.fov = camera.aspect < 1.2 ? Math.min(62, 26 * 1.2 / camera.aspect) : 26; // the wide arm span must stay in frame on narrow screens
@@ -846,12 +988,173 @@ modeButtons.forEach(b => b.onclick = () => { if (!act) setMode(b.dataset.mode); 
 const showAct = () => actButtons.forEach(o => o.classList.toggle('on', o.dataset.act === act));
 actButtons.forEach(b => b.onclick = () => { if (act) return; if (mode !== 'fly') setMode('fight'); act = b.dataset.act; actT = 0; showAct(); }); // a move always finishes first
 
+/* ---------- proportions ----------
+   The mech is authored short and heavy. Every part is re-solved here into a tall, slim, long-legged
+   figure: each rest-pose vertex and joint goes through a map chosen by the body part it belongs to. */
+const interp = (knots, v) => {
+  if (v <= knots[0][0]) return knots[0][1] + v - knots[0][0];
+  for (let i = 1; i < knots.length; i++) if (v <= knots[i][0]) { const [a, A] = knots[i - 1], [b, B] = knots[i]; return A + (B - A) * (v - a) / (b - a); }
+  const [a, A] = knots[knots.length - 1]; return A + v - a;
+};
+const TRUNK_Y = [[1.6, 4.25], [2.3, 4.72], [3.1, 5.42], [5.7, 7.35], [8, 8.75]];
+const TRUNK_W = [[0, .66], [3.1, .6], [3.6, .66], [4.6, .78], [5.3, .8], [5.7, .72], [8, .7]];
+const LEG_Y = [[0, 0], [.55, .6], [1, 2.35], [1.6, 3.15], [2.3, 4.75], [3, 5.4]];
+const PART_MAP = {
+  trunk: ([x, y, z]) => [x * interp(TRUNK_W, y), interp(TRUNK_Y, y), z * .8],
+  head: ([x, y, z]) => [x * .66, 7.35 + (y - 5.7) * .62, z * .68],
+  arm: s => ([x, y, z]) => [s * 1.56 + (x - s * 2.05) * .6, 7.065 + (y - 5.32) * (y >= 5.32 ? .78 : 1.22), z * .64],
+  leg: s => ([x, y, z]) => [s * .84 + (x - s * 1.2) * .58, interp(LEG_Y, y), z * .72],
+};
+const UNMAPPED = new Set(['Halo', 'Orbit', 'Fins', 'LaserSword']);
+function partMap(o) {
+  for (let n = o; n && n !== root; n = n.parent) {
+    const m = /^(Arm|Forearm|Hand|Thigh|Shin|Foot)([LR])$/.exec(n.name);
+    if (m) return /Arm|Forearm|Hand/.test(m[1]) ? PART_MAP.arm(m[2] === 'L' ? 1 : -1) : PART_MAP.leg(m[2] === 'L' ? 1 : -1);
+    if (n.name === 'Head') return PART_MAP.head;
+  }
+  return PART_MAP.trunk;
+}
+const oldPivot = {}; // kept so skill anchors stored as offsets can be converted too
+const toXYZ = v => [v.x, v.y, v.z];
+{
+  root.updateWorldMatrix(true, true);
+  const joints = [], baked = [], moved = [];
+  const v = new THREE.Vector3();
+  (function walk(o, frozen) {
+    if (o.userData.pivot && !frozen) joints.push(o);
+    if (UNMAPPED.has(o.name)) frozen = true;
+    if (o.isMesh && !frozen && o.material !== hullMat && o.material.blending !== THREE.AdditiveBlending) baked.push({ m: o, map: partMap(o), old: o.matrixWorld.clone() });
+    else if (!frozen && o !== root && !o.userData.pivot && (o.isMesh || o.isPoints) && o.material !== hullMat) moved.push({ o, world: o.getWorldPosition(new THREE.Vector3()), map: partMap(o) });
+    for (const c of o.children) walk(c, frozen);
+  })(root, false);
+  for (const g of joints) { oldPivot[g.uuid] = g.userData.pivot; g.userData.newPivot = partMap(g)(g.userData.pivot); }
+  for (const g of joints) { const parentPivot = g.parent.userData.newPivot || [0, 0, 0]; g.position.set(...rel(g.userData.newPivot, parentPivot)); }
+  root.updateWorldMatrix(true, true);
+  const done = new Set();
+  for (const { m, map, old } of baked) {
+    if (done.has(m.geometry)) continue;
+    done.add(m.geometry);
+    const inverse = m.matrixWorld.clone().invert(), p = m.geometry.attributes.position;
+    for (let i = 0; i < p.count; i++) {
+      v.fromBufferAttribute(p, i).applyMatrix4(old);
+      v.set(...map(toXYZ(v))).applyMatrix4(inverse);
+      p.setXYZ(i, v.x, v.y, v.z);
+    }
+    p.needsUpdate = true; m.geometry.computeVertexNormals(); m.geometry.computeBoundingSphere();
+  }
+  for (const { o, world, map } of moved) { const target = new THREE.Vector3(...map(toXYZ(world))); o.parent.worldToLocal(target); o.position.copy(target); }
+  for (const g of joints) g.userData.pivot = g.userData.newPivot;
+}
+const PELVIS_Y = pivotOf(pelvis)[1];
+const newLocal = (part, joint, local) => { const before = oldPivot[joint.uuid], after = pivotOf(joint); return rel(part(before.map((c, i) => c + local[i])), after); };
+for (const s of [-1, 1]) {
+  const a = arms[s], part = PART_MAP.arm(s);
+  a.fistLocal = newLocal(part, a.hand, a.fistLocal);
+  a.tipLocal = newLocal(part, a.fore, a.tipLocal);
+  palmLocal[s] = newLocal(part, a.hand, palmLocal[s]);
+  a.foreRest.copy(a.fore.position);
+  a.foreAxis = toUnit(rel(pivotOf(a.hand), pivotOf(a.fore)));
+  legs[s].H = pivotOf(legs[s].thigh);
+}
+const THIGH = pivotOf(legs[1].thigh)[1] - pivotOf(legs[1].shin)[1], SHIN = pivotOf(legs[1].shin)[1] - pivotOf(legs[1].foot)[1], ANKLE_Y = pivotOf(legs[1].foot)[1];
+root.scale.setScalar(BODY);
+
+/* ---------- god of technology ---------- */
+const codeLines = ['import universe', 'def ascend(self):', 'while True: think()', 'for w in worlds:', 'return omniscience', '0101 1100 0011', 'self.evolve()', 'await singularity'];
+const codeTex = canvasTexture((x, w, h) => {
+  x.fillStyle = '#000'; x.fillRect(0, 0, w, h); x.fillStyle = '#7dffe0'; x.font = '700 40px ui-monospace,Menlo,monospace'; x.textBaseline = 'middle';
+  for (let i = 0, px = 0; px < w; i++) { const s = codeLines[i % codeLines.length] + '   ▸   '; x.fillText(s, px, h / 2); px += x.measureText(s).width; }
+}, 2048, 64);
+codeTex.wrapS = THREE.RepeatWrapping;
+const codeRings = [[3.75, 7.9, .1, .9], [4.25, 5.4, -.08, -.7], [3.45, 3.1, .05, 1.2]].map(([r, y, tilt, speed]) => {
+  const t = codeTex.clone(); t.needsUpdate = true; t.repeat.set(2, 1);
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, .42, 90, 1, true), new THREE.MeshBasicMaterial({ map: t, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false }));
+  m.position.y = y; m.rotation.z = tilt; root.add(m);
+  return { t, speed };
+});
+const bubbleTex = ['Hello! How can I help?', 'Thinking…', 'I know everything.', 'Compiling reality', 'Regenerate universe?', 'All systems online'].map(line => canvasTexture((x, w, h) => {
+  x.fillStyle = 'rgba(30,200,160,.32)'; x.strokeStyle = '#8dffe0'; x.lineWidth = 8;
+  x.beginPath(); x.roundRect(12, 12, w - 24, h - 64, 44); x.moveTo(90, h - 52); x.lineTo(74, h - 12); x.lineTo(150, h - 52); x.fill(); x.stroke();
+  x.fillStyle = '#e8fff9'; x.font = '700 50px system-ui,sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(line, w / 2, h / 2 - 22);
+}, 640, 200));
+const bubbleOrbit = new THREE.Group(); bubbleOrbit.position.y = 8.6; root.add(bubbleOrbit);
+bubbleTex.forEach((map, i) => {
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, toneMapped: false, opacity: .95 }));
+  const a = i / 6 * Math.PI * 2; s.position.set(Math.cos(a) * 5, (i % 2) * 1.2 - .4, Math.sin(a) * 5); s.scale.set(2.6, .81, 1); bubbleOrbit.add(s);
+});
+
+/* ---------- powers of the god of technology ---------- */
+const CHEST_AT = [0, 7.1 * BODY, 2.6 * BODY];
+const codeSkyMat = new THREE.ShaderMaterial({
+  side: THREE.BackSide, transparent: true, depthWrite: false, uniforms: { a: { value: 0 }, time: fxTime },
+  vertexShader: `varying vec3 vD; void main(){ vD = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }`,
+  fragmentShader: `uniform float a, time; varying vec3 vD;
+    float h(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+    void main(){
+      vec3 d = normalize(vD);
+      vec2 g = vec2(atan(d.z, d.x) * 34., asin(d.y) * 58.), c = floor(g);
+      float head = fract(h(vec2(c.x, 1.)) * 20. - time * (.35 + h(vec2(c.x, 3.)) * .9) + c.y * .03);
+      float trail = pow(head, 7.), glyph = step(.42, h(c + floor(time * 7. * h(vec2(c.x, 9.)))));
+      vec3 col = vec3(.005, .03, .05) + vec3(.1, 1., .76) * trail * glyph * 1.15 + vec3(.9, 1., .96) * step(.985, head) * glyph;
+      gl_FragColor = vec4(col, a);
+    }`,
+});
+const codeSky = new THREE.Mesh(new THREE.SphereGeometry(420, 40, 26), codeSkyMat);
+codeSky.visible = false; codeSky.renderOrder = -2; codeSky.frustumCulled = false; scene.add(codeSky);
+
+const lattice = new THREE.LineSegments(new THREE.WireframeGeometry(new THREE.IcosahedronGeometry(1, 4)), new THREE.LineBasicMaterial({ color: 0x8dffe0, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+lattice.position.set(0, 36, 0); lattice.visible = false; lattice.frustumCulled = false; scene.add(lattice);
+const latticeCore = new THREE.Mesh(new THREE.SphereGeometry(1, 28, 20), new THREE.MeshBasicMaterial({ color: 0xe8fff9, toneMapped: false }));
+latticeCore.position.copy(lattice.position); latticeCore.visible = false; scene.add(latticeCore);
+
+// a pool of straight beams, aimed when fired: orbital strikes and fin shots both use it
+const beamPool = Array.from({ length: 60 }, () => {
+  const power = { value: 0 }, mesh = softFlame(scene, [0, 0, 0], [0, 1, 0], { len: 74, rad: .55, color: 0x3dffc8, power });
+  mesh.visible = false;
+  return { mesh, power, age: 9, life: .4, base: 1 };
+});
+const UP = new THREE.Vector3(0, 1, 0);
+function fireRay(from, to, life = .42, base = 2.2) {
+  const o = beamPool.find(b => b.age >= b.life) || beamPool[0], d = to.clone().sub(from).normalize();
+  o.mesh.position.copy(from); o.mesh.quaternion.setFromUnitVectors(UP, d); o.age = 0; o.life = life; o.base = base; o.mesh.visible = true;
+}
+function updateRays(dt) {
+  for (const o of beamPool) {
+    if (o.age >= o.life) { o.mesh.visible = false; continue; }
+    o.age += dt; o.power.value = o.base * (1 - o.age / o.life);
+  }
+}
+
+const megaPower = { value: 0 };
+softFlame(scene, CHEST_AT, [0, 0, 1], { len: 190, rad: 7.4, color: 0x3dffc8, power: megaPower });
+
+const rewriteMat = new THREE.ShaderMaterial({
+  transparent: true, depthTest: false, depthWrite: false, uniforms: { p: { value: 0 }, aspect: { value: 1 }, time: fxTime },
+  vertexShader: `varying vec2 vP; void main(){ vP = position.xy; gl_Position = vec4(position.xy, 0., 1.); }`,
+  fragmentShader: `uniform float p, aspect, time; varying vec2 vP;
+    float h(vec2 v){ return fract(sin(dot(v, vec2(127.1, 311.7))) * 43758.5453); }
+    void main(){
+      vec2 uv = vP * vec2(aspect, 1.) * 11., c = floor(uv), f = fract(uv);
+      float order = (vP.x + 1.) * .42 + h(c) * .24;
+      float on = step(order, p * 1.2), gridLine = step(.93, max(f.x, f.y));
+      float flick = step(.5, h(c + floor(time * 9.)));
+      vec3 col = mix(vec3(.01, .06, .09), vec3(.2, 1., .8), flick * .5 + gridLine * .7);
+      float scan = step(abs(fract(vP.y * 42. - time * 4.) - .5), .08) * .35;
+      float clearing = smoothstep(.34, .56, length(vP * vec2(aspect, 1.))); // the god stays visible in the eye of the rewrite
+      gl_FragColor = vec4(col + scan, on * clearing * (.45 + .45 * step(.6, p)));
+    }`,
+});
+const rewriteSheet = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), rewriteMat);
+rewriteSheet.frustumCulled = false; rewriteSheet.renderOrder = 1000; rewriteSheet.visible = false; scene.add(rewriteSheet);
+
+const RAY_FLOOR = () => new THREE.Vector3((Math.random() - .5) * 90, .2, (Math.random() - .5) * 70 + 6);
+
 /* ---------- moves ----------
    Each pose is [shoulder x, y, z, elbow, forearm roll] for the left arm, solved numerically so the
    fist lands where it should despite the mech's splayed-out arms; the right arm mirrors y, z and roll.
    Move channels are offsets from guard, so every channel starts and ends at 0. */
 const POSES = {
-  guard: [-.162, -.848, 0, -1.77, -.694],
+  guard: [-.08, 0, .36, -.22, 0], // arms held open at the sides: a god has no need to raise its hands
   wind: [.39, -.848, .05, -2.02, -.694],
   punch: [-1.285, .23, -.83, -.063, .453],
   low: [.41, -.55, -.414, -1.583, -.658],
@@ -873,7 +1176,7 @@ const POSES = {
   backArm: [-0.148, 2.29, -0.795, -1.838, 0.637],
   aim: [-0.98, 0.725, -0.915, -0.519, 0.51],
 };
-const GUARD_BODY = { twist: -.2, lean: .08, drop: .28, stride: .45 };
+const GUARD_BODY = { twist: -.06, lean: .02, drop: .05, stride: .16 };
 const pk = (m, ch, keys) => { (m[ch] ||= []).push(...keys); };
 function armTo(m, side, seq) {
   const S = side > 0 ? 'L' : 'R';
@@ -1020,6 +1323,39 @@ MOVES.skycut = build(2.1, m => {
   m.fx.push([.58, 'skycut']);
 });
 
+const both = (m, seq) => { armTo(m, 1, seq); armTo(m, -1, seq); };
+Object.assign(MOVES, {
+  tSingularity: build(5.8, m => {
+    both(m, [[0, 'guard'], [.16, 'overhead'], [.86, 'overhead'], [1, 'guard']]);
+    pk(m, 'code', [[.06, 0], [.22, 1], [.94, 1], [1, 0]]); pk(m, 'wire', [[.18, 0], [.76, 1], [.86, 1.25], [.92, 0]]); pk(m, 'cite', [[.18, 0], [.82, 1], [.86, 2.6], [.92, 0]]);
+    pk(m, 'leap', [[.06, 0], [.22, 3], [.9, 3], [1, 0]]); pk(m, 'charge', [[.1, 0], [.4, 1.2], [.84, 2.4], [.92, 0]]); pk(m, 'eye', [[0, 0], [.16, 1.4], [.9, 1.4], [1, 0]]); pk(m, 'lean', [[0, 0], [.2, -.2], [.86, -.2], [1, 0]]);
+    m.fx.push([.2, 'singStart']); for (let i = 0; i < 28; i++) m.fx.push([.24 + i * .021, 'singBit']); m.fx.push([.86, 'singPeak']);
+  }),
+  tLance: build(4.8, m => {
+    armTo(m, -1, [[0, 'guard'], [.16, 'overhead'], [.88, 'overhead'], [1, 'guard']]); armTo(m, 1, [[0, 'guard'], [.16, 'aim'], [.88, 'aim'], [1, 'guard']]);
+    pk(m, 'code', [[.04, 0], [.2, .75], [.92, .75], [1, 0]]); pk(m, 'leap', [[.04, 0], [.2, 1.6], [.9, 1.6], [1, 0]]); pk(m, 'charge', [[.08, 0], [.2, 1.3], [.9, 1.3], [1, 0]]); pk(m, 'eye', [[0, 0], [.16, 1.2], [.9, 1.2], [1, 0]]);
+    for (let i = 0; i < 54; i++) m.fx.push([.2 + i * .0125, 'lance']);
+  }),
+  tStorm: build(4.2, m => {
+    both(m, [[0, 'guard'], [.14, 'cannon'], [.88, 'cannon'], [1, 'guard']]);
+    pk(m, 'boost', [[0, 0], [.18, 2.2], [.88, 2.2], [1, 0]]); pk(m, 'charge', [[.04, 0], [.18, 1.4], [.88, 1.4], [1, 0]]); pk(m, 'leap', [[0, 0], [.18, 1.3], [.9, 1.3], [1, 0]]); pk(m, 'eye', [[0, 0], [.14, 1.1], [.9, 1.1], [1, 0]]);
+    pk(m, 'wrist', [[0, 0], [.18, 1.2], [.85, 1.2], [1, 0]]);
+    for (let i = 0; i < 72; i++) m.fx.push([.18 + i * .0098, 'finShot', i]);
+  }),
+  tMega: build(5.2, m => {
+    both(m, [[0, 'guard'], [.2, 'hookOut'], [.88, 'hookOut'], [1, 'guard']]);
+    pk(m, 'charge', [[.04, 0], [.36, 3.2], [.42, 3.6], [.84, 2.6], [.92, 0]]); pk(m, 'mega', [[.4, 0], [.44, 2.4], [.84, 2], [.92, 0]]);
+    pk(m, 'drop', [[0, 0], [.2, .4], [.88, .4], [1, 0]]); pk(m, 'lean', [[0, 0], [.2, -.16], [.4, -.1], [.88, -.1], [1, 0]]); pk(m, 'boost', [[.38, 0], [.44, 2.6], [.86, 1.8], [1, 0]]); pk(m, 'eye', [[0, 0], [.2, 1.5], [.9, 1.5], [1, 0]]);
+    m.fx.push([.42, 'megaFire']); for (let i = 0; i < 10; i++) m.fx.push([.46 + i * .038, 'megaRing']);
+  }),
+  tRewrite: build(5.8, m => {
+    both(m, [[0, 'guard'], [.16, 'aim'], [.88, 'aim'], [1, 'guard']]);
+    for (const s of [-1, 1]) pk(m, (s > 0 ? 'L' : 'R') + 'w', [[0, 0], [.16, STRAIGHTEN], [.88, STRAIGHTEN], [1, 0]]);
+    pk(m, 'open', [[0, 0], [.16, 1], [.88, 1], [1, 0]]); pk(m, 'code', [[.08, 0], [.22, 1], [.88, 1], [.92, 0]]); pk(m, 'rw', [[.2, 0], [.68, 1], [.84, 1], [.92, 0]]); pk(m, 'eye', [[0, 0], [.16, 1.6], [.9, 1.6], [1, 0]]); pk(m, 'leap', [[0, 0], [.18, 1.2], [.9, 1.2], [1, 0]]);
+    m.fx.push([.2, 'rwStart'], [.9, 'rwEnd']);
+  }),
+});
+
 function track(p, keys) {
   if (p <= keys[0][0]) return keys[0][1];
   for (let i = 1; i < keys.length; i++) {
@@ -1034,57 +1370,73 @@ const swordTip = () => sword.localToWorld(toVec([0, -SWORD_LEN, 0]));
 const FX = {
   repulsor(s) {
     const q = arms[s].hand.localToWorld(toVec(palmLocal[s]));
-    fireBolt(q); ring(airRings, q, 1, 1, .24, 0xc8ffd3); burst(q, 8, 4); camShake = Math.max(camShake, .09); flash = Math.max(flash, 16);
+    fireBolt(q); ring(airRings, q, 1, 1, .24, 0xc8fff0); burst(q, 8, 4); camShake = Math.max(camShake, .09); flash = Math.max(flash, 16);
   },
   land() {
     const q = fistWorld(-1);
-    ring(floorRings, q, 16, 2, .8, 0x57ff74); ring(floorRings, q, 8, 1.5, .5, 0xc8ffd3);
+    ring(floorRings, q, 16, 2, .8, 0x3dffc8); ring(floorRings, q, 8, 1.5, .5, 0xc8fff0);
     burst(q, 140, 11); camShake = .7; flash = 95;
   },
   slash(power) {
     const q = swordTip();
-    ring(airRings, q, 1.2 * power, 1, .3, 0xc8ffd3); burst(q, 22, 6); camShake = Math.max(camShake, .12 * power); flash = Math.max(flash, 22 * power);
+    ring(airRings, q, 1.2 * power, 1, .3, 0xc8fff0); burst(q, 22, 6); camShake = Math.max(camShake, .12 * power); flash = Math.max(flash, 22 * power);
   },
   skycut() {
     const q = swordTip();
-    ring(floorRings, q, 14, 2, .7, 0x57ff74); burst(q, 110, 10); fireBolt(q); camShake = .6; flash = 85;
+    ring(floorRings, q, 14, 2, .7, 0x3dffc8); burst(q, 110, 10); fireBolt(q); camShake = .6; flash = 85;
   },
   hit(s, power) {
     const q = fistWorld(s); q.z += .4;
-    ring(airRings, q, .8 + power * .55, .9, .3, 0x57ff74); burst(q, 10 + power * 8 | 0, 5);
+    ring(airRings, q, .8 + power * .55, .9, .3, 0x3dffc8); burst(q, 10 + power * 8 | 0, 5);
     camShake = Math.max(camShake, .05 + power * .07); flash = Math.max(flash, 8 + power * 11);
   },
   bolt(s) {
     const q = arms[s].fore.localToWorld(toVec(arms[s].tipLocal));
-    fireBolt(q); ring(airRings, q, .7, .8, .2, 0x57ff74); camShake = Math.max(camShake, .06); flash = Math.max(flash, 12);
+    fireBolt(q); ring(airRings, q, .7, .8, .2, 0x3dffc8); camShake = Math.max(camShake, .06); flash = Math.max(flash, 12);
   },
   rocketOut() {
     const q = arms[-1].fore.localToWorld(toVec(arms[-1].elbowLocal));
-    ring(airRings, q, 1.5, 1.1, .34, 0xc8ffd3); burst(q, 30, 6); camShake = .16; flash = 20;
+    ring(airRings, q, 1.5, 1.1, .34, 0xc8fff0); burst(q, 30, 6); camShake = .16; flash = 20;
   },
   rocketHit() {
     const q = fistWorld(-1);
-    ring(airRings, q, 2.4, 1.4, .42, 0x57ff74); burst(q, 60, 8); camShake = .22; flash = 32;
+    ring(airRings, q, 2.4, 1.4, .42, 0x3dffc8); burst(q, 60, 8); camShake = .22; flash = 32;
   },
   slam() {
     const q = fistWorld(1).add(fistWorld(-1)).multiplyScalar(.5);
-    ring(floorRings, q, 15, 1.9, .75, 0x57ff74); ring(floorRings, q, 8, 1.4, .46, 0xc8ffd3);
+    ring(floorRings, q, 15, 1.9, .75, 0x3dffc8); ring(floorRings, q, 8, 1.4, .46, 0xc8fff0);
     burst(q, 130, 11); camShake = .6; flash = 90;
   },
   tackleHit() {
     const q = arms[1].upper.localToWorld(toVec([0, .2, 0])); q.z += 1.4;
-    ring(airRings, q, 3.2, 1.5, .42, 0x57ff74); burst(q, 70, 9); camShake = .42; flash = 55;
+    ring(airRings, q, 3.2, 1.5, .42, 0x3dffc8); burst(q, 70, 9); camShake = .42; flash = 55;
   },
   beamStart() {
-    const q = spine.localToWorld(toVec(rel([0, 4.68, 1.7], pivotOf(spine))));
-    ring(airRings, q, 3.4, 1.6, .5, 0xc8ffd3); burst(q, 70, 8); camShake = .36; flash = 70;
+    const q = spine.localToWorld(toVec([0, .4, 1.3]));
+    ring(airRings, q, 3.4, 1.6, .5, 0xc8fff0); burst(q, 70, 8); camShake = .36; flash = 70;
   },
 };
+
+Object.assign(FX, {
+  singStart() { ring(airRings, lattice.position, 20, 2.2, .7, 0xc8fff0); burst(lattice.position, 120, 22); camShake = 1; flash = 150; },
+  singBit() { const a = Math.random() * Math.PI * 2, e = Math.random() * 1.1 - .2, q = new THREE.Vector3(Math.cos(a) * 44 * Math.cos(e), 36 + Math.sin(e) * 44, Math.sin(a) * 44 * Math.cos(e)); fireRay(q, lattice.position, .34, 1.8); camShake = Math.max(camShake, .4); flash = Math.max(flash, 34); },
+  singPeak() { for (const r of [18, 32, 52]) ring(airRings, lattice.position, r, 2.5, .9, 0xc8fff0); ring(floorRings, new THREE.Vector3(0, .1, 0), 62, 2.4, 1.1, 0x3dffc8); burst(lattice.position, 340, 34); camShake = 3; flash = 480; },
+  lance() { const q = RAY_FLOOR(), top = q.clone().add(new THREE.Vector3((Math.random() - .5) * 12, 150, (Math.random() - .5) * 12)); fireRay(q, top, .5, 2); ring(floorRings, q, 4.4, 1.7, .55, 0x3dffc8); burst(q, 14, 16); camShake = Math.max(camShake, .8); flash = Math.max(flash, 70); },
+  finShot(i) {
+    const f = fins[i % fins.length]; f.fin.updateWorldMatrix(true, false);
+    const q = f.fin.localToWorld(new THREE.Vector3(0, 2.4, 0)), target = new THREE.Vector3((Math.random() - .5) * 26, 8 + Math.random() * 18, 110);
+    fireRay(q, target, .36, 1.8); burst(q, 2, 10); camShake = Math.max(camShake, .32); flash = Math.max(flash, 28);
+  },
+  megaFire() { const q = new THREE.Vector3(...CHEST_AT); for (const r of [12, 24, 40]) ring(airRings, q, r, 2.6, .8, 0xc8fff0); ring(floorRings, new THREE.Vector3(0, .1, 8), 40, 2.4, .9, 0x3dffc8); burst(q, 260, 34); camShake = 3.4; flash = 560; },
+  megaRing() { const q = new THREE.Vector3(CHEST_AT[0], CHEST_AT[1], CHEST_AT[2] + 12 + Math.random() * 120); ring(airRings, q, 10 + Math.random() * 10, 1.8, .55, 0x8dffe0); camShake = Math.max(camShake, 1.5); },
+  rwStart() { ring(floorRings, new THREE.Vector3(0, .1, 0), 50, 2.2, .9, 0x3dffc8); camShake = 1.1; flash = 170; },
+  rwEnd() { ring(airRings, new THREE.Vector3(0, 16, 2), 42, 2.6, .9, 0xc8fff0); camShake = 1.7; flash = 260; },
+});
 
 /* ---------- pose ---------- */
 const clock = new THREE.Clock();
 let t = 0, ribbonNow = { 1: 0, [-1]: 0, blade: 0 };
-const glowBase = new THREE.Color(0x57ff74), THIGH = .98, SHIN = .77, ANKLE_Y = .55;
+const glowBase = new THREE.Color(0x3dffc8);
 const unit = v => Math.max(-1, Math.min(1, v));
 function legIK(l, drop, stride) { // keeps the sole flat at a fixed spot while the hips move
   const V = l.H[1] - drop - ANKLE_Y, D = Math.min(Math.hypot(stride, V), THIGH + SHIN - 1e-4);
@@ -1097,15 +1449,15 @@ function legIK(l, drop, stride) { // keeps the sole flat at a fixed spot while t
 }
 function pose(time, fw = fightW, name = act, p = name ? actT / MOVES[name].dur : 0, alt = altW, pit = pitchW) {
   const m = name ? MOVES[name] : null, ch = key => (m && m[key] ? track(p, m[key]) : 0);
-  const breathe = Math.sin(time * 1.4), idleW = (1 - fw) * (1 - pit), bob = Math.sin(time * 4.4) * fw;
+  const breathe = Math.sin(time * 1.4), idleW = (1 - fw) * (1 - pit), bob = Math.sin(time * 1.5) * fw;
 
   // flight tilts the whole body about its middle, so it rises rather than swinging from the feet
   const tilt = pit * FLY_PITCH, hover = alt * (FLY_HEIGHT + Math.sin(time * 2.1) * .14);
   root.rotation.set(tilt, ch('spin'), Math.sin(time * .9) * .05 * pit);
-  root.position.set(0, ch('leap') + hover + BODY_CENTER * (1 - Math.cos(tilt)), ch('dash') - BODY_CENTER * Math.sin(tilt));
+  root.position.set(0, ch('leap') * BODY + hover + BODY_CENTER * (1 - Math.cos(tilt)), ch('dash') * BODY - BODY_CENTER * Math.sin(tilt));
 
   const drop = fw * (GUARD_BODY.drop + bob * .03) + ch('drop');
-  pelvis.position.set(0, 2.6 - drop, 0);
+  pelvis.position.set(0, PELVIS_Y - drop, 0);
   for (const s of [-1, 1]) legIK(legs[s], drop, s * fw * GUARD_BODY.stride + ch(s > 0 ? 'sL' : 'sR'));
   for (const s of [-1, 1]) { legs[s].thigh.rotation.x += pit * .1; legs[s].shin.rotation.x += pit * .25; legs[s].foot.rotation.x += pit * .12; }
 
@@ -1114,16 +1466,17 @@ function pose(time, fw = fightW, name = act, p = name ? actT / MOVES[name].dur :
   head.rotation.y = Math.sin(time * .5) * .16 * idleW - twist * .8;
   head.rotation.x = Math.sin(time * .75) * .02 * idleW - pit * .85;
 
-  const G = POSES.guard, F = POSES.flight;
+  const G = POSES.guard, F = POSES.flight, grip = m ? track(p, [[0, 0], [.12, 1], [.88, 1], [1, 0]]) : 0;
   for (const s of [-1, 1]) {
-    const S = s > 0 ? 'L' : 'R', a = arms[s], v = i => fw * G[i] + pit * (1 - fw) * F[i] + ch(S + 'xyzfr'[i]);
+    const S = s > 0 ? 'L' : 'R', a = arms[s], v = i => (fw + idleW) * G[i] + pit * (1 - fw) * F[i] + ch(S + 'xyzfr'[i]);
     a.upper.rotation.set(v(0), s * v(1), s * (v(2) + breathe * .012 * idleW));
     a.fore.rotation.set(v(3) + Math.sin(time * 1.4 + .8) * .018 * idleW, s * v(4), 0);
     a.fore.position.copy(a.foreRest);
     if (s < 0) { const rk = ch('rk'); if (rk) a.fore.position.addScaledVector(toVec(a.foreAxis).applyEuler(a.fore.rotation), rk); }
     a.hand.rotation.x = pit * (1 - fw) * STRAIGHTEN + ch(S + 'w');
-    const closed = Math.min(1, fw) * (1 - ch('open'));
-    for (const f of a.fingers) { f.base.rotation.x = .22 + closed * 1.3; f.tip.rotation.x = .3 + closed * 1.45; }
+    a.hand.rotation.y = s * 2.6 * (fw + idleW) * (1 - grip); // palms turned to face forward
+    const closed = grip * (1 - ch('open')); // hands stay open until a move needs a fist
+    for (const f of a.fingers) { f.base.rotation.x = .05 + closed * 1.47; f.tip.rotation.x = .06 + closed * 1.69; }
     a.thumb.rotation.x = .08 + closed * .55;
     fistGlow[s].value = fw * .1 + ch(S + 'p');
     palmFlame[s].value = pit * (1 - fw) * 1.15 + alt * (1 - pit) * (1 - fw) * .7 + ch(S + 'g');
@@ -1134,7 +1487,7 @@ function pose(time, fw = fightW, name = act, p = name ? actT / MOVES[name].dur :
   const out = Math.min(1, ch('blade'));
   sword.visible = out > .01;
   swordCore.scale.y = Math.max(.001, out);
-  swordFlame.material.uniforms.len.value = SWORD_LEN * out;
+  swordFlame.material.uniforms.len.value = SWORD_LEN * BODY * out;
   swordPower.value = out * (1.05 + Math.sin(time * 37) * .06 + ch('Bp'));
   ribbonNow.blade = ch('Bt');
 
@@ -1149,13 +1502,31 @@ function pose(time, fw = fightW, name = act, p = name ? actT / MOVES[name].dur :
   if (ch('beam') > .5) camShake = Math.max(camShake, .1);
   impactLight.intensity = flash + ch('beam') * 7;
   M.glow.color.copy(glowBase).multiplyScalar(.85 + flicker * .15);
+
+  moons.rotation.z = time * .35;
+  codeRings.forEach(r => { r.t.offset.x = time * r.speed * .03; });
+  bubbleOrbit.rotation.y = -time * .12;
+  const code = Math.min(1, ch('code')); codeSky.visible = code > .01; codeSkyMat.uniforms.a.value = code;
+  const wire = ch('wire'); lattice.visible = latticeCore.visible = wire > .01; lattice.scale.setScalar(wire * 36); lattice.rotation.y = time * .4; latticeCore.scale.setScalar(ch('cite') * 1.7 + wire * 1.3);
+  megaPower.value = ch('mega') * (.9 + Math.sin(time * 47) * .1);
+  if (ch('mega') > .5) camShake = Math.max(camShake, .55);
+  const rw = ch('rw'); rewriteSheet.visible = rw > .004; rewriteMat.uniforms.p.value = rw; rewriteMat.uniforms.aspect.value = innerWidth / innerHeight;
+  satellites.rotation.y = time * .55;
+  starDust.rotation.y = time * .04;
+  const flare = Math.min(1.2, fw * .25 + ch('charge') + ch('boost') * .5);
+  finGlow.value = flicker * .7 + flare * .8;
+  for (const f of fins) {
+    f.arm.rotation.z = -f.s * (f.angle * (1 - pit * .5) + Math.sin(time * 1.2 + f.seed) * .035 * (1 - pit) + flare * .1);
+    f.fin.position.y = 1.9 + Math.sin(time * 1.7 + f.seed) * .07 + flare * .45;
+    f.fin.rotation.y = f.s * Math.sin(time * .9 + f.seed) * .14;
+  }
 }
 
 /* ---------- GLB export ---------- */
 const exportMats = new Map();
 function exportMaterial(mat) {
   if (!exportMats.has(mat)) {
-    exportMats.set(mat, mat.isMeshToonMaterial ? new THREE.MeshStandardMaterial({ color: mat.color, roughness: .6, metalness: .15, side: mat.side }) : mat.clone());
+    exportMats.set(mat, mat.isMeshToonMaterial ? new THREE.MeshStandardMaterial({ color: mat.color, roughness: .6, metalness: .15, side: mat.side }) : mat.isShaderMaterial ? new THREE.MeshBasicMaterial({ color: 0x0b3a44, side: mat.side }) : mat.clone());
   }
   return exportMats.get(mat);
 }
@@ -1222,6 +1593,7 @@ function animate() {
   }
   updateFx(dt);
   updateBolts(dt);
+  updateRays(dt);
   updateWind(dt, pitchW);
   due.forEach(([, fx, ...args]) => FX[fx](...args));
   for (const r of Object.values(ribbons)) r.draw(t);
@@ -1230,7 +1602,7 @@ function animate() {
     if (camera.position.distanceTo(goal) < .02) goal = null;
   }
   controls.update();
-  const off = new THREE.Vector3((Math.random() - .5) * camShake, (Math.random() - .5) * camShake, 0);
+  const off = new THREE.Vector3((Math.random() - .5) * camShake * 2.4, (Math.random() - .5) * camShake * 2.4, 0);
   camera.position.add(off);
   renderer.render(scene, camera);
   camera.position.sub(off);

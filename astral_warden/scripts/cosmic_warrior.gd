@@ -12,10 +12,39 @@ const FLAME := preload("res://shaders/flame.gdshader")
 const AURA := preload("res://shaders/blade_aura.gdshader")
 const WING := preload("res://shaders/cosmic_wing.gdshader")
 const STAR := preload("res://shaders/star_spark.gdshader")
+const GOD_RAYS := preload("res://shaders/god_rays.gdshader")
+const MANDALA := preload("res://shaders/mandala.gdshader")
 
 const MODEL_SCALE := 0.36
 const GRIP_ANGLE := 0.75
 const BLADE_LENGTH := 3.5
+const SUPREME_SCALE := 1.9 ## The same growth as the web model.
+const GLOW_GOLD := {0x5f8dff: 0xffd98a, 0x8fb8ff: 0xffe3a0, 0x4d6cff: 0xffc24d, 0x7fc8ff: 0xffe6b0}
+# Upright and loose in the air, and stretched out at speed.
+const FLY_HOVER := {
+	"legL": Vector3(-0.22, 0, 0.04), "shinL": Vector3(0.42, 0, 0), "footL": Vector3(0.6, 0, 0),
+	"legR": Vector3(0.1, 0, -0.04), "shinR": Vector3(0.3, 0, 0), "footR": Vector3(0.55, 0, 0),
+	"root": Vector3.ZERO, "upper": Vector3(0.02, 0, 0),
+	"armR": Vector3(-0.2, 0, -0.42), "foreR": Vector3(-0.45, 0, 0), "hand_R": Vector3.ZERO,
+	"armL": Vector3(-0.2, 0, 0.42), "foreL": Vector3(-0.45, 0, 0),
+}
+const FLY_FAST := {
+	"legL": Vector3(0.08, 0, 0.02), "shinL": Vector3(0.18, 0, 0), "footL": Vector3(0.9, 0, 0),
+	"legR": Vector3(0.24, 0, -0.02), "shinR": Vector3(0.34, 0, 0), "footR": Vector3(0.9, 0, 0),
+	"root": Vector3.ZERO, "upper": Vector3(-0.42, 0, 0),
+	"armR": Vector3(0.55, 0, -0.16), "foreR": Vector3(-0.12, 0, 0), "hand_R": Vector3.ZERO,
+	"armL": Vector3(0.55, 0, 0.16), "foreL": Vector3(-0.12, 0, 0),
+}
+const ORBIT_HUES := [0xff6ad5, 0x6ae0ff, 0xffd86a, 0x8dff9a, 0xb08cff]
+# The supreme form stands at ease, hands open: it has no need to raise them.
+const GOD_IDLE := {
+	"legL": Vector3(-0.08, 0, 0.03), "shinL": Vector3(0.16, 0, 0),
+	"legR": Vector3(0.04, 0, -0.03), "shinR": Vector3(0.22, 0, 0),
+	"root": Vector3.ZERO,
+	"upper": Vector3(-0.03, 0, 0),
+	"armR": Vector3(-0.14, 0, -0.26), "foreR": Vector3(-0.62, 0, 0), "hand_R": Vector3.ZERO,
+	"armL": Vector3(-0.14, 0, 0.26), "foreL": Vector3(-0.62, 0, 0),
+}
 
 const ARMED_STANCE := {"armR": Vector3(-0.3, 0, 0.42), "foreR": Vector3(-0.95, 0, 0), "hand_R": Vector3(-0.35, 0, 0)}
 # Sprinting with the blade swept out behind, clear of the legs.
@@ -52,6 +81,24 @@ var _blade_power := 0.0
 var _blade_goal := 0.0
 
 var is_armed := false
+var is_supreme := false
+var _body: Node3D
+var _god_nodes: Array[Node3D] = []
+var _form_swaps: Array = [] ## [material, parameter, first form value, supreme value]
+var _suit: ShaderMaterial
+var _nebula: Texture2D
+var _infinity: Node3D
+var _armillary: Node3D
+var _orbits: Array = [] ## [spinning node, speed]
+var _rays: ShaderMaterial
+var _scale_goal := 1.0
+var _hover := 0.0
+var _blade_growth := 0.0
+var _flying := false
+var _fly_goal := 0.0
+var _fly_pace := 0.0
+var _tilt := 0.0
+var _mandala_node: Node3D
 var _holder: Node3D
 var _reveal_point: Node3D
 var _draw_sparks: CPUParticles3D
@@ -95,7 +142,9 @@ func _init() -> void:
 	leg_metres = (thigh + shin_length) * MODEL_SCALE
 	forge = MeshForge.new(_make_materials())
 	_build()
+	_build_supreme()
 	forge.commit()
+	_clone_wings()
 	forge = null
 	set_armed_instant(false)
 
@@ -106,6 +155,7 @@ func _make_materials() -> Dictionary:
 	_wing_rim = rim
 	var blade_outline := _hull(Color.hex(0x120a3aff), 0.02)
 	var nebula := ImageTexture.create_from_image(AstralTerrain.make_nebula_tile(512, 11))
+	_nebula = nebula
 	var wing_image := ImageTexture.create_from_image(AstralTerrain.make_wing_image(1024, 23))
 
 	var cosmic := ShaderMaterial.new()
@@ -134,14 +184,29 @@ func _make_materials() -> Dictionary:
 	_hand_materials = [hand_suit, hand_deep]
 	_edge = _flat(0xc4ecff, 1.8)
 	_blade_materials = [blade_cosmic, blade_outline, blade_deep, blade_lite, blade_ice, _edge]
-	return {
+	var made := {
 		"armor": _toon(0x4f2db4, outline), "lite": _toon(0x7450e4, outline), "deep": _toon(0x35197f, outline),
 		"suit": _toon(0x211d6a, outline), "sole": _toon(0x241254, outline),
 		"handSuit": hand_suit, "handDeep": hand_deep,
 		"cosmic": cosmic, "wing": wing,
 		"white": _flat(0xffffff, 2.2), "ice": _flat(0xc4ecff, 1.8), "line": _flat(0xbfdcff, 1.6), "neon": _flat(0x6f8dff, 1.8),
+		"god_gold": _flat(0xf4c95d, 1.5),
 		"blade_edge": _edge, "blade_cosmic": blade_cosmic, "blade_deep": blade_deep, "blade_lite": blade_lite, "blade_ice": blade_ice,
 	}
+	_suit = made["suit"]
+	# The new palette from cosmic_warrior.html: white and gold over the night sky.
+	for pair: Array in [["armor", 0xf0ecff], ["lite", 0xf4c95d], ["deep", 0x1c1450], ["sole", 0xb88a2c], ["handSuit", 0xf0ecff], ["handDeep", 0xf4c95d], ["blade_deep", 0x1c1450], ["blade_lite", 0xf4c95d]]:
+		_remember(made[pair[0]], "albedo", pair[1])
+	for pair: Array in [["ice", 0xfff6d8], ["line", 0xfff2c4], ["neon", 0xffe9a8], ["blade_ice", 0xfff6d8], ["blade_edge", 0xfff6d8]]:
+		_remember(made[pair[0]], "color", pair[1])
+	_remember(rim, "color", 0xf4c95d)
+	_remember(hand_suit, "emissive", 0xffd98a)
+	_remember(hand_deep, "emissive", 0xffd98a)
+	return made
+
+
+func _remember(material: ShaderMaterial, parameter: String, supreme_hex: int) -> void:
+	_form_swaps.append([material, parameter, material.get_shader_parameter(parameter), Color.hex((supreme_hex << 8) | 0xff)])
 
 
 func _hull(color: Color, thickness: float) -> ShaderMaterial:
@@ -176,6 +241,8 @@ func _glow(parent: Node3D, xf: Transform3D, size: float, hex: int, strength := 1
 	m.shader = GLOW
 	m.set_shader_parameter("color", Color.hex((hex << 8) | 0xff))
 	m.set_shader_parameter("strength", strength)
+	if GLOW_GOLD.has(hex):
+		_remember(m, "color", GLOW_GOLD[hex])
 	quad.material = m
 	var instance := MeshInstance3D.new()
 	instance.mesh = quad
@@ -196,6 +263,7 @@ func _build() -> void:
 	var body := Node3D.new()
 	body.scale = Vector3.ONE * MODEL_SCALE
 	add_child(body)
+	_body = body
 	root_joint = Node3D.new()
 	root_joint.name = "Root"
 	root_joint.rotation_order = EULER_ORDER_XYZ
@@ -264,6 +332,229 @@ func _build_helmet(upper: Node3D) -> void:
 		var eye := MeshForge.xform(Vector3(s * 0.24, 4.66, 0.61), Vector3(0, s * 0.3, 0))
 		f.add(upper, eye, MeshForge.shape_geo(pts, 0.02), "white")
 		_glow(upper, eye * Transform3D(Basis.IDENTITY, Vector3(0, 0, 0.02)), 0.9, 0x5f8dff, 0.9)
+
+
+# ------------------------------------------------------------- the supreme form
+
+func _god_node(parent: Node3D, pos := Vector3.ZERO) -> Node3D:
+	var node := Node3D.new()
+	node.position = pos
+	node.visible = false
+	node.rotation_order = EULER_ORDER_XYZ
+	parent.add_child(node)
+	_god_nodes.append(node)
+	return node
+
+
+## Everything the new form wears that the first does not, hidden until the change.
+func _build_supreme() -> void:
+	var f := forge
+	var I := Transform3D.IDENTITY
+	var upper: Node3D = joints["upper"]
+	var dress := _god_node(upper)
+
+	# A star crown over the helmet, and the sign of infinity above it.
+	f.add(dress, MeshForge.xform(Vector3(0, 5.98, -0.05), Vector3(PI * 0.5, 0, 0)), MeshForge.torus_geo(1.0, 0.04, 8, 64), "lite", true)
+	for i in 12:
+		var a := i / 12.0 * TAU
+		var tall := 0.42 if i % 2 == 1 else 0.8
+		f.limb(dress, I, Vector3(cos(a), 5.98, sin(a) - 0.05), Vector3(cos(a) * 1.24, 5.98 + tall, sin(a) * 1.24 - 0.05), [[0.0, 0.055], [1.0, 0.006]], "lite", 1.0, 6)
+	_infinity = _god_node(upper, Vector3(0, 7.15, -0.05))
+	var point := func(u: float) -> Vector3:
+		var t := u * TAU
+		var d := 1.0 + pow(sin(t), 2.0)
+		return Vector3(0.68 * cos(t) / d, 0.68 * sin(t) * cos(t) / d * 1.5, 0)
+	var previous: Vector3 = point.call(0.0)
+	for i in range(1, 49):
+		var next: Vector3 = point.call(i / 48.0)
+		f.limb(_infinity, I, previous, next, [[0.0, 0.05], [1.0, 0.05]], "ice", 1.0, 6)
+		previous = next
+	_glow(_infinity, I, 3.0, 0xffe6b0, 0.85)
+
+	# A mantle of the night sky, hemmed in gold.
+	var mantle := func(k: float) -> Array:
+		return [[-0.55 * k, 3.95], [0.55 * k, 3.95], [1.08 * k, 0.38], [0.52 * k, 0.2], [0.0, 0.05], [-0.52 * k, 0.2], [-1.08 * k, 0.38]]
+	var sheet := func(k: float, z: float, mat: String) -> void:
+		var geo := MeshForge.shape_geo(mantle.call(k), 0.02)
+		for i in geo.points.size():
+			var p := geo.points[i]
+			p.z += z - (3.95 - p.y) * 0.24 # Trails out behind the legs.
+			geo.points[i] = p
+		var soup := f.prepare(geo)
+		for i in soup.pos.size():
+			soup.uv[i] = Vector2(absf(soup.pos[i].x) / 2.9, 1.0 - (soup.pos[i].y - 2.1) / 3.1)
+		f.add_soup(dress, I, soup, mat)
+	sheet.call(1.07, -0.69, "lite")
+	sheet.call(1.0, -0.66, "wing")
+	sheet.call(0.97, -0.72, "wing")
+
+	# A sunburst on the breast, bracers and greaves.
+	for i in 16:
+		var a := i / 16.0 * TAU
+		var r := 0.78 if i % 2 == 1 else 1.02
+		f.plate(dress, MeshForge.xform(Vector3(cos(a) * 0.6, 3.48 + sin(a) * 0.6, 0.66), Vector3(0, 0, a - PI * 0.5)), [[-0.045, 0.0], [0.045, 0.0], [0.0, r - 0.6]], 0.02, "neon")
+	for s: float in [-1.0, 1.0]:
+		var suffix := "L" if s > 0.0 else "R"
+		f.add(_god_node(joints["fore" + suffix]), MeshForge.xform(Vector3(s * 0.36, -0.48, 0.07), Vector3(1.25, s * 0.35, 0)), MeshForge.torus_geo(0.31, 0.05, 8, 22), "lite", true)
+		f.add(_god_node(joints["shin" + suffix]), MeshForge.xform(Vector3(s * 0.08, -0.86, 0.02), Vector3(PI * 0.5, 0, 0)), MeshForge.torus_geo(0.36, 0.05, 8, 22), "lite", true)
+
+	# The armillary of the multiverse: tilted orbits, each carrying small universes.
+	_armillary = _god_node(root_joint, Vector3(0, 3.2, 0))
+	var n := 0
+	for orbit: Array in [[3.2, Vector3(1.2, 0, 0.3), 0.23], [2.96, Vector3(0.3, 0.5, 1.3), -0.31], [3.08, Vector3(PI * 0.5 + 0.55, 0.9, 0), 0.17]]:
+		var tilt := _god_node(_armillary)
+		tilt.rotation = orbit[1]
+		var spin := _god_node(tilt)
+		f.add(tilt, I, MeshForge.torus_geo(orbit[0], 0.022, 6, 110), "god_gold", true)
+		for i in 5:
+			var a: float = i / 5.0 * TAU + n
+			var at := Vector3(cos(a) * orbit[0], sin(a) * orbit[0], 0)
+			var size: float = 0.11 + (i * 7 % 5) * 0.022
+			f.add(spin, MeshForge.xform(at), MeshForge.sphere_geo(size, 12, 10), "cosmic", true)
+			_add_orbit_spark(spin, at, size * 11.0, ORBIT_HUES[i])
+		_orbits.append([spin, orbit[2]])
+		n += 1
+
+	# Light of creation, always behind the body.
+	var quad := QuadMesh.new()
+	quad.size = Vector2(2, 2)
+	_rays = ShaderMaterial.new()
+	_rays.shader = GOD_RAYS
+	_rays.set_shader_parameter("half_size", 10.5 * MODEL_SCALE * SUPREME_SCALE)
+	_rays.set_shader_parameter("depth", 1.5)
+	quad.material = _rays
+	var rays := MeshInstance3D.new()
+	rays.mesh = quad
+	rays.position = Vector3(0, 3.2, 0)
+	rays.extra_cull_margin = 30.0
+	rays.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_god_node(root_joint).add_child(rays)
+
+	# The mandala of creation under the feet. It stays on the ground when the body rises.
+	var plane := PlaneMesh.new()
+	plane.size = Vector2(7.4, 7.4)
+	var mandala_material := ShaderMaterial.new()
+	mandala_material.shader = MANDALA
+	plane.material = mandala_material
+	var mandala := MeshInstance3D.new()
+	mandala.mesh = plane
+	mandala.position.y = 0.12
+	mandala.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_mandala_node = _god_node(_body)
+	_mandala_node.add_child(mandala)
+
+
+func _add_orbit_spark(parent: Node3D, at: Vector3, size: float, hex: int) -> void:
+	var quad := QuadMesh.new()
+	quad.size = Vector2(size, size)
+	var material := ShaderMaterial.new()
+	material.shader = STAR
+	material.set_shader_parameter("tint", Color.hex((hex << 8) | 0xff))
+	material.set_shader_parameter("boost", 1.2)
+	quad.material = material
+	var spark := MeshInstance3D.new()
+	spark.mesh = quad
+	spark.position = at
+	spark.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	parent.add_child(spark)
+
+
+## Six wings: the original pair, a greater pair above and a lesser pair below.
+func _clone_wings() -> void:
+	for s: float in [-1.0, 1.0]:
+		var wing: Node3D = _wings[s]
+		var pieces: Array[Node] = []
+		for child in wing.get_children():
+			if not child is CPUParticles3D:
+				pieces.append(child)
+		for pair: Array in [[0.62, 1.2], [-0.58, 0.86]]:
+			var group := _god_node(wing)
+			group.rotation.z = s * pair[0]
+			group.scale = Vector3.ONE * pair[1]
+			for piece in pieces:
+				group.add_child(piece.duplicate())
+
+
+## Swaps the whole body between its two forms. `snap` skips the change of size.
+func set_form(supreme: bool, snap := false) -> void:
+	is_supreme = supreme
+	for swap: Array in _form_swaps:
+		swap[0].set_shader_parameter(swap[1], swap[3] if supreme else swap[2])
+	# Beneath the armour the supreme body is the universe itself.
+	_suit.shader = COSMIC if supreme else TOON
+	if supreme:
+		_suit.set_shader_parameter("nebula", _nebula)
+		_suit.set_shader_parameter("u_scale", MeshForge.TILE)
+	for node in _god_nodes:
+		node.visible = supreme
+	for m in _flames:
+		m.set_shader_parameter("gold", 1.0 if supreme else 0.0)
+	var warm := Color(1.0, 0.82, 0.5)
+	var cool := Color(0.62, 0.5, 1.0)
+	_blade_light.light_color = warm if supreme else cool
+	for light in _hand_lights:
+		light.light_color = Color.hex(0xffd98aff) if supreme else Color.hex(0xb49cffff)
+	_aura.set_shader_parameter("tint", Color(1.0, 0.72, 0.3) if supreme else Color(0.6, 0.48, 1.0))
+	_scale_goal = SUPREME_SCALE if supreme else 1.0
+	if snap:
+		scale = Vector3.ONE * _scale_goal
+		_hover = 0.0
+	set_blade_growth(0.0)
+	_apply_grip()
+
+
+## 0 is the normal blade; 1 is the sword of INFINITY EDGE.
+func set_blade_growth(amount: float) -> void:
+	# The supreme form's sword is never less than half drawn out of the universe.
+	var size := maxf(amount, 0.5 if is_supreme else 0.0)
+	_blade_growth = size
+	_holder.scale = Vector3(1.0 + size * 1.4, 1.0 + size * 1.4, 1.0 + size * 3.5)
+
+
+## `pace` runs from 0 (hovering) to 1 (flat out).
+func set_flight(on: bool, pace: float) -> void:
+	if on != _flying:
+		_flying = on
+		_apply_grip()
+	_fly_goal = pace
+
+
+func _update_flight(delta: float) -> void:
+	_fly_pace = lerpf(_fly_pace, _fly_goal if _flying else 0.0, 1.0 - exp(-delta * 5.0))
+	if _flying:
+		var blended := {}
+		for joint_name: String in FLY_HOVER:
+			blended[joint_name] = (FLY_HOVER[joint_name] as Vector3).lerp(FLY_FAST[joint_name], _fly_pace)
+		if is_armed:
+			for joint_name: String in ["armR", "foreR", "hand_R"]:
+				blended[joint_name] = ARMED_IDLE[joint_name]
+		idle_pose = blended
+	var tilt_goal := _fly_pace * 1.2 if _flying and action == "" else 0.0
+	_tilt = lerpf(_tilt, tilt_goal, 1.0 - exp(-delta * 7.0))
+	# Pitched about the waist, so the body does not swing forward off its own position.
+	var waist := Vector3(0, pivot.y * MODEL_SCALE, 0)
+	_body.transform.basis = Basis(Vector3.RIGHT, _tilt) * Basis.from_scale(Vector3.ONE * MODEL_SCALE)
+	_body.position = waist - Basis(Vector3.RIGHT, _tilt) * waist
+	_mandala_node.visible = is_supreme and not _flying
+
+
+func _update_supreme(delta: float) -> void:
+	scale = scale.lerp(Vector3.ONE * _scale_goal, 1.0 - exp(-delta * 7.0))
+	_update_flight(delta)
+	if not is_supreme:
+		_hover = lerpf(_hover, 0.0, 1.0 - exp(-delta * 10.0))
+	else:
+		# Floats while still, and sets its feet down to run.
+		var still := 1.0 - clampf(speed / 2.0, 0.0, 1.0)
+		var hovering := (action == "" or action == "drink") and not _flying
+		var goal := (0.26 + sin(_flap * 1.1) * 0.05) * still if hovering else 0.0
+		_hover = lerpf(_hover, goal, 1.0 - exp(-delta * 6.0))
+		_infinity.rotation.y = _flap * 0.5
+		_armillary.rotation.y = _flap * 0.05
+		for orbit: Array in _orbits:
+			orbit[0].rotation.z = _flap * orbit[1]
+		_rays.set_shader_parameter("power", 0.5 + _charge * 0.25 + sin(_flap * 2.2) * 0.03)
+	root_joint.position.y += _hover / MODEL_SCALE
 
 
 func _neon(joint: Node3D, xf: Transform3D, pts: Array, z: float, width: float, mat: String) -> void:
@@ -605,7 +896,7 @@ func _apply_grip() -> void:
 			stance[joint_name] = ARMED_STANCE[joint_name]
 		else:
 			stance.erase(joint_name)
-	idle_pose = ARMED_IDLE if is_armed else UNARMED_IDLE
+	idle_pose = ARMED_IDLE if is_armed else (GOD_IDLE if is_supreme else UNARMED_IDLE)
 	run_hold = ARMED_RUN if is_armed else {}
 	right_hand_free = not is_armed
 	set_palms(1.6 if is_armed else 2.18)
@@ -721,6 +1012,10 @@ func _update_wings(delta: float) -> void:
 			goal_sweep = 0.55 if _blade_goal < 0.9 else -0.32
 			goal_lift = 0.08 if _blade_goal < 0.9 else 0.3
 			charge_goal = 0.35 if _blade_goal < 0.9 else 1.0
+		"ascend", "sky_spread", "edge", "erasure", "bigbang":
+			goal_sweep = -0.45
+			goal_lift = 0.34
+			charge_goal = 1.0
 		"death":
 			goal_sweep = 0.5
 			goal_lift = -0.7
@@ -728,6 +1023,10 @@ func _update_wings(delta: float) -> void:
 		"rest":
 			goal_sweep = 0.9
 			goal_lift = -0.35
+	if _flying and action == "":
+		goal_sweep = 0.1 + _fly_pace * 0.55
+		goal_lift = 0.2 + sin(_flap * 3.2) * (0.16 - _fly_pace * 0.1)
+		charge_goal = 0.45 + _fly_pace * 0.45
 	if guarding:
 		goal_sweep = -0.75
 		goal_lift = 0.05
@@ -841,6 +1140,7 @@ func _process(delta: float) -> void:
 	update_pose(delta)
 	_update_draw(delta)
 	_update_wings(delta)
+	_update_supreme(delta)
 
 	_blade_power = lerpf(_blade_power, _blade_goal, 1.0 - exp(-delta * (26.0 if _blade_goal > _blade_power else 7.0)))
 	_edge.set_shader_parameter("boost", 1.8 + _blade_power * 5.5)

@@ -23,10 +23,10 @@ var reward := 140
 var move_speed := 3.9
 var engage_reach := 2.5
 var max_posture := 55.0
-var state := "idle" ## idle, chase, attack, stagger, dead
+var state := "idle" ## idle, chase, attack, skill, stagger, dead
 var last_hit_time := -100.0
 
-var rig: SentinelModel
+var rig: PoseRig
 var home := Vector3.ZERO
 
 var _posture := 0.0
@@ -45,6 +45,11 @@ var _hide_clock := 0.0
 var _knock := Vector3.ZERO
 var _tick_from := Vector3.ZERO
 var _tick_to := Vector3.ZERO
+var _skill := ""
+var _skill_cooldown := 0.0
+var _skill_order := 0
+var _world_end_cooldown := 0.0
+var _skill_fired := false
 
 
 func setup(pos: Vector3, boss: bool) -> Enemy:
@@ -77,10 +82,10 @@ func _ready() -> void:
 	shape.position.y = capsule.height * 0.5
 	add_child(shape)
 
-	rig = SentinelModel.new(is_boss)
+	rig = OverlordModel.new() if is_boss else SentinelModel.new(false)
 	rig.run_speed = move_speed
 	if is_boss:
-		rig.scale = Vector3.ONE * 2.05
+		rig.scale = Vector3.ONE * 0.62
 	rig.rotation.y = randf() * TAU
 	add_child(rig)
 
@@ -94,15 +99,15 @@ func forward() -> Vector3:
 
 
 func chest_position() -> Vector3:
-	return global_position + Vector3(0, 2.6 if is_boss else 1.3, 0)
+	return global_position + Vector3(0, 3.6 if is_boss else 1.3, 0)
 
 
 func head_position() -> Vector3:
-	return global_position + Vector3(0, 4.9 if is_boss else 2.35, 0)
+	return global_position + Vector3(0, 5.8 if is_boss else 2.35, 0)
 
 
 func is_engaged() -> bool:
-	return state == "chase" or state == "attack" or state == "stagger"
+	return state == "chase" or state == "attack" or state == "stagger" or state == "skill"
 
 
 func reset() -> void:
@@ -126,6 +131,8 @@ func _physics_process(delta: float) -> void:
 		return
 	_state_time += delta
 	_cooldown -= delta
+	_skill_cooldown -= delta
+	_world_end_cooldown -= delta
 	var horizontal := Vector3.ZERO
 	if Game.state == "play" or state == "attack":
 		match state:
@@ -135,6 +142,8 @@ func _physics_process(delta: float) -> void:
 				horizontal = _chase(delta)
 			"attack":
 				horizontal = _attacking(delta)
+			"skill":
+				_using_skill(delta)
 			"stagger":
 				if _state_time >= _state_length:
 					state = "chase"
@@ -212,6 +221,8 @@ func _wake() -> void:
 	if is_boss:
 		Game.boss = self
 		Game.boss_active = true
+		_skill_cooldown = 2.5
+		_world_end_cooldown = 6.0
 
 
 func _chase(delta: float) -> Vector3:
@@ -226,6 +237,9 @@ func _chase(delta: float) -> Vector3:
 		hp = max_hp
 		return Vector3.ZERO
 	_face(to, 9.0, delta)
+	if is_boss and _skill_cooldown <= 0.0 and _cooldown <= 0.0:
+		begin_skill(_next_skill())
+		return Vector3.ZERO
 	if distance <= engage_reach + 0.6 and _cooldown <= 0.0:
 		_begin_attack()
 		return Vector3.ZERO
@@ -236,6 +250,39 @@ func _chase(delta: float) -> Vector3:
 		return to.normalized() * move_speed * (1.25 if _enraged else 1.0)
 	# In range and waiting: pace sideways so the fight keeps moving.
 	return to.normalized().cross(Vector3.UP) * _strafe * 1.6
+
+
+func _next_skill() -> String:
+	if _enraged and _world_end_cooldown <= 0.0:
+		_world_end_cooldown = 28.0
+		return "worldend"
+	_skill_order += 1
+	return OverlordSkills.ROTATION[_skill_order % OverlordSkills.ROTATION.size()]
+
+
+func begin_skill(skill: String) -> void:
+	var info: Dictionary = OverlordSkills.SKILLS[skill]
+	_skill = skill
+	_skill_fired = false
+	state = "skill"
+	_state_time = 0.0
+	_state_length = info["length"]
+	rig.position.y = 0.0
+	rig.play(info["anim"], info.get("anim_length", info["length"]))
+
+
+func _using_skill(delta: float) -> void:
+	var info: Dictionary = OverlordSkills.SKILLS[_skill]
+	var t := _state_time / _state_length
+	if not _skill_fired:
+		_face(_to_player(), 7.0, delta)
+		if t >= info["at"]:
+			_skill_fired = true
+			OverlordSkills.fire(self, _skill)
+	if t >= 1.0:
+		state = "chase"
+		_cooldown = randf_range(0.5, 1.2)
+		_skill_cooldown = randf_range(4.5, 7.5) * (0.6 if _enraged else 1.0)
 
 
 func _begin_attack() -> void:
@@ -311,8 +358,8 @@ func _land_slam() -> void:
 	_did_hit = true
 	rig.position.y = 0.0
 	var at := global_position
-	Fx.ring(at, _attack["reach"], Color(1.0, 0.75, 0.3), 0.4)
-	Fx.burst(at + Vector3(0, 0.3, 0), Color(1.0, 0.75, 0.3), 46, 13.0, 0.09)
+	Fx.ring(at, _attack["reach"], Color(1.0, 0.16, 0.22), 0.4)
+	Fx.burst(at + Vector3(0, 0.3, 0), Color(1.0, 0.16, 0.22), 46, 13.0, 0.09)
 	Game.shake(0.65)
 	if _to_player().length() < _attack["reach"]:
 		Game.player.take_damage(_attack["damage"], at)
@@ -357,10 +404,28 @@ func take_hit(damage: float, poise: float, from: Vector3, blockable: bool, tint 
 		return
 	if is_boss and not _enraged and hp < max_hp * 0.5:
 		_enraged = true
-		Fx.ring(global_position, 11.0, Color(1.0, 0.5, 0.2), 0.7)
+		Fx.ring(global_position, 11.0, Color(1.0, 0.16, 0.22), 0.7)
 		Game.shake(0.4)
 	if _posture >= max_posture and _attack.get("anim", "") != "slam":
 		_stagger()
+
+
+## Dragged along by a black hole; ignored mid-leap so a slam still lands where it was aimed.
+func pull(force: Vector3) -> void:
+	if state != "dead":
+		_knock = force
+
+
+## Held in place by the supreme form's ERASURE.
+func freeze(seconds: float) -> void:
+	if state == "dead":
+		return
+	_posture = 0.0
+	state = "stagger"
+	_state_time = 0.0
+	_state_length = seconds
+	rig.position.y = 0.0
+	rig.play("stagger", seconds)
 
 
 func _stagger() -> void:

@@ -25,7 +25,7 @@
 </script>
 </head>
 <body>
-<div id="title">CLAWD<small>ลากเพื่อหมุน · เลื่อนเพื่อซูม · คลิกขวาลากเพื่อเลื่อน<br>กด CHARGE ค้างไว้เพื่อชาร์จ ปล่อยเพื่อฟัน</small></div>
+<div id="title">CLAWD · COSMIC GUARDIAN<small>ลากเพื่อหมุน · เลื่อนเพื่อซูม · คลิกขวาลากเพื่อเลื่อน<br>กด CHARGE ค้างไว้เพื่อชาร์จ ปล่อยเพื่อฟัน</small></div>
 <div id="meter" hidden><i></i></div>
 <div id="bar">
   <button data-view="front">FRONT</button>
@@ -48,6 +48,12 @@
   <span class="gap"></span>
   <button data-act="snap">SNAP</button>
   <button data-act="roar">ROAR</button>
+  <span class="gap"></span>
+  <button data-act="pGalaxy">GALAXY</button>
+  <button data-act="pBeam">MECHA BEAM</button>
+  <button data-act="pHakai">DESTRUCTION</button>
+  <button data-act="pCrimson">CRIMSON END</button>
+  <button data-act="pErase">ERASE ALL</button>
   <span class="gap"></span>
   <button id="pause">PAUSE</button>
   <button id="pixel" class="on">PIXEL</button>
@@ -72,27 +78,27 @@ scene.background = (() => { // a short canvas, so the dusk sky falls in visible 
   t.colorSpace = THREE.SRGBColorSpace;
   return t;
 })();
-const camera = new THREE.PerspectiveCamera(26, innerWidth / innerHeight, .1, 200);
+const camera = new THREE.PerspectiveCamera(26, innerWidth / innerHeight, .1, 900);
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.BasicShadowMap;
 document.body.appendChild(renderer.domElement);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
-controls.target.set(0, 3.05, 0);
-controls.minDistance = 5; controls.maxDistance = 50;
+controls.target.set(0, 9.6, 0);
+controls.minDistance = 10; controls.maxDistance = 240;
 
 scene.add(new THREE.HemisphereLight(0x7f7fc8, 0x5a2016, 1.35));
 const key = new THREE.DirectionalLight(0xffd7ad, 2.7);
-key.position.set(-4, 12, 9); key.castShadow = true;
+key.position.set(-10, 30, 22); key.castShadow = true;
 key.shadow.mapSize.set(2048, 2048);
-Object.assign(key.shadow.camera, { left: -9, right: 9, top: 10, bottom: -6, far: 40 });
+Object.assign(key.shadow.camera, { left: -26, right: 26, top: 26, bottom: -14, far: 90 });
 key.shadow.bias = -.0015; key.shadow.normalBias = .03;
 scene.add(key);
 const rimLight = new THREE.DirectionalLight(0x45dcff, 3.2); // cool rim against the warm body
 rimLight.position.set(6, 7, -10); scene.add(rimLight);
 const emberLight = new THREE.PointLight(0xff5a1c, 10, 16, 1.4);
-emberLight.position.set(0, 1.1, 2.6); scene.add(emberLight);
+emberLight.position.set(0, 3, 8); emberLight.distance = 44; scene.add(emberLight);
 
 /* ---------- pixel-art surface ---------- */
 let seed = 7;
@@ -122,10 +128,29 @@ ramp.magFilter = ramp.minFilter = THREE.NearestFilter; ramp.needsUpdate = true;
 
 const toon = color => new THREE.MeshToonMaterial({ color, map: noise, gradientMap: ramp });
 const flat = color => new THREE.MeshBasicMaterial({ color, toneMapped: false });
+const godTime = { value: 0 };
+const spaceMat = new THREE.ShaderMaterial({ // pixel-stepped, to sit with the rest of the sprite-like armour
+  uniforms: { time: godTime },
+  vertexShader: `varying vec3 vP; void main(){ vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }`,
+  fragmentShader: `uniform float time; varying vec3 vP;
+    float h(vec3 p){ return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }
+    float n(vec3 p){ vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f);
+      return mix(mix(mix(h(i), h(i + vec3(1,0,0)), f.x), mix(h(i + vec3(0,1,0)), h(i + vec3(1,1,0)), f.x), f.y),
+                 mix(mix(h(i + vec3(0,0,1)), h(i + vec3(1,0,1)), f.x), mix(h(i + vec3(0,1,1)), h(i + vec3(1,1,1)), f.x), f.y), f.z); }
+    void main(){
+      vec3 q = floor(vP * 26.) / 26.;
+      float a = (n(q * 2.1 + time * .05) + .5 * n(q * 5.2 - time * .08)) / 1.5;
+      vec3 col = mix(vec3(.04, .02, .13), vec3(.36, .07, .42), smoothstep(.34, .72, a));
+      col += vec3(.95, .34, .08) * smoothstep(.66, .86, a);
+      float r = h(floor(vP * 13.));
+      col += vec3(1., .95, .8) * step(.955, r) * (.55 + .45 * sin(time * (1.5 + r * 5.) + r * 50.)) * 1.5;
+      gl_FragColor = vec4(col, 1.);
+    }`,
+});
 const M = {
-  orange: toon(0xe8430c), bright: toon(0xff6318), hot: toon(0xffa23a), dark: toon(0x9c2a12),
-  steel: toon(0x262a3a), steelLite: toon(0x454e68), gold: toon(0xf0b13a), ember: flat(0xff7a22),
-  black: flat(0x130d0b), eyeHalo: flat(0xffa425), eye: flat(0xfffbe6),
+  orange: toon(0xf0480c), bright: toon(0xff6c1c), hot: toon(0xffe08a), dark: spaceMat,
+  steel: spaceMat, steelLite: toon(0xf0c050), gold: toon(0xffd25a), ember: flat(0xfff0c0),
+  black: flat(0x130d0b), eyeHalo: flat(0xffe9a0), eye: flat(0xffffff),
   badge: flat(0xffb340), letter: flat(0xfff0c2),
 };
 
@@ -150,7 +175,7 @@ const floorFade = (() => { // separate from the tile, so the floor can scroll un
   return new THREE.CanvasTexture(c);
 })();
 const ground = new THREE.Mesh(new THREE.PlaneGeometry(56, 56), new THREE.MeshToonMaterial({ map: floorTile, alphaMap: floorFade, gradientMap: ramp, transparent: true, depthWrite: false }));
-ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+ground.rotation.x = -Math.PI / 2; ground.scale.set(3, 3, 1); ground.receiveShadow = true; scene.add(ground);
 
 const hullMat = new THREE.ShaderMaterial({
   side: THREE.BackSide,
@@ -159,6 +184,7 @@ const hullMat = new THREE.ShaderMaterial({
     void main(){ gl_Position = projectionMatrix * modelViewMatrix * vec4(position + smoothNormal * t, 1.); }`,
   fragmentShader: `void main(){ gl_FragColor = vec4(.05,.03,.06,1.); }`,
 });
+const headHull = hullMat.clone(); headHull.uniforms.t.value = .036 / .55;
 
 function prepare(geo) {
   const g = geo.index ? geo.toNonIndexed() : geo;
@@ -219,97 +245,166 @@ function shapeGeo(points, depth, bevel = 0, holes = []) {
 /* ---------- body ---------- */
 const root = new THREE.Group(); scene.add(root);
 const upper = new THREE.Group(); root.add(upper);
+const pelvis = new THREE.Group(); root.add(pelvis);
 
-// a faceted carapace over a glowing seam, then an abdomen of narrowing plates
-add(upper, shapeGeo([[-1.12, -.57], [1.12, -.57], [1.24, .02], [1, .57], [-1, .57], [-1.24, .02]], 2.1), M.orange, [0, 3.35, 0]);
-add(upper, shapeGeo([[-.95, -.39], [.95, -.39], [1.12, .39], [-1.12, .39]], 1.98), M.orange, [0, 2.4, 0]);
-box(upper, [0, 2.78, 0], [2.28, .05, 2.03], M.ember);
-for (let i = 0; i < 5; i++) box(upper, [0, 2 - i * .21, 0], [2.02 - i * .2, .22, 1.76 - i * .14], i % 2 ? M.dark : M.steel);
-for (const s of [-1, 1]) box(upper, [s * .72, 2, .89], [.3, .12, .06], M.gold);
+const THIGH = 1.3, SHIN = 1.25, ANKLE_Y = .45, HIP_Y = 2.87, LEG_SPLAY = .1; // the torso tilts about the hips
+
+// the head is the original armoured block, now a helmet on a neck
+const NECK_Y = 5.25, HEAD_K = [.52, .8, .55];
+seg(upper, [0, 4.92, 0], [0, 5.4, 0], .36, .3, M.steel, 7);
+const neck = new THREE.Group(); neck.position.y = NECK_Y; upper.add(neck);
+const head = new THREE.Group(); head.position.y = -2.78 * HEAD_K[1]; head.scale.set(...HEAD_K); neck.add(head);
+
+add(head, shapeGeo([[-1.12, -.57], [1.12, -.57], [1.24, .02], [1, .57], [-1, .57], [-1.24, .02]], 2.1), M.orange, [0, 3.35, 0]);
+box(head, [0, 2.8, 0], [2.26, .05, 2.03], M.ember);
 
 // feelers that lean forward, clear of the sword's arc
 const antennae = [];
 for (const s of [-1, 1]) {
-  const a = new THREE.Group(); a.position.set(s * .42, 3.9, .82); upper.add(a);
+  const a = new THREE.Group(); a.position.set(s * .42, 3.9, .82); head.add(a);
   const pts = [[0, 0, 0], [s * .25, .35, .3], [s * .55, .55, .7], [s * .95, .5, 1.05]], radii = [.08, .06, .04, .012];
   for (let i = 0; i < 3; i++) seg(a, pts[i], pts[i + 1], radii[i], radii[i + 1], i === 2 ? M.hot : M.dark, 5);
   antennae.push({ group: a, s });
-  spike(upper, [s * .72, 3.02, 1], [s * .46, 2.86, 1.34], .09, M.gold); // mandible
+  spike(head, [s * .72, 3.02, 1], [s * .46, 2.86, 1.34], .09, M.gold); // mandible
 }
 
 // head spikes: two rows of three, plus one centred
 for (const [x, z, h] of [[-.76, .62, .42], [0, .62, .34], [.76, .62, .46], [-.76, -.55, .4], [0, -.55, .46], [.76, -.55, .36], [.3, .03, .32]])
-  spike(upper, [x, 3.9, z], [x, 3.92 + h, z], .15);
+  spike(head, [x, 3.9, z], [x, 3.92 + h, z], .15);
 
 // face
 for (const s of [-1, 1]) {
   const eye = k => [[-.21 * k, .03 * k], [.2 * k, .17 * k], [.23 * k, -.03 * k], [.1 * k, -.15 * k], [-.11 * k, -.15 * k]].map(([o, y]) => [s * o, y]);
-  add(upper, shapeGeo(eye(1.32), .02), M.eyeHalo, [s * .52, 3.47, 1.055], [0, 0, 0], false);
-  add(upper, shapeGeo(eye(.8), .02), M.eye, [s * .52, 3.47, 1.075], [0, 0, 0], false);
-  box(upper, [s * .53, 3.66, 1.1], [.88, .17, .17], M.steel, [0, 0, s * .58]);
+  add(head, shapeGeo(eye(1.32), .02), M.eyeHalo, [s * .52, 3.47, 1.055], [0, 0, 0], false);
+  add(head, shapeGeo(eye(.8), .02), M.eye, [s * .52, 3.47, 1.075], [0, 0, 0], false);
+  box(head, [s * .53, 3.66, 1.1], [.88, .17, .17], M.steel, [0, 0, s * .58]);
 }
-box(upper, [0, 3.2, 1.06], [.34, .055, .03], M.black);
-for (const s of [-1, 1]) box(upper, [s * .24, 3.155, 1.06], [.2, .055, .03], M.black, [0, 0, s * .62]);
+box(head, [0, 3.2, 1.06], [.34, .055, .03], M.black);
+for (const s of [-1, 1]) box(head, [s * .24, 3.155, 1.06], [.2, .055, .03], M.black, [0, 0, s * .62]);
+
+// the helmet's rear plate and studs
+box(head, [0, 3.28, -1.08], [1.9, .86, .08], M.bright);
+for (const [x, y, h] of [[-.95, 3.72, .24], [.95, 3.72, .24], [-.47, 3.42, .3], [.47, 3.42, .3]]) {
+  seg(head, [x, y, -1.1], [x, y, -1.18], .16, .15, M.hot, 6);
+  spike(head, [x, y, -1.18], [x, y, -1.18 - h], .13, M.hot);
+}
+head.traverse(o => { if (o.material === hullMat) o.material = headHull; }); // the head is scaled, so its outline must not be
+
+// a tapered chest over the glowing seam, then an abdomen of narrowing plates
+add(upper, shapeGeo([[-.72, -.65], [.72, -.65], [1.14, .35], [.9, .65], [-.9, .65], [-1.14, .35]], 1.15), M.orange, [0, 4.35, 0]);
+box(upper, [0, 3.68, 0], [1.52, .05, 1.02], M.ember);
+for (let i = 0; i < 4; i++) box(upper, [0, 3.54 - i * .19, 0], [1.36 - i * .08, .2, 1 - i * .05], i % 2 ? M.dark : M.steel);
+for (const s of [-1, 1]) box(upper, [s * .44, 3.54, .51], [.26, .1, .06], M.gold);
 
 // chest badge
-box(upper, [0, 2.38, 1.01], [1.02, .78, .06], M.dark);
+box(upper, [0, 4.42, .58], [1.02, .78, .06], M.dark);
 const rrect = (w, h, c) => [[-w + c, -h], [w - c, -h], [w, -h + c], [w, h - c], [w - c, h], [-w + c, h], [-w, h - c], [-w, -h + c]];
-add(upper, shapeGeo(rrect(.47, .38, .1), .04, 0, [rrect(.39, .3, .07).reverse()]), M.badge, [0, 2.38, 1.05], [0, 0, 0], false);
-add(upper, shapeGeo([[-.31, -.2], [-.19, .2], [-.04, .2], [.08, -.2], [-.03, -.2], [-.06, -.11], [-.17, -.11], [-.2, -.2]], .03, 0, [[[-.145, -.03], [-.085, -.03], [-.115, .08]]]), M.letter, [0, 2.38, 1.055], [0, 0, 0], false);
-add(upper, shapeGeo([[.14, -.2], [.25, -.2], [.25, .2], [.14, .2]], .03), M.letter, [0, 2.38, 1.055], [0, 0, 0], false);
+add(upper, shapeGeo(rrect(.47, .38, .1), .04, 0, [rrect(.39, .3, .07).reverse()]), M.badge, [0, 4.42, .62], [0, 0, 0], false);
+add(upper, shapeGeo([[-.31, -.2], [-.19, .2], [-.04, .2], [.08, -.2], [-.03, -.2], [-.06, -.11], [-.17, -.11], [-.2, -.2]], .03, 0, [[[-.145, -.03], [-.085, -.03], [-.115, .08]]]), M.letter, [0, 4.42, .625], [0, 0, 0], false);
+add(upper, shapeGeo([[.14, -.2], [.25, -.2], [.25, .2], [.14, .2]], .03), M.letter, [0, 4.42, .625], [0, 0, 0], false);
 
-// back plates and studs
-box(upper, [0, 3.28, -1.08], [1.9, .86, .08], M.bright);
-box(upper, [0, 2.48, -1.02], [1.5, .68, .1], M.bright);
-for (const [x, y, h] of [[-.95, 3.72, .24], [.95, 3.72, .24], [-.47, 3.42, .3], [.47, 3.42, .3], [-.47, 2.86, .26], [.47, 2.86, .26], [-.47, 2.38, .3], [.47, 2.38, .3]]) {
-  const z = y > 2.8 ? -1.12 : -1.07;
-  seg(upper, [x, y, z + .02], [x, y, z - .06], .16, .15, M.hot, 6);
-  spike(upper, [x, y, z - .06], [x, y, z - .06 - h], .13, M.hot);
+// back plate and studs
+box(upper, [0, 4.42, -.6], [1.5, .98, .1], M.bright);
+for (const [x, y, h] of [[-.95, 4.82, .24], [.95, 4.82, .24], [-.42, 4.68, .3], [.42, 4.68, .3], [-.42, 4.12, .3], [.42, 4.12, .3]]) {
+  const z = x * x > .5 ? -.56 : -.65;
+  seg(upper, [x, y, z + .02], [x, y, z - .06], .14, .13, M.hot, 6);
+  spike(upper, [x, y, z - .06], [x, y, z - .06 - h], .12, M.hot);
 }
 
 // shoulders
 for (const s of [-1, 1]) {
-  seg(upper, [s * 1.2, 2.88, .05], [s * 2.1, 2.88, .05], .55, .6, M.steel, 8);
-  seg(upper, [s * 1.6, 2.88, .05], [s * 1.7, 2.88, .05], .63, .64, M.gold, 8);
-  spike(upper, [s * 1.55, 3.34, .05], [s * 1.5, 3.9, .05], .17);
-  spike(upper, [s * 1.92, 3.3, .05], [s * 2.02, 3.72, .05], .14);
-  box(upper, [s * 1.72, 2.94, .62], [.12, .08, .05], M.ember);
-  box(upper, [s * 2.14, 2.76, .2], [.03, .14, .1], M.ember);
+  seg(upper, [s * 1, 4.72, .05], [s * 1.68, 4.72, .05], .42, .47, M.steel, 8);
+  seg(upper, [s * 1.3, 4.72, .05], [s * 1.38, 4.72, .05], .49, .5, M.gold, 8);
+  spike(upper, [s * 1.26, 5.08, .05], [s * 1.22, 5.56, .05], .15);
+  spike(upper, [s * 1.54, 5.04, .05], [s * 1.64, 5.42, .05], .12);
+  box(upper, [s * 1.4, 4.78, .5], [.12, .08, .05], M.ember);
+  box(upper, [s * 1.71, 4.62, .2], [.03, .14, .1], M.ember);
 }
+
+// hips
+box(pelvis, [0, 2.86, 0], [1.42, .5, .96], M.dark);
+box(pelvis, [0, 3.1, 0], [1.46, .13, 1.02], M.gold);
+add(pelvis, shapeGeo([[-.34, .22], [.34, .22], [.13, -.42], [-.13, -.42]], .1), M.orange, [0, 2.76, .52]);
+box(pelvis, [0, 2.84, .58], [.26, .06, .03], M.ember);
+for (const s of [-1, 1]) box(pelvis, [s * .86, 2.62, 0], [.3, .74, .9], M.orange, [0, 0, s * .16]);
 
 /* ---------- legs ---------- */
 const rel = (p, o) => p.map((v, i) => v - o[i]);
 const legs = [];
-function leg(s, hip, knee, ankle, foot, big, phase) {
-  const h = [s * hip[0], hip[1], hip[2]], k = [s * knee[0], knee[1], knee[2]];
-  const a = [s * ankle[0], ankle[1], ankle[2]], f = [s * foot[0], foot[1], foot[2]];
-  // yaw about the vertical keeps the foot on the ground; lift raises it for the swing
-  const yaw = new THREE.Group(); yaw.position.set(...h); root.add(yaw);
-  const lift = new THREE.Group(); yaw.add(lift);
-  const kneeJoint = new THREE.Group(); kneeJoint.position.set(...rel(k, h)); lift.add(kneeJoint);
-  const H = p => rel(p, h), K = p => rel(p, k);
+function leg(s, phase) {
+  const tilt = new THREE.Group(); tilt.position.set(s * .48, HIP_Y, 0); tilt.rotation.z = s * LEG_SPLAY; pelvis.add(tilt);
+  const thigh = new THREE.Group(); tilt.add(thigh);
+  const knee = new THREE.Group(); knee.position.y = -THIGH; thigh.add(knee);
+  const ankle = new THREE.Group(); ankle.position.y = -SHIN; knee.add(ankle);
 
-  seg(lift, [0, 0, 0], H(k), big ? .25 : .22, big ? .3 : .27, M.dark);
-  add(kneeJoint, new THREE.IcosahedronGeometry(big ? .34 : .3, 0), M.steel);
-  seg(kneeJoint, [0, 0, 0], K(a), big ? .3 : .27, big ? .23 : .2, M.orange);
-  const toe = [0, 1, 2].map(i => a[i] + (f[i] - a[i]) * .72);
-  seg(kneeJoint, K(a), K(toe), big ? .23 : .2, .09, M.bright);
-  seg(kneeJoint, K(toe), K(f), .09, .012, M.steelLite);
+  seg(thigh, [0, 0, 0], [0, -THIGH, 0], .42, .32, M.dark, 7);
+  box(thigh, [0, -.62, .3], [.42, .78, .12], M.bright);
+  spike(thigh, [s * .34, -.52, 0], [s * .74, -.2, 0], .1);
 
-  const mid = [0, 1, 2].map(i => (h[i] + k[i]) / 2);
-  spike(lift, H([mid[0], mid[1] + .2, mid[2]]), H([mid[0] + s * .03, mid[1] + .55, mid[2]]), .1);
-  spike(kneeJoint, [0, .2, 0], [s * .12, .6, 0], .11);
-  spike(kneeJoint, K([(k[0] + a[0]) / 2 + s * .22, (k[1] + a[1]) / 2 + .02, (k[2] + a[2]) / 2]), K([(k[0] + a[0]) / 2 + s * .52, (k[1] + a[1]) / 2 + .1, (k[2] + a[2]) / 2]), .08);
+  add(knee, new THREE.IcosahedronGeometry(.36, 0), M.steel);
+  spike(knee, [0, .16, .28], [s * .06, .52, .62], .11);
+  seg(knee, [0, 0, 0], [0, -SHIN, 0], .34, .24, M.orange, 7);
+  box(knee, [0, -.56, .26], [.34, .72, .1], M.bright);
+  spike(knee, [s * .24, -.55, -.08], [s * .58, -.42, -.26], .08);
 
-  const dir = new THREE.Vector3(f[0] - h[0], 0, f[2] - h[2]), reach = dir.length();
-  const axis = new THREE.Vector3().crossVectors(dir.normalize(), new THREE.Vector3(0, 1, 0));
-  legs.push({ yaw, lift, knee: kneeJoint, axis, reach, s, phase });
+  seg(ankle, [0, .1, 0], [0, -.1, .04], .27, .31, M.dark, 7);
+  box(ankle, [0, .03, 0], [.56, .08, .56], M.gold);
+  const boot = shapeGeo([[-.42, -.42], [.8, -.42], [.84, -.22], [.36, -.03], [.22, .14], [-.38, .14]], .62);
+  boot.rotateY(-Math.PI / 2);
+  add(ankle, boot, M.bright);
+  box(ankle, [0, -.42, .2], [.68, .06, 1.3], M.steelLite);
+  spike(ankle, [0, -.24, .78], [0, -.36, 1.16], .12, M.steelLite);
+
+  legs.push({ thigh, knee, ankle, s, phase });
 }
-for (const s of [-1, 1]) { // tripod gait: diagonal sets of three step together
+leg(-1, 0); leg(1, Math.PI); // the two legs step in turn
+
+// Hip height and foot position in; thigh, knee and ankle angles out, so a planted foot stays planted.
+function placeLeg(l, hipHeight, footZ, footLift, toeDown) {
+  const y = (ANKLE_Y + footLift - hipHeight) / Math.cos(LEG_SPLAY);
+  const D = Math.min(Math.hypot(footZ, y), THIGH + SHIN - .01);
+  const clampCos = v => Math.acos(Math.max(-1, Math.min(1, v)));
+  const lean = Math.atan2(footZ, -y) + clampCos((THIGH * THIGH + D * D - SHIN * SHIN) / (2 * THIGH * D));
+  const bend = Math.PI - clampCos((THIGH * THIGH + SHIN * SHIN - D * D) / (2 * THIGH * SHIN));
+  l.thigh.rotation.x = -lean;
+  l.knee.rotation.x = bend;
+  l.ankle.rotation.x = lean - bend + toeDown;
+}
+
+/* ---------- crab legs growing from the back ---------- */
+const backLegs = [];
+box(upper, [0, 4.3, -.74], [1.5, 1.4, .24], M.steel);
+box(upper, [0, 4.3, -.87], [.14, 1.1, .03], M.ember);
+function backLeg(s, base, knee, ankle, toe, phase, planted) {
+  const b = [s * base[0], base[1], base[2]], k = [s * knee[0], knee[1], knee[2]];
+  const a = [s * ankle[0], ankle[1], ankle[2]], f = [s * toe[0], toe[1], toe[2]];
+  const yaw = new THREE.Group(); yaw.position.set(...b); upper.add(yaw);
+  const lift = new THREE.Group(); yaw.add(lift);
+  const kneeJoint = new THREE.Group(); kneeJoint.position.set(...rel(k, b)); lift.add(kneeJoint);
+  const B = p => rel(p, b), K = p => rel(p, k);
+
+  add(yaw, new THREE.IcosahedronGeometry(.27, 0), M.steel);
+  seg(lift, [0, 0, 0], B(k), .16, .22, M.dark, 6);
+  add(kneeJoint, new THREE.IcosahedronGeometry(.26, 0), M.steel);
+  seg(kneeJoint, [0, 0, 0], K(a), .22, .17, M.orange, 6);
+  seg(kneeJoint, K(a), K(f), .17, .09, M.bright, 6);
+  const tip = [0, 1, 2].map(i => f[i] + (f[i] - a[i]) * .22);
+  seg(kneeJoint, K(f), K(tip), .09, .012, M.steelLite, 5);
+
+  const mid = [0, 1, 2].map(i => (b[i] + k[i]) / 2);
+  spike(lift, B([mid[0], mid[1] + .14, mid[2]]), B([mid[0] + s * .04, mid[1] + .5, mid[2]]), .09);
+  spike(kneeJoint, [0, .16, 0], [s * .14, .58, 0], .1);
+  const shin = [0, 1, 2].map(i => (k[i] + a[i]) / 2);
+  spike(kneeJoint, K([shin[0] + s * .14, shin[1], shin[2]]), K([shin[0] + s * .46, shin[1] + .1, shin[2]]), .08);
+
+  const dir = new THREE.Vector3(k[0] - b[0], 0, k[2] - b[2]).normalize();
+  backLegs.push({ yaw, lift, knee: kneeJoint, axis: new THREE.Vector3().crossVectors(dir, new THREE.Vector3(0, 1, 0)), s, phase, planted });
+}
+for (const s of [-1, 1]) { // upper pair arcs over the shoulders; the lowest pair reaches the ground
   const p = odd => (odd === (s > 0) ? 0 : Math.PI);
-  leg(s, [.75, 1.55, .72], [1.3, 1.82, 1.25], [1.42, 1.0, 1.62], [1.44, .02, 1.82], true, p(true));
-  leg(s, [.85, 1.55, 0], [1.95, 1.98, .05], [2.42, 1.08, .08], [2.55, .02, .1], true, p(false));
-  leg(s, [.75, 1.55, -.72], [1.55, 1.86, -1.3], [1.86, 1.0, -1.72], [1.95, .02, -1.92], false, p(true));
+  backLeg(s, [.55, 4.82, -.8], [2, 6.5, -1.5], [3.1, 5.4, -.8], [3.42, 4.3, -.4], p(true), false);
+  backLeg(s, [.68, 4.3, -.8], [2.5, 5, -1.9], [3.6, 2.9, -1.4], [3.82, 1.45, -1.08], p(false), false);
+  backLeg(s, [.55, 3.82, -.76], [2, 3.9, -2.3], [2.88, 1.85, -2.5], [3.04, .48, -2.58], p(true), true);
 }
 
 /* ---------- blade aura ---------- */
@@ -376,22 +471,38 @@ function driftAura(dt, time) {
 }
 
 /* ---------- sword arm (viewer's left) ---------- */
-let bannerGeo, bannerRest, swordHand, swordBlade;
-const swordPivot = [-1.5, 2.88, .1];
+let bannerGeo, bannerRest, swordHand, swordBlade, swordForearm;
+const GRIP = {}, NO_TURN = new THREE.Quaternion(), turnBy = new THREE.Quaternion();
+const swordPivot = [-1.4, 4.72, .05];
 const swordArm = new THREE.Group(); swordArm.position.set(...swordPivot); upper.add(swordArm);
 {
   const R = p => rel(p, swordPivot);
-  const elbow = [-2.42, 2.52, .3], mid = [-2.52, 3.05, .34], wrist = [-2.46, 3.62, .35], fist = [-2.42, 4.12, .35];
-  seg(swordArm, R([-1.5, 2.88, .1]), R(elbow), .3, .36, M.orange);
-  seg(swordArm, R(elbow), R(mid), .42, .54, M.orange, 7);
-  seg(swordArm, R(mid), R(wrist), .54, .42, M.bright, 7);
-  spike(swordArm, R([-2.9, 2.75, .32]), R([-3.14, 2.72, .32]), .11);
-  spike(swordArm, R([-2.98, 3.3, .35]), R([-3.2, 3.34, .35]), .09);
+  const elbow = [-2.45, 4.58, .42], mid = [-2.5, 5.05, .5], wrist = [-2.42, 5.5, .56], fist = [-2.36, 5.86, .6];
+  const E = p => rel(p, elbow);
+  seg(swordArm, R(swordPivot), R(elbow), .24, .28, M.orange, 7);
+  swordForearm = new THREE.Group(); swordForearm.position.set(...R(elbow)); swordArm.add(swordForearm);
+  add(swordForearm, new THREE.IcosahedronGeometry(.32, 0), M.steel);
+  seg(swordForearm, [0, 0, 0], E(mid), .3, .37, M.orange, 7);
+  seg(swordForearm, E(mid), E(wrist), .37, .28, M.bright, 7);
+  spike(swordForearm, E([-2.78, 4.72, .46]), E([-3.02, 4.7, .46]), .1);
+  spike(swordForearm, E([-2.82, 5.15, .5]), E([-3.04, 5.19, .5]), .08);
 
-  const hand = new THREE.Group(); hand.position.set(...R(fist)); hand.rotation.z = -.888; swordArm.add(hand); swordHand = hand;
-  add(hand, new THREE.IcosahedronGeometry(.52, 1), M.orange);
-  for (const y of [-.2, .17]) {
-    const f = add(hand, new THREE.TorusGeometry(.44, .17, 5, 9), M.bright, [0, y, 0]);
+  // The arm is authored raised, which is where the attacks start from. These rotations lower it into a resting grip.
+  const V = (...v) => new THREE.Vector3(...v).normalize();
+  const turn = (from, to) => new THREE.Quaternion().setFromUnitVectors(from, to);
+  const forearmRaised = V(...E(fist));
+  GRIP.shoulder = turn(V(...R(elbow)), V(-.28, -.95, -.05)); // upper arm hanging beside the body
+  const swung = forearmRaised.clone().applyQuaternion(GRIP.shoulder);
+  GRIP.elbow = GRIP.shoulder.clone().invert().multiply(turn(swung, V(-.1, .18, .98))).multiply(GRIP.shoulder); // forearm level, fist at the waist
+  const bladeUp = V(-.12, .82, .56), banner = V(-.7, 0, -.7); // edge leading; the banner flies outward where it can be read
+  banner.addScaledVector(bladeUp, -banner.dot(bladeUp)).normalize();
+  const gripBasis = new THREE.Matrix4().makeBasis(banner, bladeUp, banner.clone().cross(bladeUp));
+  GRIP.hand = GRIP.shoulder.clone().multiply(GRIP.elbow).invert().multiply(new THREE.Quaternion().setFromRotationMatrix(gripBasis));
+
+  const hand = new THREE.Group(); hand.position.set(...E(fist)); hand.rotation.z = -.888; swordForearm.add(hand); swordHand = hand;
+  add(hand, new THREE.IcosahedronGeometry(.36, 1), M.orange);
+  for (const y of [-.14, .12]) {
+    const f = add(hand, new THREE.TorusGeometry(.3, .12, 5, 9), M.bright, [0, y, 0]);
     f.rotation.x = Math.PI / 2;
   }
 
@@ -454,18 +565,18 @@ function waveBanner(t) {
 }
 
 /* ---------- pincer arm (viewer's right) ---------- */
-const clawPivot = [1.5, 2.88, .1];
+const clawPivot = [1.4, 4.72, .05];
 const clawArm = new THREE.Group(); clawArm.position.set(...clawPivot); upper.add(clawArm);
 let lowerJaw;
 {
   const R = p => rel(p, clawPivot);
-  const elbow = [2.46, 2.56, .3], wrist = [2.66, 2.32, .78];
-  seg(clawArm, R([1.5, 2.88, .1]), R(elbow), .3, .36, M.orange);
-  seg(clawArm, R(elbow), R(wrist), .42, .46, M.dark, 7);
-  spike(clawArm, R([2.86, 2.62, .46]), R([3.22, 2.86, .44]), .13);
-  spike(clawArm, R([2.56, 2.96, .4]), R([2.62, 3.36, .36]), .12);
+  const elbow = [2.05, 3.82, .28], wrist = [2.26, 3.2, .72];
+  seg(clawArm, R(clawPivot), R(elbow), .24, .28, M.orange, 7);
+  seg(clawArm, R(elbow), R(wrist), .3, .34, M.dark, 7);
+  spike(clawArm, R([2.34, 3.86, .4]), R([2.68, 4.06, .38]), .11);
+  spike(clawArm, R([2.14, 4.14, .3]), R([2.2, 4.5, .26]), .1);
 
-  const S = 1.15, W = .72;
+  const S = .85, W = .56;
   const profile = (pts, width = W) => { const g = shapeGeo(pts.map(([z, y]) => [z * S, y * S]), width, .07); g.rotateY(-Math.PI / 2); return g; };
   const claw = new THREE.Group(); claw.position.set(...R(wrist)); claw.rotation.y = -.72; clawArm.add(claw);
   add(claw, profile([[.28, .19], [.6, .1], [.98, .02], [1.02, -.42], [.95, -.72], [.8, -1.15], [.4, -1.22], [.28, -1.15]]), M.orange);
@@ -485,18 +596,18 @@ let lowerJaw;
 }
 
 /* ---------- glow ---------- */
-function faceGlow(pos, size, color) {
+function faceGlow(parent, pos, size, color) {
   const c = document.createElement('canvas'); c.width = c.height = 64;
   const x = c.getContext('2d'), g = x.createRadialGradient(32, 32, 0, 32, 32, 32);
   g.addColorStop(0, 'rgba(255,255,255,.6)'); g.addColorStop(.5, 'rgba(255,255,255,.16)'); g.addColorStop(1, 'rgba(255,255,255,0)');
   x.fillStyle = g; x.fillRect(0, 0, 64, 64);
   // a quad lying on the face, so the glow disappears when seen edge-on
   const s = new THREE.Mesh(new THREE.PlaneGeometry(size, size), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), color, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
-  s.position.set(...pos); upper.add(s);
+  s.position.set(...pos); parent.add(s);
   return s;
 }
-const glows = [faceGlow([-.52, 3.47, 1.09], .95, 0xff7a10), faceGlow([.52, 3.47, 1.09], .95, 0xff7a10)];
-faceGlow([0, 2.38, 1.08], 1.5, 0xff6a10);
+const glows = [faceGlow(head, [-.52, 3.47, 1.09], .95, 0xff7a10), faceGlow(head, [.52, 3.47, 1.09], .95, 0xff7a10)];
+faceGlow(upper, [0, 4.42, .65], 1.5, 0xff6a10);
 
 /* ---------- blade trail: a ribbon through recent base and tip positions ---------- */
 const TRAIL_N = 64;
@@ -542,13 +653,13 @@ function drawTrail(time) {
 }
 
 /* ---------- skill effects ---------- */
-const P_N = 420, pPos = new Float32Array(P_N * 3), pCol = new Float32Array(P_N * 3), pVel = new Float32Array(P_N * 3);
+const P_N = 1800, pPos = new Float32Array(P_N * 3), pCol = new Float32Array(P_N * 3), pVel = new Float32Array(P_N * 3);
 const pLife = new Float32Array(P_N), pMax = new Float32Array(P_N), pGrav = new Float32Array(P_N);
 let pNext = 0, sparkDebt = 0, camShake = 0, flash = 0;
 const fxGeo = new THREE.BufferGeometry();
 fxGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
 fxGeo.setAttribute('color', new THREE.BufferAttribute(pCol, 3));
-const fxPoints = new THREE.Points(fxGeo, new THREE.PointsMaterial({ size: .26, map: softDot, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+const fxPoints = new THREE.Points(fxGeo, new THREE.PointsMaterial({ size: .62, map: softDot, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
 fxPoints.frustumCulled = false; scene.add(fxPoints);
 function emit(x, y, z, vx, vy, vz, life, grav) {
   const i = pNext; pNext = (pNext + 1) % P_N;
@@ -574,7 +685,7 @@ function chargeSparks(dt, c) { // sparks pulled in from around the blade
 
 const groundFade = `(1. - smoothstep(.86, 1., d))`;
 const ringVertex = `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }`;
-const rings = Array.from({ length: 5 }, () => {
+const rings = Array.from({ length: 14 }, () => {
   const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new THREE.ShaderMaterial({
     transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
     uniforms: { r: { value: 0 }, a: { value: 0 } },
@@ -595,7 +706,7 @@ function shockwave(q, radius, strength) {
   s.age = 0; s.strength = strength; s.mesh.visible = true;
 }
 
-const chargeRing = new THREE.Mesh(new THREE.PlaneGeometry(13, 13).rotateX(-Math.PI / 2), new THREE.ShaderMaterial({
+const chargeRing = new THREE.Mesh(new THREE.PlaneGeometry(36, 36).rotateX(-Math.PI / 2), new THREE.ShaderMaterial({
   transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
   uniforms: { c: { value: 0 }, time: auraTime },
   vertexShader: ringVertex,
@@ -626,7 +737,7 @@ const waves = Array.from({ length: 3 }, () => {
 });
 function launchWave(size) {
   const w = waves.find(o => !o.mesh.visible) || waves[0];
-  w.age = 0; w.size = size; w.mesh.visible = true; w.mesh.position.set(-.6, 2.4, 1.8);
+  w.age = 0; w.size = size * 2.7; w.mesh.visible = true; w.mesh.position.set(-1.6, 9.5, 6);
 }
 
 function updateFx(dt) {
@@ -652,7 +763,7 @@ function updateFx(dt) {
     w.age += dt;
     const a = w.age / w.life;
     if (a >= 1) { w.mesh.visible = false; continue; }
-    w.mesh.position.z += 24 * dt;
+    w.mesh.position.z += 62 * dt;
     w.mesh.scale.setScalar(w.size * (1 + a * .6));
     w.mesh.material.uniforms.a.value = 1 - a * a;
   }
@@ -676,8 +787,229 @@ function driftEmbers(dt, time) {
   emberGeo.attributes.position.needsUpdate = true;
 }
 
+/* ---------- the cosmic guardian ---------- */
+const CLAWD_SCALE = 2.5;
+root.scale.setScalar(CLAWD_SCALE);
+const guardianPower = { value: 1 };
+// the five fighters whose power this body can call on: Cosmic, ChatGPT, Grok, Overlord and Clawd
+const POWERS = [0x7a6cff, 0x3dffc8, 0xc45cff, 0xff2a40, 0xffb347];
+const billboard = (parent, pos, size, color, opacity = 1) => {
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: softDot, color, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, toneMapped: false, opacity }));
+  s.position.set(...pos); s.scale.setScalar(size); parent.add(s); return s;
+};
+
+// crown of the guardian, resting above the helmet
+add(neck, new THREE.TorusGeometry(.72, .05, 6, 28), M.gold, [0, 1.42, 0], [Math.PI / 2, 0, 0]);
+for (let i = 0; i < 10; i++) {
+  const a = i / 10 * Math.PI * 2, tall = i % 2 ? .4 : .78;
+  seg(neck, [Math.cos(a) * .72, 1.42, Math.sin(a) * .72], [Math.cos(a) * .9, 1.42 + tall, Math.sin(a) * .9], .07, .008, M.gold, 5);
+}
+add(neck, new THREE.IcosahedronGeometry(.3, 0), flat(0xfff0c0), [0, 2.5, 0], [0, 0, 0], false);
+billboard(neck, [0, 2.5, 0], 3.6, 0xffc060, .95);
+
+// tips of the back legs glow with the powers they carry
+const LEG_TIPS = [[3.42, 4.3, -.4, 0], [3.82, 1.45, -1.08, 1], [3.04, .48, -2.58, 3]];
+for (const s of [-1, 1]) for (const [x, y, z, power] of LEG_TIPS) billboard(upper, [s * x, y, z], 1.5, POWERS[power], .9);
+
+// a wheel of the five powers behind the body
+const powerWheel = new THREE.Mesh(new THREE.PlaneGeometry(9.4, 9.4), new THREE.ShaderMaterial({
+  transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, uniforms: { time: godTime, power: guardianPower },
+  vertexShader: `varying vec2 vP; void main(){ vP = position.xy / 4.7; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }`,
+  fragmentShader: `uniform float time, power; varying vec2 vP;
+    float line(float v, float w){ return smoothstep(w, 0., abs(v)); }
+    void main(){
+      vec2 q = floor(vP * 150.) / 150.;
+      float d = length(q), a = atan(q.y, q.x), t = time;
+      float k = fract((a + t * .16) / 6.2832) * 5., sector = floor(k);
+      vec3 c0 = vec3(.48, .42, 1.), c1 = vec3(.24, 1., .78), c2 = vec3(.77, .36, 1.), c3 = vec3(1., .16, .25), c4 = vec3(1., .7, .28);
+      vec3 hue = sector < 1. ? c0 : sector < 2. ? c1 : sector < 3. ? c2 : sector < 4. ? c3 : c4;
+      float band = smoothstep(.62, .66, d) * smoothstep(.9, .86, d) * smoothstep(.0, .05, fract(k)) * smoothstep(1., .95, fract(k));
+      float rings = line(d - .94, .012) + line(d - .58, .01) + line(d - .36, .012);
+      float spokes = line(fract((a - t * .22) / 6.2832 * 20.) - .5, .05) * step(.36, d) * step(d, .58);
+      vec3 col = hue * band * .95 + vec3(1., .82, .45) * (rings + spokes * .7);
+      gl_FragColor = vec4(col * step(d, 1.) * power, 1.);
+    }`,
+}));
+powerWheel.position.set(0, 4.5, -3.3); powerWheel.frustumCulled = false; upper.add(powerWheel);
+
+// the five power cores in orbit
+const coreOrbit = new THREE.Group(); coreOrbit.position.y = 4.8; coreOrbit.rotation.set(.22, 0, .12); root.add(coreOrbit);
+const coreShapes = [
+  new THREE.ExtrudeGeometry(new THREE.Shape([[.46, 0], [.1, .1], [0, .56], [-.1, .1], [-.46, 0], [-.1, -.1], [0, -.56], [.1, -.1]].map(p => new THREE.Vector2(...p))), { depth: .12, bevelEnabled: false }).translate(0, 0, -.06),
+  new THREE.TorusKnotGeometry(.27, .085, 64, 10, 2, 3),
+  new THREE.SphereGeometry(.38, 20, 14),
+  new THREE.OctahedronGeometry(.48, 0),
+  new THREE.IcosahedronGeometry(.42, 0),
+];
+const coreMats = [flat(0xb8b0ff), flat(0x9dffe6), flat(0x050109), toon(0xc2132a), flat(0xffe08a)];
+const cores = POWERS.map((color, i) => {
+  const a = i / 5 * Math.PI * 2, g = new THREE.Group(); g.position.set(Math.cos(a) * 4.5, 0, Math.sin(a) * 4.5); coreOrbit.add(g);
+  const mesh = add(g, coreShapes[i], coreMats[i], [0, 0, 0], [0, 0, 0], i === 3);
+  return { g, mesh, glow: billboard(g, [0, 0, 0], i === 2 ? 3.2 : 2.6, color, .95), seed: i * 1.3 };
+});
+
+// the guardian's aura, kept behind the body
+const auraSheet = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({
+  transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, uniforms: { time: godTime, power: guardianPower },
+  vertexShader: `varying vec2 vP; void main(){ vP = position.xy; vec4 c = modelViewMatrix * vec4(0., 0., 0., 1.); c.xyz += vec3(position.xy * vec2(17., 19.), -8.); gl_Position = projectionMatrix * c; }`,
+  fragmentShader: `uniform float time, power; varying vec2 vP;
+    float h(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+    float n(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f); return mix(mix(h(i), h(i + vec2(1, 0)), f.x), mix(h(i + vec2(0, 1)), h(i + vec2(1, 1)), f.x), f.y); }
+    float fbm(vec2 p){ float a = .5, s = 0.; for (int i = 0; i < 4; i++) { s += a * n(p); p = p * 2.03 + 11.; a *= .5; } return s; }
+    void main(){
+      vec2 p = floor(vP * 170.) / 170.;
+      float t = time, body = 1. - length(p / vec2(.68, .9));
+      float flames = fbm(vec2(p.x * 4., p.y * 2.6 - t * 1.5));
+      float edge = smoothstep(-.14, .4, body + (flames - .5) * .66) * smoothstep(1., .84, abs(p.y));
+      float cycle = fract(atan(p.y, p.x) / 6.2832 + t * .05) * 5.;
+      vec3 a = cycle < 1. ? vec3(.5, .42, 1.) : cycle < 2. ? vec3(.2, 1., .75) : cycle < 3. ? vec3(.8, .3, 1.) : cycle < 4. ? vec3(1., .16, .25) : vec3(1., .6, .15);
+      vec3 col = mix(a * .85, vec3(1., .78, .4), edge * edge) * edge;
+      gl_FragColor = vec4(col * (.5 + pow(fbm(vec2(p.x * 16., p.y - t * 3.)), 2.) * 2.2) * power, 1.);
+    }`,
+}));
+auraSheet.position.y = 3.9; auraSheet.frustumCulled = false; root.add(auraSheet);
+
+/* ---------- borrowed powers ---------- */
+const flameSheet = (pos, dir, { len, rad, color, power }) => {
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(rad * 3.4, len + rad * 3.4).translate(0, len / 2, 0), new THREE.ShaderMaterial({
+    side: THREE.DoubleSide, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
+    uniforms: { time: godTime, power, len: { value: len }, rad: { value: rad }, color: { value: new THREE.Color(color) } },
+    vertexShader: `varying vec2 vP;
+      void main(){
+        vec4 c = modelViewMatrix * vec4(0., 0., 0., 1.);
+        vec3 axis = normalize((modelViewMatrix * vec4(0., 1., 0., 0.)).xyz), view = normalize(-c.xyz), side = normalize(cross(axis, view));
+        vP = position.xy;
+        gl_Position = projectionMatrix * vec4(c.xyz + side * position.x + axis * position.y + view * .25, 1.);
+      }`,
+    fragmentShader: `uniform float time, power, len, rad; uniform vec3 color; varying vec2 vP;
+      void main(){
+        float up = clamp(vP.y / max(len, .001), 0., 1.), wob = sin(vP.y * 6. - time * 13.) * .05;
+        float d = length(vec2(vP.x + wob * up * rad, vP.y - clamp(vP.y, 0., len)));
+        float g = clamp(1. - d / (rad * mix(1., .55, up)), 0., 1.);
+        gl_FragColor = vec4(mix(color, vec3(1.), smoothstep(.5, 1., g)) * g * g * power, 1.);
+      }`,
+  }));
+  mesh.position.set(...pos);
+  mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(...dir).normalize());
+  mesh.frustumCulled = false; scene.add(mesh);
+  return mesh;
+};
+
+// sky that turns with whichever power is in use
+const skyMat = new THREE.ShaderMaterial({
+  side: THREE.BackSide, transparent: true, depthWrite: false, uniforms: { a: { value: 0 }, tint: { value: new THREE.Color() }, time: godTime },
+  vertexShader: `varying vec3 vD; void main(){ vD = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }`,
+  fragmentShader: `uniform float a, time; uniform vec3 tint; varying vec3 vD;
+    float h(vec3 p){ return fract(sin(dot(p, vec3(12.9, 78.2, 37.7))) * 43758.5); }
+    void main(){
+      vec3 d = normalize(vD), cell = floor(d * 120.);
+      float star = step(.96, h(cell)) * (.5 + .5 * sin(time * 3. + h(cell + 1.) * 40.));
+      float n = sin(d.x * 4. + time * .2) * sin(d.y * 5.) * sin(d.z * 3. + 1.);
+      gl_FragColor = vec4(vec3(.02, .01, .05) + tint * smoothstep(-.2, .8, n) * .55 + vec3(star), a);
+    }`,
+});
+const skyDome = new THREE.Mesh(new THREE.SphereGeometry(420, 30, 20), skyMat);
+skyDome.visible = false; skyDome.renderOrder = -2; skyDome.frustumCulled = false; scene.add(skyDome);
+
+const galaxyDisc = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.ShaderMaterial({
+  transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, uniforms: { time: godTime, a: { value: 0 } },
+  vertexShader: `varying vec2 vP; void main(){ vP = position.xy * 2.; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }`,
+  fragmentShader: `uniform float time, a; varying vec2 vP;
+    float h(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+    void main(){
+      float r = length(vP), an = atan(vP.y, vP.x), swirl = an * 2. - log(r + .02) * 7. + time * .6, arms = pow(.5 + .5 * sin(swirl), 2.6);
+      vec2 c = floor(vec2(swirl * 22., log(r + .02) * 40.));
+      float star = step(.86, h(c)), fall = smoothstep(1., .12, r);
+      float clear = smoothstep(.02, .22, r); // the middle stays dark enough to read the figure above it
+      vec3 col = mix(vec3(.3, .4, 1.), vec3(1., .5, .2), smoothstep(.1, .9, r)) * arms * fall * clear + vec3(1., .95, .85) * star * arms * fall * clear * 1.7 + vec3(1., .88, .6) * exp(-r * r * 200.) * .8;
+      gl_FragColor = vec4(col * a, 1.);
+    }`,
+}));
+galaxyDisc.visible = false; galaxyDisc.position.set(0, 2, -6); galaxyDisc.rotation.x = -1.14; galaxyDisc.renderOrder = 1; galaxyDisc.frustumCulled = false; scene.add(galaxyDisc); // it lies under him, so it must draw after the floor
+
+const beamPower = { value: 0 };
+flameSheet([0, 11, 6], [0, .02, 1], { len: 340, rad: 8, color: POWERS[1], power: beamPower });
+
+// the destruction sphere
+const hakaiPower = { value: 0 };
+const hakai = new THREE.Group(); hakai.position.set(0, 27, 12); hakai.visible = false; scene.add(hakai);
+hakai.add(new THREE.Mesh(new THREE.SphereGeometry(1, 30, 22), new THREE.MeshBasicMaterial({ color: 0x050109, toneMapped: false })));
+const hakaiGlow = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.ShaderMaterial({
+  transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, uniforms: { time: godTime, power: hakaiPower },
+  vertexShader: `varying vec2 vP; void main(){ vP = position.xy * 2.; vec4 c = modelViewMatrix * vec4(0., 0., 0., 1.); float s = length((modelMatrix * vec4(1., 0., 0., 0.)).xyz); gl_Position = projectionMatrix * (c + vec4(position.xy * s * 4.8, .1, 0.)); }`,
+  fragmentShader: `uniform float time, power; varying vec2 vP;
+    void main(){
+      float d = length(vP), a = atan(vP.y, vP.x), rays = .6 + .4 * sin(a * 9. + time * 3.) * sin(a * 5. - time * 2.);
+      float ring = exp(-pow((d - .42) / .03, 2.)), halo = smoothstep(.4, .44, d) * pow(max(1. - (d - .42) / .58, 0.), 2.4) * rays;
+      gl_FragColor = vec4((vec3(.55, .12, 1.) * halo * 1.4 + vec3(1., .8, 1.) * ring * 1.6) * power, 1.);
+    }`,
+}));
+hakaiGlow.frustumCulled = false; hakai.add(hakaiGlow);
+
+// crimson crystal spikes bursting out of the ground
+const spikeRing = Array.from({ length: 36 }, (_, i) => {
+  const a = i / 36 * Math.PI * 2 + (i % 2) * .08, r = 15 + (i * 37 % 19), tall = 16 + (i * 53 % 22);
+  const m = new THREE.Mesh(outlinedCone(), M.spike ||= toon(0xc2132a));
+  m.position.set(Math.cos(a) * r, 0, Math.sin(a) * r); m.rotation.set(Math.sin(a) * .34, 0, -Math.cos(a) * .34);
+  m.visible = false; m.castShadow = true; m.userData.tall = tall; m.userData.delay = (i * 17 % 30) / 100; scene.add(m);
+  return m;
+});
+function outlinedCone() { return new THREE.ConeGeometry(2.1, 1, 5, 1).translate(0, .5, 0); }
+
+// the last power: white annihilation spreading across everything
+const eraseMat = new THREE.ShaderMaterial({
+  transparent: true, depthTest: false, depthWrite: false, uniforms: { p: { value: 0 }, white: { value: 0 }, aspect: { value: 1 } },
+  vertexShader: `varying vec2 vP; void main(){ vP = position.xy; gl_Position = vec4(position.xy, 0., 1.); }`,
+  fragmentShader: `uniform float p, white, aspect; varying vec2 vP;
+    float h(vec2 v){ return fract(sin(dot(v, vec2(127.1, 311.7))) * 43758.5453); }
+    void main(){
+      vec2 uv = vP * vec2(aspect, 1.) * 3.1, g = floor(uv), f = fract(uv);
+      float cover = 0., edge = 0.;
+      for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) {
+        vec2 o = vec2(float(x), float(y)), c = g + o;
+        float delay = h(c) * .8, r = min(1.15, max(0., p - delay) * 2.4), d = length(o + vec2(h(c + 5.), h(c + 9.)) - f) - r;
+        cover = max(cover, step(d, 0.) * step(.001, r)); edge = max(edge, smoothstep(.09, 0., abs(d)) * step(.001, r));
+      }
+      vec3 col = mix(vec3(1., .86, .5) * 1.5, vec3(1.), cover);
+      gl_FragColor = vec4(mix(col, vec3(1.), white), max(max(cover, edge), white));
+    }`,
+});
+const eraseSheet = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), eraseMat);
+eraseSheet.frustumCulled = false; eraseSheet.renderOrder = 1000; eraseSheet.visible = false; scene.add(eraseSheet);
+
+// bolts of borrowed power
+const boltStar = (() => {
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const x = c.getContext('2d'), g = x.createRadialGradient(32, 32, 0, 32, 32, 32);
+  g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(.4, 'rgba(255,255,255,.45)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+  x.fillStyle = g; x.fillRect(0, 0, 64, 64);
+  x.fillStyle = '#fff'; x.beginPath();
+  [[32, 1], [36, 28], [63, 32], [36, 36], [32, 63], [28, 36], [1, 32], [28, 28]].forEach(([a, b], i) => (i ? x.lineTo(a, b) : x.moveTo(a, b)));
+  x.closePath(); x.fill();
+  return new THREE.CanvasTexture(c);
+})();
+const boltPool = Array.from({ length: 160 }, () => {
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: boltStar, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, toneMapped: false }));
+  s.visible = false; scene.add(s);
+  return { s, v: new THREE.Vector3(), life: 0, max: 1, size: 1 };
+});
+function shootBolt(pos, vel, life, size, color) {
+  const o = boltPool.find(x => !x.s.visible) || boltPool[0];
+  o.s.position.copy(pos); o.v.copy(vel); o.life = o.max = life; o.size = size; o.s.material.color.set(color); o.s.visible = true;
+}
+function updateBolts(dt) {
+  for (const o of boltPool) {
+    if (!o.s.visible) continue;
+    o.life -= dt;
+    if (o.life <= 0) { o.s.visible = false; continue; }
+    o.s.position.addScaledVector(o.v, dt);
+    const k = o.life / o.max;
+    o.s.scale.setScalar(o.size * (.6 + .4 * k)); o.s.material.opacity = Math.min(1, k * 2.2);
+  }
+}
+
 /* ---------- ui ---------- */
-const VIEWS = { front: [0, 3.05, 20], side: [20, 3.05, 0], back: [0, 3.05, -20], iso: [10.5, 8.5, 13.5] };
+const VIEWS = { front: [0, 9.6, 66], side: [66, 9.6, 0], back: [0, 9.6, -66], iso: [36, 26, 54] };
 let goal = null;
 const setView = name => { goal = new THREE.Vector3(...VIEWS[name]); };
 camera.position.set(...VIEWS.iso);
@@ -719,8 +1051,7 @@ for (const type of ['pointerup', 'pointercancel', 'blur']) addEventListener(type
 /* ---------- loop ---------- */
 const clock = new THREE.Clock();
 let t = 0;
-const WALK_RATE = 5.5, WALK_STRIDE = .36, WALK_SPEED = 2 * WALK_STRIDE * WALK_RATE / Math.PI; // floor speed matches the feet
-const HIP_Y = 1.55; // the torso tilts about the hips, so they stay inside the abdomen
+const WALK_RATE = 4.4, WALK_STRIDE = .62, WALK_SPEED = 2 * WALK_STRIDE * WALK_RATE / Math.PI; // floor speed matches the feet
 
 function track(p, keys) {
   if (p <= keys[0][0]) return keys[0][1];
@@ -803,46 +1134,91 @@ function chain(...names) { // joins moves, skipping each one's return to rest so
 }
 MOVES.combo = chain('slash', 'sweep', 'rise');
 
+const Vec3 = (x, y, z) => new THREE.Vector3(x, y, z);
+const hold = (a, b, v = 1) => [[0, 0], [a, v], [b, v], [Math.min(1, b + .1), 0]];
+Object.assign(MOVES, {
+  pGalaxy: { dur: 5.2, sky: POWERS[0], fx: [[.14, 'gSeed'], ...Array.from({ length: 24 }, (_, i) => [.26 + i * .024, 'gStar']), [.72, 'gPeak']],
+    raise: hold(.14, .86), surge: hold(.14, .86, 1.6), sky_: hold(.14, .88), gal: [[.12, 0], [.7, 1], [.9, 1], [1, 0]], c0: hold(.1, .9, 1.4) },
+  pBeam: { dur: 4.2, sky: POWERS[1], fx: [[.22, 'bFire'], ...Array.from({ length: 34 }, (_, i) => [.26 + i * .017, 'bBolt'])],
+    raise: hold(.16, .84), surge: hold(.2, .84, 1.4), sky_: hold(.12, .86, .8), beam: [[.2, 0], [.25, 1.8], [.84, 1.8], [.94, 0]], c1: hold(.1, .9, 1.4) },
+  pHakai: { dur: 5.2, sky: POWERS[2], fx: [[.62, 'hThrow'], [.76, 'hHit']],
+    raise: hold(.14, .78), surge: hold(.16, .8, 1.2), sky_: hold(.1, .9), orb: [[.08, 0], [.58, 7], [.64, 7], [.76, 22], [.84, 40], [.9, 0]], orbZ: [[.62, 0], [.76, 80]], c2: hold(.1, .9, 1.4) },
+  pCrimson: { dur: 5, sky: POWERS[3], fx: [[.36, 'cRise'], [.52, 'cWave'], [.6, 'cWave'], [.68, 'cWave']],
+    raise: hold(.14, .84), surge: hold(.2, .84, 1.5), sky_: hold(.1, .9), spk: [[.34, 0], [.56, 1], [.84, 1], [.96, 0]], c3: hold(.1, .9, 1.4) },
+  pErase: { dur: 6.6, sky: 0xfff0c0, fx: [[.24, 'eSnap'], [.87, 'eRestore']],
+    raise: hold(.14, .78), surge: hold(.14, .78, 1.8), sky_: hold(.08, .88), erase: [[.28, 0], [.82, 1], [.86, 1], [.861, 0]], whiteOut: [[.8, 0], [.86, 1], [.98, 0]], c0: hold(.1, .78), c1: hold(.1, .78), c2: hold(.1, .78), c3: hold(.1, .78), c4: hold(.1, .78, 1.6) },
+});
+
 const tipPoint = () => swordBlade.localToWorld(new THREE.Vector3(0, 3, 0));
 const FX = {
-  hit() { const q = tipPoint(); if (q.y < 1.2) burst(q, 22, 5); camShake = Math.max(camShake, .07); flash = Math.max(flash, 10); },
-  impact() { const q = tipPoint(); shockwave(q, 8, 1); burst(q, 70, 8); camShake = .3; flash = 34; },
-  wave() { launchWave(1); camShake = Math.max(camShake, .08); flash = Math.max(flash, 14); },
+  hit() { const q = tipPoint(); if (q.y < 3.4) burst(q, 60, 14); camShake = Math.max(camShake, .3); flash = Math.max(flash, 26); },
+  impact() { const q = tipPoint(); shockwave(q, 30, 1.3); burst(q, 240, 24); camShake = 1.2; flash = 110; },
+  wave() { launchWave(1); camShake = Math.max(camShake, .4); flash = Math.max(flash, 40); },
   chargedImpact() {
     const q = tipPoint(), k = releasePower;
-    shockwave(q, 8 + 12 * k, 1 + k); burst(q, 90 + 150 * k | 0, 9 + 6 * k);
+    shockwave(q, 28 + 40 * k, 1.2 + k); burst(q, 260 + 500 * k | 0, 24 + 18 * k);
     if (k > .4) launchWave(1 + k * 1.2);
-    camShake = .25 + .4 * k; flash = 30 + 50 * k;
+    camShake = 1 + 1.2 * k; flash = 90 + 160 * k;
   },
 };
+
+Object.assign(FX, {
+  gSeed() { const q = galaxyDisc.position; shockwave(Vec3(0, .1, 0), 46, 1.6); burst(q, 420, 40); camShake = 1.3; flash = 170; },
+  gStar() {
+    const a = Math.random() * Math.PI * 2, r = 16 + Math.random() * 70, q = Vec3(Math.cos(a) * r, 16 + Math.sin(a) * r * .28, -14 + Math.sin(a) * r * .75);
+    burst(q, 44, 18); shootBolt(q, Vec3(Math.cos(a) * 24, 10, Math.sin(a) * 24), .9, 6, POWERS[0]); camShake = Math.max(camShake, .4); flash = Math.max(flash, 30);
+  },
+  gPeak() { shockwave(Vec3(0, .1, 0), 130, 2.3); burst(galaxyDisc.position, 700, 58); camShake = 2.4; flash = 340; },
+  bFire() { shockwave(Vec3(0, .1, 6), 34, 1.7); burst(Vec3(0, 11, 8), 300, 42); camShake = 1.6; flash = 200; },
+  bBolt() {
+    const a = Math.random() * Math.PI * 2, q = Vec3(Math.cos(a) * 12, 12 + Math.sin(a) * 10, -3);
+    shootBolt(q, Vec3((Math.random() - .5) * 22, (Math.random() - .5) * 16, 120), 1, 5.4, POWERS[1]); camShake = Math.max(camShake, .5); flash = Math.max(flash, 26);
+  },
+  hThrow() { shockwave(Vec3(0, .1, 12), 34, 1.6); camShake = 1.3; flash = 150; },
+  hHit() { const q = Vec3(0, 27, 92); burst(q, 900, 70); shockwave(Vec3(0, .1, 92), 150, 2.5); camShake = 3.2; flash = 560; },
+  cRise() { shockwave(Vec3(0, .1, 0), 90, 2.2); burst(Vec3(0, .4, 0), 600, 44); camShake = 2.4; flash = 280; },
+  cWave() { launchWave(1.5); shockwave(Vec3(0, .1, 8), 44, 1.6); camShake = Math.max(camShake, 1.3); flash = Math.max(flash, 130); },
+  eSnap() { burst(Vec3(0, 14, 6), 500, 50); shockwave(Vec3(0, .1, 0), 60, 2); camShake = 1.8; flash = 280; },
+  eRestore() { camShake = 2; flash = 240; },
+});
 
 function pose(time, walk = walkW, name = act, p = name ? actT / MOVES[name].dur : 0, cw = chargeW, c = charge) {
   const on = (n, keys) => (n === name ? track(p, keys) : 0);
   const m = name ? MOVES[name] : null, ch = key => (m && m[key] ? track(p, m[key]) : 0);
   const stride = time * WALK_RATE, tuck = ch('tuck');
 
-  for (const l of legs) {
-    const a = stride + l.phase, raised = Math.max(0, -Math.sin(a)) * walk;
-    l.yaw.rotation.y = -l.s * WALK_STRIDE * Math.cos(a) / l.reach * walk;
-    l.lift.quaternion.setFromAxisAngle(l.axis, Math.max(raised * .34, tuck * .55));
-    l.knee.quaternion.setFromAxisAngle(l.axis, -Math.max(raised * .3, tuck * .5));
-  }
-  root.position.y = ch('leap');
+  root.position.y = ch('leap') * CLAWD_SCALE;
   root.rotation.y = ch('spin');
 
-  const roar = on('roar', [[0, 0], [.15, 1], [.85, 1], [1, 0]]);
+  const roar = on('roar', [[0, 0], [.15, 1], [.85, 1], [1, 0]]) + ch('raise');
   const pitch = ch('pitch') - roar * .24 - cw * .06;
   const twist = ch('twist') + on('snap', [[0, 0], [.22, .14], [.42, -.26], [.7, -.26], [1, 0]]);
   const roll = Math.sin(stride) * .035 * walk;
   const held = cw * c, tremble = (roar * .025 + held * .03) * Math.sin(time * 46);
+
+  // the body sinks into a lunge as the sword comes down, stepping the sword-side foot forward
+  const lunge = Math.max(0, ch('armX')) / 1.3 * .7;
+  const height = Math.min(.1, Math.sin(time * 2) * .03 + Math.abs(Math.sin(stride)) * .1 * walk + roar * .22 + ch('crouch') - cw * .25 - lunge) - .03;
+  pelvis.position.y = height;
+  for (const l of legs) {
+    const a = stride + l.phase, raised = Math.max(0, -Math.sin(a)) * walk;
+    placeLeg(l, HIP_Y + height, WALK_STRIDE * Math.cos(a) * walk + (l.s < 0 ? .7 : -.45) * lunge + tuck * .3, raised * .55 + tuck, raised * .35);
+  }
+  neck.rotation.set(Math.sin(time * 1.1) * .015 - roar * .22, -twist * .35, 0);
   upper.rotation.set(pitch, twist, roll);
-  upper.position.set(HIP_Y * Math.sin(roll) + tremble, Math.sin(time * 2) * .03 + Math.abs(Math.sin(stride)) * .07 * walk + HIP_Y * (1 - Math.cos(pitch)) + roar * .22 + ch('crouch') - cw * .25, -HIP_Y * Math.sin(pitch));
+  upper.position.set(HIP_Y * Math.sin(roll) + tremble, height + HIP_Y * (1 - Math.cos(pitch)), -HIP_Y * Math.sin(pitch));
 
   swordArm.rotation.x = ch('armX') + Math.sin(stride) * .08 * walk - roar * .25 - cw * .5;
   swordArm.rotation.y = ch('armY');
   swordArm.rotation.z = Math.sin(time * 1.3) * .025 - roar * .25 + ch('armZ');
-  swordHand.rotation.set(ch('wristX'), 0, -STRAIGHT + ch('wristZ') + cw * STRAIGHT);
+  swordHand.rotation.set(ch('wristX') * (ch('wristX') > 0 ? 1.25 : 1), 0, -STRAIGHT + ch('wristZ') + cw * STRAIGHT);
   swordHand.rotateY(ch('edge')); // local, so it spins the sword about its own length whatever the wrist is doing
+  // At rest the sword is held low and ready; attacks raise it out of that grip and bring it back.
+  const swings = m && (m.armX || m.armZ);
+  const grip = (1 - cw) * (swings ? track(p, name === 'release' ? [[0, 0], [.82, 0], [1, 1]] : [[0, 1], [.16, 0], [.84, 0], [1, 1]]) : 1);
+  swordArm.quaternion.multiply(turnBy.copy(NO_TURN).slerp(GRIP.shoulder, grip));
+  swordForearm.quaternion.copy(NO_TURN).slerp(GRIP.elbow, grip);
+  swordHand.quaternion.slerp(GRIP.hand, grip);
   trailNow = ch('trail');
 
   clawArm.rotation.x = Math.sin(time * 1.3 + 1) * .02 - Math.sin(stride) * .08 * walk + on('snap', [[0, 0], [.22, -.35], [.42, -.1], [.7, -.1], [1, 0]]);
@@ -864,10 +1240,47 @@ function pose(time, walk = walkW, name = act, p = name ? actT / MOVES[name].dur 
   const surge = ch('surge') + roar * .7;
   auraTime.value = time;
   auraPower.value = (.86 + .14 * Math.sin(time * 5.3)) * (1 + surge + held * 1.5);
-  auraSize.value = 1 + surge * (.1 + (name === 'release' ? releasePower * .25 : 0)) + held * .55;
+  auraSize.value = CLAWD_SCALE * (1 + surge * (.1 + (name === 'release' ? releasePower * .25 : 0)) + held * .55);
   auraLight.intensity = 9 * auraPower.value;
   chargeRing.visible = held > .01;
   chargeRing.material.uniforms.c.value = held;
+  for (const l of backLegs) {
+    const a = stride + l.phase, raised = Math.max(0, -Math.sin(a)) * walk;
+    const flare = Math.min(1.4, surge) * .09 + roar * .34 + held * .24;
+    const groundFollow = l.planted ? Math.max(0, -height) / 2.6 : 0; // keeps the lowest pair above the floor as the body sinks
+    l.yaw.rotation.y = -l.s * Math.cos(a) * .13 * walk;
+    l.lift.quaternion.setFromAxisAngle(l.axis, Math.sin(time * 1.6 + l.phase) * .035 + raised * .2 + flare + groundFollow + tuck * .34);
+    l.knee.quaternion.setFromAxisAngle(l.axis, -Math.sin(time * 1.6 + l.phase + .7) * .03 - raised * .18 - flare * .55 - tuck * .6);
+  }
+  godTime.value = time;
+  guardianPower.value = .9 + Math.min(1.4, surge) * .3 + held * .4 + Math.sin(time * 2.4) * .05;
+  coreOrbit.rotation.y = time * .28;
+  cores.forEach((c, i) => {
+    const up = ch('c' + i);
+    c.g.position.y = Math.sin(time * 1.3 + c.seed) * .35;
+    c.mesh.rotation.set(time * .7 + c.seed, time * .9, 0);
+    c.g.scale.setScalar(1 + up * .75 + roar * .1);
+    c.glow.material.opacity = Math.min(1, .75 + up * .3);
+  });
+  powerWheel.rotation.z = time * .09;
+
+  const sky = Math.min(1, ch('sky_'));
+  skyDome.visible = sky > .01; skyMat.uniforms.a.value = sky;
+  if (m && m.sky) skyMat.uniforms.tint.value.set(m.sky);
+  const gal = ch('gal');
+  galaxyDisc.visible = gal > .004; galaxyDisc.scale.setScalar(12 + gal * 260); galaxyDisc.material.uniforms.a.value = Math.min(1, gal * 1.6); galaxyDisc.rotation.z = time * .08;
+  beamPower.value = ch('beam');
+  const orb = ch('orb');
+  hakai.visible = orb > .02; hakai.scale.setScalar(Math.max(.01, orb)); hakai.position.z = 12 + ch('orbZ'); hakaiPower.value = Math.min(1.2, orb * .35);
+  const spk = ch('spk');
+  for (const s of spikeRing) {
+    const grow = Math.max(0, Math.min(1, (spk - s.userData.delay) / .55));
+    s.visible = grow > .01; s.scale.set(1, Math.max(.01, grow * s.userData.tall), 1);
+  }
+  const erase = ch('erase'), whiteOut = ch('whiteOut');
+  eraseSheet.visible = erase > .002 || whiteOut > .002;
+  eraseMat.uniforms.p.value = erase; eraseMat.uniforms.white.value = whiteOut; eraseMat.uniforms.aspect.value = innerWidth / innerHeight;
+
   waveBanner(time);
 }
 
@@ -877,6 +1290,7 @@ function exportMaterial(mat) {
   if (!exportMats.has(mat)) {
     let out;
     if (mat.isMeshToonMaterial) out = new THREE.MeshStandardMaterial({ color: mat.color, map: mat.map, roughness: .8, metalness: 0 });
+    else if (mat.isShaderMaterial) out = new THREE.MeshStandardMaterial({ color: 0x140a2c, roughness: .8, metalness: 0 });
     else { out = mat.clone(); out.side = THREE.FrontSide; }
     exportMats.set(mat, out);
   }
@@ -900,7 +1314,7 @@ function exportTree(src) {
   out.position.copy(src.position); out.quaternion.copy(src.quaternion); out.scale.copy(src.scale);
   for (const child of src.children) {
     // outlines and additive glows are renderer tricks glTF cannot carry
-    if (child.isLight || child.material === hullMat || child.material?.blending === THREE.AdditiveBlending) continue;
+    if (child.isLight || child.material === hullMat || child.material === headHull || child.material?.blending === THREE.AdditiveBlending) continue;
     out.add(exportTree(child));
   }
   return out;
@@ -930,7 +1344,7 @@ function animate() {
     const t0 = t, move = act ? MOVES[act] : null, p0 = move ? actT / move.dur : 0;
     t += dt;
     walkW += ((mode === 'walk' ? 1 : 0) - walkW) * (1 - Math.exp(-dt * 6));
-    floorTile.offset.y -= WALK_SPEED * walkW * dt;
+    floorTile.offset.y -= WALK_SPEED * CLAWD_SCALE * walkW * dt;
     if (charging) {
       charge = Math.min(1, charge + dt / CHARGE_TIME);
       chargeW += (1 - chargeW) * (1 - Math.exp(-dt * 10));
@@ -955,6 +1369,7 @@ function animate() {
     driftEmbers(dt, t);
     driftAura(dt, t);
     updateFx(dt);
+    updateBolts(dt);
     due.forEach(([, fx]) => FX[fx]()); // after updateFx, so a slow frame can't age a new effect away
     drawTrail(t);
   } else pose(t);

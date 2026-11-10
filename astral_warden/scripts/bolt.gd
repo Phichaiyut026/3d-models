@@ -7,6 +7,8 @@ const LIFE := 1.6
 const DAMAGE := 62.0
 
 var direction := Vector3.FORWARD
+var tint := Color(0.72, 0.62, 1.0)
+var damage := DAMAGE
 var _age := 0.0
 
 
@@ -14,14 +16,14 @@ func _ready() -> void:
 	var mesh := SphereMesh.new()
 	mesh.radius = 0.2
 	mesh.height = 0.4
-	mesh.material = Fx.flat_material(Color(0.72, 0.62, 1.0), 4.0)
+	mesh.material = Fx.flat_material(tint, 4.0)
 	var core := MeshInstance3D.new()
 	core.mesh = mesh
 	core.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(core)
 
 	var light := OmniLight3D.new()
-	light.light_color = Color(0.65, 0.5, 1.0)
+	light.light_color = tint
 	light.light_energy = 3.0
 	light.omni_range = 7.0
 	add_child(light)
@@ -32,7 +34,7 @@ func _ready() -> void:
 	dot.height = 0.14
 	dot.radial_segments = 6
 	dot.rings = 3
-	dot.material = Fx.flat_material(Color(0.55, 0.45, 1.0), 3.0)
+	dot.material = Fx.flat_material(tint.darkened(0.2), 3.0)
 	trail.mesh = dot
 	trail.amount = 40
 	trail.lifetime = 0.4
@@ -52,11 +54,11 @@ func _physics_process(delta: float) -> void:
 		return
 	for enemy in Game.enemies:
 		if enemy.is_alive() and enemy.chest_position().distance_to(pos) < enemy.radius + 0.5:
-			enemy.take_hit(DAMAGE, 22.0, Game.player.global_position, false)
+			enemy.take_hit(damage, 22.0, Game.player.global_position, false, tint)
 			_explode()
 			return
 
 
 func _explode() -> void:
-	Fx.burst(global_position, Color(0.72, 0.6, 1.0), 26, 8.0)
+	Fx.burst(global_position, tint, 26, 8.0)
 	queue_free()

@@ -11,6 +11,8 @@ const ARENA := Vector3(22, 0, -112)
 
 var font: Font
 var show_fps := false
+var screen_flash: ColorRect
+var screen_shatter: ColorRect
 var _panel := StyleBoxFlat.new()
 var _panel_lit := StyleBoxFlat.new()
 var _key := StyleBoxFlat.new()
@@ -42,6 +44,20 @@ func _ready() -> void:
 	_panel_lit.set_corner_radius_all(9)
 	_key.bg_color = Color(0.93, 0.91, 1.0, 0.94)
 	_key.set_corner_radius_all(4)
+	screen_flash = _overlay()
+	screen_shatter = _overlay()
+	var shatter_material := ShaderMaterial.new()
+	shatter_material.shader = preload("res://shaders/screen_shatter.gdshader")
+	screen_shatter.material = shatter_material
+
+
+func _overlay() -> ColorRect:
+	var rect := ColorRect.new()
+	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	rect.visible = false
+	add_child(rect)
+	return rect
 
 
 func banner(title: String, sub: String, color: Color, seconds := 3.0) -> void:
@@ -80,6 +96,7 @@ func _draw() -> void:
 	_draw_compass()
 	_draw_objective()
 	_draw_slots()
+	_draw_skills()
 	_draw_stardust()
 	_draw_boss()
 	_draw_prompt()
@@ -170,7 +187,7 @@ func _draw_vitals() -> void:
 	draw_colored_polygon(ring, Color(0.06, 0.04, 0.16, 0.9))
 	ring.append(ring[0])
 	draw_polyline(ring, GOLD, 2.0, true)
-	draw_colored_polygon(_star_points(emblem, 27.0, 0.22, sin(_clock * 0.6) * 0.08), LAVENDER)
+	draw_colored_polygon(_star_points(emblem, 27.0, 0.22, sin(_clock * 0.6) * 0.08), GOLD if p.rig.is_supreme else LAVENDER)
 	draw_colored_polygon(_star_points(emblem, 15.0, 0.18, sin(_clock * 0.6) * 0.08), Color.WHITE)
 	if p.upgrades > 0:
 		var badge := emblem + Vector2(27, 26)
@@ -227,7 +244,7 @@ func _draw_objective() -> void:
 		goal = "หุบเขาอำพันกลับคืนสู่ความสงบ"
 		detail = ""
 	elif Game.boss_active:
-		goal = "โค่น" + Game.BOSS_NAME
+		goal = "โค่น " + Game.BOSS_NAME
 		detail = ""
 	var box_width := _text_width(goal, 20) + 36.0
 	var box_height := 86.0 if detail != "" else 66.0
@@ -253,6 +270,44 @@ func _draw_slots() -> void:
 	draw_style_box(_panel, Rect2(Vector2(30, y - 42), Vector2(_text_width(hint, 15) + 50.0, 28)))
 	var hint_x := 37.0 + _keycap(Vector2(37, y - 38), "X") + 7.0
 	_text(Vector2(hint_x, y - 23), hint, 15, WHITE)
+	var form := "กลับร่างเดิม" if p.rig.is_supreme else "แปลงร่าง"
+	var ready := p._transform_cooldown <= 0.0
+	draw_style_box(_panel_lit if p.state == "transform" else _panel, Rect2(Vector2(30, y - 76), Vector2(_text_width(form, 15) + 50.0, 28)))
+	var form_x := 37.0 + _keycap(Vector2(37, y - 72), "T") + 7.0
+	_text(Vector2(form_x, y - 57), form, 15, (GOLD if not p.rig.is_supreme else WHITE) if ready else Color(MUTED, 0.6))
+	if p.rig.is_supreme:
+		var flight := "ลงพื้น · Space ขึ้น · Ctrl ลง" if p.flying else "บิน"
+		draw_style_box(_panel_lit if p.flying else _panel, Rect2(Vector2(30, y - 110), Vector2(_text_width(flight, 15) + 50.0, 28)))
+		var flight_x := 37.0 + _keycap(Vector2(37, y - 106), "V") + 7.0
+		_text(Vector2(flight_x, y - 91), flight, 15, WHITE)
+
+
+## The powers of whichever form the warrior is in.
+func _draw_skills() -> void:
+	var p := Game.player
+	var keys := p.skill_keys()
+	var box := Vector2(92, 66)
+	var gap := 8.0
+	var x := size.x - 30.0 - (box.x + gap) * keys.size() + gap
+	var y := size.y - 148.0
+	for i in keys.size():
+		var key: String = keys[i]
+		var skill: Dictionary = p.skill_info(key)
+		var rect := Rect2(Vector2(x + i * (box.x + gap), y), box)
+		var lit: bool = p.state == "skill" and p._skill_key == key
+		var usable := p.skill_ready(key)
+		var tint: Color = skill["tint"]
+		draw_style_box(_panel_lit if lit else _panel, rect)
+		var center := rect.position + Vector2(box.x * 0.5, 25)
+		draw_colored_polygon(_star_points(center, 18.0, 0.28, i * 0.4), Color(tint, 1.0 if usable else 0.3))
+		draw_colored_polygon(_star_points(center, 8.0, 0.3, i * 0.4), Color(1, 1, 1, 1.0 if usable else 0.3))
+		_text(rect.position + Vector2(0, 60), skill["name"], 13, WHITE if usable else Color(MUTED, 0.75), HORIZONTAL_ALIGNMENT_CENTER, box.x)
+		var wait := p.skill_cooldown(key)
+		if wait > 0.0:
+			var share: float = clampf(wait / skill["cooldown"], 0.0, 1.0)
+			draw_rect(Rect2(rect.position, Vector2(box.x, box.y * share)), Color(0.02, 0.01, 0.07, 0.55))
+			_text(rect.position + Vector2(0, 33), str(ceili(wait)), 22, WHITE, HORIZONTAL_ALIGNMENT_CENTER, box.x)
+		_keycap(rect.position + Vector2(-5, -7), str(i + 1), 11)
 
 
 func _slot(pos: Vector2, icon: String, key: String, enabled: bool, lit: bool, count: String) -> void:

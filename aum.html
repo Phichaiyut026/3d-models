@@ -1,0 +1,676 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Aum 3D</title>
+<style>
+  html,body{margin:0;height:100%;overflow:hidden;background:#0d4a9c;font-family:ui-monospace,Menlo,monospace;color:#d8f6ff}
+  canvas{display:block}
+  #title{position:fixed;left:20px;top:16px;font:800 22px/1.1 system-ui,sans-serif;letter-spacing:.02em;pointer-events:none}
+  #title small{display:block;font:500 12px/1.6 system-ui,sans-serif;opacity:.8;letter-spacing:0}
+  #bar{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);display:flex;gap:6px;flex-wrap:wrap;justify-content:center;width:max-content;max-width:calc(100vw - 32px)}
+  button{font:600 12px ui-monospace,Menlo,monospace;padding:9px 12px;background:#0a3672;color:#e4f8ff;border:1px solid #6fd8ee80;border-radius:4px;cursor:pointer}
+  button:hover{background:#12488f}
+  button.on{background:#12a08f;border-color:#5ff0dc;color:#fff}
+  .gap{width:10px}
+  @media (max-width:640px){button{padding:6px 7px;font-size:11px}.gap{width:2px}#bar{gap:4px;bottom:10px}}
+</style>
+<script type="importmap">
+{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}
+</script>
+</head>
+<body>
+<div id="title">อั้ม · THE ARCHITECT<small>ลากเพื่อหมุน · เลื่อนเพื่อซูม · คลิกขวาลากเพื่อเลื่อน</small></div>
+<div id="bar">
+  <button data-view="front">FRONT</button>
+  <button data-view="side">SIDE</button>
+  <button data-view="back">BACK</button>
+  <button data-view="iso">ISO</button>
+  <span class="gap"></span>
+  <button data-mode="idle" class="on">IDLE</button>
+  <button data-mode="walk">WALK</button>
+  <button data-mode="holo">HOLOGRAM</button>
+  <button id="wave">WAVE</button>
+  <span class="gap"></span>
+  <button id="download">DOWNLOAD GLB</button>
+</div>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+
+/* ---------- scene: a blueprint table ---------- */
+const scene = new THREE.Scene();
+scene.background = (() => {
+  const c = document.createElement('canvas'); c.width = 2; c.height = 256;
+  const x = c.getContext('2d'), g = x.createLinearGradient(0, 0, 0, 256);
+  g.addColorStop(0, '#0a3a86'); g.addColorStop(.6, '#1160bd'); g.addColorStop(1, '#0a3f8e');
+  x.fillStyle = g; x.fillRect(0, 0, 2, 256);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+})();
+const camera = new THREE.PerspectiveCamera(26, innerWidth / innerHeight, .1, 300);
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(renderer.domElement);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.target.set(0, 4.25, 0);
+controls.minDistance = 3; controls.maxDistance = 70;
+
+scene.add(new THREE.HemisphereLight(0xdcecff, 0x31507e, 2.3));
+const key = new THREE.DirectionalLight(0xfff8ee, 2.8);
+key.position.set(-5, 13, 11); key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048);
+Object.assign(key.shadow.camera, { left: -6, right: 6, top: 11, bottom: -2, far: 45 });
+key.shadow.bias = -.0012; key.shadow.normalBias = .03;
+scene.add(key);
+const rim = new THREE.DirectionalLight(0x7ff0ff, 2.6); rim.position.set(7, 8, -10); scene.add(rim);
+
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(70, 70), new THREE.ShadowMaterial({ opacity: .35, color: 0x041a40 }));
+ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+const grid = new THREE.GridHelper(60, 60, 0x8fd0ff, 0x3f83cf); grid.position.y = .003; scene.add(grid);
+
+/* ---------- materials ---------- */
+const ramp = new THREE.DataTexture(new Uint8Array([95, 160, 220, 255]), 4, 1, THREE.RedFormat);
+ramp.magFilter = ramp.minFilter = THREE.NearestFilter; ramp.needsUpdate = true;
+const toon = color => new THREE.MeshToonMaterial({ color, gradientMap: ramp });
+const flat = color => new THREE.MeshBasicMaterial({ color, toneMapped: false });
+const M = {
+  skin: toon(0xe3b692), lip: toon(0xa86a58), hair: toon(0x171a22), white: flat(0xf2f4f6), iris: flat(0x14202a),
+  under: toon(0x17191d), jacket: toon(0x565a62), jacketDark: toon(0x303339), sleeve: toon(0x1e2024),
+  pants: toon(0x1f2125), plate: toon(0x41454d), lite: toon(0x666b74), strap: toon(0x101114), glove: toon(0x24262b),
+  sole: toon(0x0b0c0e), metal: toon(0x8b929c), teal: flat(0x45f0d8), red: flat(0xff3a4a),
+  lens: new THREE.MeshBasicMaterial({ color: 0x57f3df, transparent: true, opacity: .5, side: THREE.DoubleSide, depthWrite: false, toneMapped: false }),
+};
+
+const hullMat = new THREE.ShaderMaterial({
+  side: THREE.BackSide,
+  vertexShader: `attribute vec3 smoothNormal;
+    void main(){ gl_Position = projectionMatrix * modelViewMatrix * vec4(position + smoothNormal * .018, 1.); }`,
+  fragmentShader: `void main(){ gl_FragColor = vec4(.03,.035,.05,1.); }`,
+});
+
+/* ---------- building blocks: everything is authored in rest-pose world coordinates ---------- */
+const rel = (p, o) => p.map((v, i) => v - o[i]);
+const lerp3 = (a, b, u) => a.map((v, i) => v + (b[i] - v) * u);
+const pivotOf = g => g.userData.pivot || [0, 0, 0];
+
+function joint(parent, pivot, name) {
+  const g = new THREE.Group(); g.name = name; g.userData.pivot = pivot;
+  g.position.set(...rel(pivot, pivotOf(parent))); parent.add(g);
+  return g;
+}
+
+function outlined(geo) { // averaged normals keep the outline closed at hard corners
+  const p = geo.attributes.position, n = geo.attributes.normal, sum = new Map(), keys = [];
+  for (let i = 0; i < p.count; i++) {
+    const key = `${Math.round(p.getX(i) * 1e3)},${Math.round(p.getY(i) * 1e3)},${Math.round(p.getZ(i) * 1e3)}`;
+    keys.push(key);
+    const v = sum.get(key) || new THREE.Vector3();
+    v.x += n.getX(i); v.y += n.getY(i); v.z += n.getZ(i); sum.set(key, v);
+  }
+  const smooth = new Float32Array(p.count * 3);
+  keys.forEach((key, i) => { const v = sum.get(key).clone().normalize(); smooth.set([v.x, v.y, v.z], i * 3); });
+  geo.setAttribute('smoothNormal', new THREE.BufferAttribute(smooth, 3));
+  return geo;
+}
+
+function add(parent, geo, mat, pos = [0, 0, 0], rot = [0, 0, 0], outline = true) {
+  const m = new THREE.Mesh(outlined(geo), mat);
+  m.position.set(...rel(pos, pivotOf(parent))); m.rotation.set(...rot);
+  m.castShadow = true; m.receiveShadow = !mat.isMeshBasicMaterial;
+  if (outline) m.add(new THREE.Mesh(geo, hullMat));
+  parent.add(m);
+  return m;
+}
+
+function aim(mesh, a, b) {
+  const d = new THREE.Vector3(...b).sub(new THREE.Vector3(...a)).normalize();
+  mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d);
+  return mesh;
+}
+const dist = (a, b) => new THREE.Vector3(...a).distanceTo(new THREE.Vector3(...b));
+
+function limb(parent, a, b, r1, r2, mat, sides = 16) { // a tapered capsule
+  const L = dist(a, b), pts = [];
+  for (let i = 0; i <= 5; i++) { const t = -Math.PI / 2 + i / 5 * Math.PI / 2; pts.push(new THREE.Vector2(Math.max(Math.cos(t) * r1, 1e-3), Math.sin(t) * r1)); }
+  for (let i = 0; i <= 5; i++) { const t = i / 5 * Math.PI / 2; pts.push(new THREE.Vector2(Math.max(Math.cos(t) * r2, 1e-3), L + Math.sin(t) * r2)); }
+  return aim(add(parent, new THREE.LatheGeometry(pts, sides), mat, a), a, b);
+}
+function cyl(parent, a, b, r1, r2, mat, sides = 18, outline = true) {
+  const g = new THREE.CylinderGeometry(r2, r1, dist(a, b), sides, 1);
+  return aim(add(parent, g, mat, lerp3(a, b, .5), [0, 0, 0], outline), a, b);
+}
+function bar(parent, a, b, w, t, mat, outline = true) {
+  return aim(add(parent, new THREE.BoxGeometry(w, dist(a, b), t), mat, lerp3(a, b, .5), [0, 0, 0], outline), a, b);
+}
+function ball(parent, pos, [rx, ry, rz], mat) {
+  return add(parent, new THREE.SphereGeometry(1, 22, 16).scale(rx, ry, rz), mat, pos);
+}
+const box = (parent, pos, size, mat, rot, outline = true) => add(parent, new THREE.BoxGeometry(...size), mat, pos, rot, outline);
+
+function shapeGeo(points, depth, bevel = 0) {
+  const s = new THREE.Shape(points.map(p => new THREE.Vector2(...p)));
+  const g = new THREE.ExtrudeGeometry(s, { depth, bevelEnabled: bevel > 0, bevelSize: bevel, bevelThickness: bevel, bevelSegments: 2, curveSegments: 6 });
+  g.translate(0, 0, -depth / 2);
+  return g;
+}
+const rrect = (w, h, c) => [[-w + c, -h], [w - c, -h], [w, -h + c], [w, h - c], [w - c, h], [-w + c, h], [-w, h - c], [-w, -h + c]];
+function pad(parent, pos, [w, h, d], mat, rot) { // a chamfered tactical block
+  const b = Math.min(.03, d / 4);
+  return add(parent, shapeGeo(rrect(w / 2 - b, h / 2 - b, Math.min(w, h) * .16), d - b * 2, b), mat, pos, rot);
+}
+
+/* lofted surfaces: stacked ellipses {y, rx, rz, cx, cz, half}, half being a shell's angular half-width */
+const KEYS = ['y', 'rx', 'rz', 'cx', 'cz', 'half'];
+function refine(s, n = 4) { // Catmull-Rom between sections, so a few numbers give a smooth profile
+  const at = i => s[Math.max(0, Math.min(s.length - 1, i))], out = [];
+  for (let i = 0; i < s.length - 1; i++) for (let k = 0; k < n; k++) {
+    const u = k / n, o = {};
+    for (const key of KEYS) {
+      const [a, b, c, d] = [at(i - 1), at(i), at(i + 1), at(i + 2)].map(x => x[key] || 0);
+      o[key] = .5 * (2 * b + (c - a) * u + (2 * a - 5 * b + 4 * c - d) * u * u + (3 * b - a - 3 * c + d) * u * u * u);
+    }
+    o.rx = Math.max(o.rx, .002); o.rz = Math.max(o.rz, .002);
+    out.push(o);
+  }
+  out.push({ cx: 0, cz: 0, half: 0, ...s[s.length - 1] });
+  return out;
+}
+function section(secs, y) {
+  for (let i = 0; i < secs.length - 1; i++) {
+    const a = secs[i], b = secs[i + 1];
+    if (y <= b.y || i === secs.length - 2) {
+      const u = (y - a.y) / (b.y - a.y), o = {};
+      for (const key of KEYS) o[key] = (a[key] || 0) + ((b[key] || 0) - (a[key] || 0)) * u;
+      return o;
+    }
+  }
+}
+const onSurface = (s, y, th, lift = 0) => [s.cx + (s.rx + lift) * Math.sin(th), y, s.cz + (s.rz + lift) * Math.cos(th)];
+const pointAtX = (secs, y, x, lift = 0) => { const s = section(secs, y); return onSurface(s, y, Math.asin((x - s.cx) / s.rx), lift); };
+
+function indexed(positions, index) {
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  g.setIndex(index); g.computeVertexNormals();
+  return g;
+}
+function loftBody(secs, sides = 30) { // a closed solid
+  const pos = [], idx = [], rings = secs.length;
+  for (const s of secs) for (let j = 0; j < sides; j++) pos.push(...onSurface(s, s.y, j / sides * Math.PI * 2));
+  for (let i = 0; i < rings - 1; i++) for (let j = 0; j < sides; j++) {
+    const a = i * sides + j, b = i * sides + (j + 1) % sides, c = a + sides, d = b + sides;
+    idx.push(a, b, d, a, d, c);
+  }
+  const first = secs[0], last = secs[rings - 1], bottom = pos.length / 3, top = bottom + 1;
+  pos.push(first.cx, first.y, first.cz, last.cx, last.y, last.cz);
+  for (let j = 0; j < sides; j++) {
+    const k = (j + 1) % sides;
+    idx.push(bottom, k, j, top, (rings - 1) * sides + j, (rings - 1) * sides + k);
+  }
+  return indexed(pos, idx);
+}
+function loftShell(secs, { th0 = 0, depth = .05, cols = 24 } = {}) { // a curved armour plate with real thickness
+  const pos = [], idx = [], ring = secs.length;
+  const P = (i, j, inset) => { const s = secs[i]; return onSurface(s, s.y, th0 + (j / cols * 2 - 1) * s.half, inset); };
+  const grid = (inset, flip) => {
+    const base = pos.length / 3;
+    for (let i = 0; i < ring; i++) for (let j = 0; j <= cols; j++) pos.push(...P(i, j, inset));
+    for (let i = 0; i < ring - 1; i++) for (let j = 0; j < cols; j++) {
+      const a = base + i * (cols + 1) + j, b = a + 1, c = a + cols + 1, d = c + 1;
+      if (flip) idx.push(a, d, b, a, c, d); else idx.push(a, b, d, a, d, c);
+    }
+  };
+  grid(0, false); grid(-depth, true);
+  const quad = (a, b, c, d) => { const n = pos.length / 3; pos.push(...a, ...b, ...c, ...d); idx.push(n, n + 1, n + 2, n, n + 2, n + 3); };
+  for (let i = 0; i < ring - 1; i++) {
+    quad(P(i, 0, 0), P(i + 1, 0, 0), P(i + 1, 0, -depth), P(i, 0, -depth));
+    quad(P(i + 1, cols, 0), P(i, cols, 0), P(i, cols, -depth), P(i + 1, cols, -depth));
+  }
+  for (let j = 0; j < cols; j++) {
+    quad(P(ring - 1, j, 0), P(ring - 1, j + 1, 0), P(ring - 1, j + 1, -depth), P(ring - 1, j, -depth));
+    quad(P(0, j + 1, 0), P(0, j, 0), P(0, j, -depth), P(0, j + 1, -depth));
+  }
+  return indexed(pos, idx);
+}
+const shell = (parent, secs, mat, opts, outline = true) => add(parent, loftShell(refine(secs), opts), mat, [0, 0, 0], [0, 0, 0], outline);
+const solid = (parent, secs, mat, sides) => add(parent, loftBody(refine(secs), sides), mat);
+function band(parent, y, h, cx, cz, rx, rz, mat) {
+  const c = { cx, cz, rx, rz };
+  return solid(parent, [{ ...c, y: y - h / 2 }, { ...c, y: y + h / 2 }], mat, 22);
+}
+
+function canvasTexture(draw, w = 512, h = 256) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  draw(c.getContext('2d'), w, h);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
+  return t;
+}
+
+/* ---------- rig ---------- */
+const root = new THREE.Group(); root.name = 'Aum'; scene.add(root);
+const pelvis = joint(root, [0, 4.1, 0], 'Pelvis');
+const spine = joint(pelvis, [0, 4.6, 0], 'Spine');
+const head = joint(spine, [0, 6.72, .02], 'Head');
+
+/* ---------- head ---------- */
+const HEAD = [{ y: 6.95, rx: .13, rz: .09, cz: .2 }, { y: 7.03, rx: .22, rz: .2, cz: .15 }, { y: 7.2, rx: .32, rz: .32, cz: .06 }, { y: 7.42, rx: .36, rz: .4, cz: .01 }, { y: 7.66, rx: .385, rz: .44, cz: -.02 }, { y: 7.86, rx: .33, rz: .39, cz: -.03 }, { y: 7.97, rx: .18, rz: .23, cz: -.03 }, { y: 8.02, rx: .04, rz: .05, cz: -.03 }];
+const headFine = refine(HEAD);
+const onHead = (y, th, lift = 0) => onSurface(section(headFine, y), y, th, lift);
+const headOver = (lift, spans) => spans.map(([y, half]) => { const s = section(headFine, y); return { y, half, cx: s.cx, cz: s.cz, rx: s.rx + lift, rz: s.rz + lift }; });
+solid(head, HEAD, M.skin, 32);
+limb(head, [0, 6.62, -.02], [0, 7.1, 0], .2, .19, M.skin);
+
+// face under the goggles
+const nose = onHead(7.34, 0, 0);
+add(head, new THREE.SphereGeometry(1, 16, 12).scale(.042, .06, .055), M.skin, [nose[0], nose[1], nose[2] + .025], [0, 0, 0], false);
+bar(head, onHead(7.54, 0, .01), [nose[0], 7.37, nose[2] + .06], .055, .05, M.skin, false);
+bar(head, onHead(7.17, -.24, .012), onHead(7.17, .24, .012), .018, .012, M.lip, false);
+for (const s of [-1, 1]) {
+  const e = onHead(7.5, s * .4, -.018);
+  ball(head, e, [.08, .042, .035], M.white);
+  ball(head, [e[0] - s * .012, e[1], e[2] + .022], [.032, .04, .022], M.iris);
+  bar(head, onHead(7.66, s * .16, .035), onHead(7.7, s * .68, .03), .05, .04, M.hair, false);
+  ball(head, onHead(7.44, s * 1.55, .01), [.05, .13, .085], M.skin);
+}
+
+// the goggles: two wrapped lenses, a frame and a strap around the head
+for (const s of [-1, 1]) {
+  shell(head, headOver(.075, [[7.39, .36], [7.46, .46], [7.61, .49]]), M.lens, { th0: s * .5, depth: .004 }, false);
+  bar(head, onHead(7.57, s * .28, .085), onHead(7.53, s * .62, .085), .014, .004, M.white, false);
+  bar(head, onHead(7.49, s * .28, .085), onHead(7.46, s * .46, .085), .012, .004, M.white, false);
+  shell(head, headOver(.09, [[7.38, .1], [7.62, .12]]), M.plate, { th0: s * .98, depth: .05 });
+}
+shell(head, headOver(.1, [[7.59, .95], [7.645, 1.02]]), M.plate, { depth: .05 });
+shell(head, headOver(.095, [[7.355, .86], [7.4, .9]]), M.plate, { depth: .05 });
+shell(head, headOver(.095, [[7.47, .028], [7.6, .028]]), M.plate, { depth: .05 });
+shell(head, headOver(.02, [[7.45, 2.22], [7.56, 2.22]]), M.strap, { th0: Math.PI, depth: .03 });
+bar(head, onHead(7.625, -.55, .115), onHead(7.625, -.3, .115), .03, .006, M.teal, false);
+
+// headset on the left ear, mic to the corner of the mouth
+{
+  const ear = onHead(7.44, 1.55, .05);
+  cyl(head, ear, [ear[0] + .07, ear[1], ear[2]], .14, .12, M.plate, 16);
+  cyl(head, [ear[0] + .065, ear[1], ear[2]], [ear[0] + .08, ear[1], ear[2]], .07, .07, M.teal, 14, false);
+  const m = [ear[0] + .02, 7.26, ear[2] + .2], end = onHead(7.14, .55, .08);
+  cyl(head, ear, m, .018, .018, M.strap, 8);
+  cyl(head, m, end, .018, .016, M.strap, 8);
+  ball(head, end, [.028, .025, .036], M.plate);
+}
+
+/* ---------- hair: a dark cap and hand-placed spiky locks ---------- */
+const hairCap = (y, half) => ({ ...headOver(.035, [[y, half]])[0] });
+shell(head, [hairCap(7.16, .8), hairCap(7.32, 1.45), hairCap(7.5, 1.85), hairCap(7.64, 2.18), hairCap(7.8, 3.05), hairCap(7.97, 3.14)], M.hair, { th0: Math.PI, depth: .1, cols: 36 });
+solid(head, [{ ...hairCap(7.74, 0) }, { ...hairCap(7.86, 0) }, { y: 8, rx: .24, rz: .3, cz: -.03 }, { y: 8.08, rx: .07, rz: .09, cz: -.03 }], M.hair, 26);
+function lock(th, y, len, up, side = 0, r = .1, lift = 0) {
+  const b = onHead(y, th, lift), ox = Math.sin(th), oz = Math.cos(th);
+  const mid = [b[0] + ox * len * .36 + side * len * .28, b[1] + up * len * .5, b[2] + oz * len * .36];
+  const tip = [b[0] + ox * len * .46 + side * len * .85, b[1] + up * len, b[2] + oz * len * .46];
+  limb(head, b, mid, r, r * .62, M.hair, 7);
+  limb(head, mid, tip, r * .62, .006, M.hair, 7);
+}
+const wob = i => Math.sin(i * 12.9898) * 43758.5453 % 1; // repeatable jitter
+for (let i = 0; i < 18; i++) lock(i / 18 * Math.PI * 2, 7.88 + wob(i) * .04, .27 + wob(i + 3) * .07, .34 + wob(i + 5) * .2, wob(i + 7) * .4, .13);
+for (let i = 0; i < 12; i++) lock(i / 12 * Math.PI * 2 + .3, 7.96, .26 + wob(i + 9) * .07, .6, Math.sin(i * 2.4) * .6, .13, .03);
+lock(.05, 7.98, .4, .62, .5, .15, .03); lock(-.32, 7.97, .36, .68, -.55, .14, .03); lock(.42, 7.95, .34, .6, .62, .14, .03); lock(-.7, 7.93, .32, .55, -.6, .13, .03);
+for (const [th, side, len] of [[-.56, -.3, .27], [-.24, -.42, .34], [.08, -.5, .32], [-.02, .12, .27], [.2, .3, .26], [.36, .38, .3], [.66, .34, .24]]) lock(th, 7.83, len, -.62, side, .1, .03); // a loose fringe that stops above the goggles
+for (const s of [-1, 1]) for (const [th, y, len] of [[1.22, 7.82, .24], [1.5, 7.76, .28], [1.8, 7.72, .3], [2.1, 7.68, .3]]) lock(s * th, y, len, -.86, s * .14, .1, .03);
+for (let i = 0; i < 13; i++) lock(Math.PI + (i - 6) * .24, 7.6 + (Math.abs(i - 6) % 2) * .06, .34 + wob(i + 13) * .06, -.86, 0, .11, .04);
+for (let i = 0; i < 9; i++) lock(Math.PI + (i - 4) * .26, 7.3 + (i % 2) * .05, .2, -.9, 0, .09, .04);
+
+/* ---------- torso ---------- */
+const TORSO = [{ y: 4.38, rx: .65, rz: .42 }, { y: 4.72, rx: .6, rz: .39 }, { y: 5.2, rx: .68, rz: .44 }, { y: 5.72, rx: .8, rz: .5 }, { y: 6.08, rx: .8, rz: .49 }, { y: 6.36, rx: .56, rz: .39 }, { y: 6.55, rx: .3, rz: .28 }];
+const torsoFine = refine(TORSO);
+solid(spine, TORSO, M.jacketDark, 34);
+const onChest = (y, x, lift = .05) => pointAtX(torsoFine, y, x, lift);
+const chestOver = (lift, spans) => spans.map(([y, half]) => { const s = section(torsoFine, y); return { y, half, cx: s.cx, cz: s.cz, rx: s.rx + lift, rz: s.rz + lift }; });
+const trace = (parent, pts, w = .035) => { for (let i = 0; i < pts.length - 1; i++) bar(parent, pts[i], pts[i + 1], w, .012, M.teal, false); };
+
+// inner top and a high stand-up collar, open at the throat
+limb(spine, [0, 6.42, 0], [0, 6.9, .02], .26, .23, M.under, 20);
+shell(spine, [{ y: 6.42, rx: .46, rz: .42, half: 2.72 }, { y: 6.66, rx: .35, rz: .34, half: 2.66 }, { y: 6.94, rx: .34, rz: .33, half: 2.5 }], M.jacket, { th0: Math.PI, depth: .05, cols: 30 });
+for (const s of [-1, 1]) {
+  // jacket fronts, opening into a V at the neck
+  shell(spine, chestOver(.03, [[4.42, .5], [5, .5], [5.7, .52], [6.14, .46], [6.34, .28]]), M.jacket, { th0: s * .58, depth: .04 });
+  // darker flank panels and a lighter chest plate
+  shell(spine, chestOver(.05, [[5.54, .3], [5.8, .4], [6.1, .36]]), M.lite, { th0: s * .66, depth: .03 });
+  shell(spine, chestOver(.05, [[4.62, .26], [5.02, .34], [5.36, .28]]), M.plate, { th0: s * .86, depth: .03 });
+  shell(spine, chestOver(.04, [[4.42, .3], [5.2, .34], [6.0, .26]]), M.sleeve, { th0: s * 1.62, depth: .03 });
+  // teal seams
+  trace(spine, [onChest(6, s * .46, .075), onChest(5.78, s * .68, .075), onChest(5.58, s * .68, .075)]);
+  trace(spine, [onChest(5.3, s * .24, .075), onChest(5.02, s * .5, .075), onChest(4.72, s * .5, .075)]);
+  // harness straps, over the shoulder and down to the pack
+  bar(spine, onChest(5.32, s * .6, .09), onChest(6.3, s * .42, .06), .17, .05, M.strap);
+  bar(spine, onChest(6.3, s * .42, .06), [s * .44, 6.42, -.3], .17, .05, M.strap);
+  bar(spine, [s * .44, 6.42, -.3], [s * .44, 6.14, -.55], .17, .05, M.strap);
+  pad(spine, onChest(5.85, s * .52, .1), [.2, .14, .05], M.metal, [0, s * .5, 0]);
+}
+trace(spine, [onChest(5.96, .16, .08), onChest(5.96, .42, .08)], .05);
+// zip
+bar(spine, onChest(4.42, 0, .075), onChest(6.3, 0, .075), .075, .02, M.strap);
+bar(spine, onChest(4.42, 0, .09), onChest(6.3, 0, .09), .022, .02, M.metal, false);
+pad(spine, onChest(6.2, 0, .1), [.07, .12, .03], M.metal);
+
+/* ---------- backpack ---------- */
+const packShape = (w, top, low, h) => [[-low, -h], [low, -h], [w, -h * .45], [w, h * .5], [top, h], [-top, h], [-w, h * .5], [-w, -h * .45]];
+add(spine, shapeGeo(packShape(.72, .44, .36, .84), .3, .03), M.jacketDark, [0, 5.62, -.66]);
+add(spine, shapeGeo(packShape(.55, .36, .3, .66), .08, .02), M.plate, [0, 5.64, -.84]);
+add(spine, shapeGeo(packShape(.34, .24, .18, .42), .06, .015), M.lite, [0, 5.72, -.91]);
+box(spine, [0, 6.22, -.84], [.24, .04, .03], M.teal, undefined, false);
+box(spine, [0, 5.2, -.9], [.3, .07, .03], M.red, undefined, false);
+for (const y of [5.5, 5.6, 5.7]) box(spine, [0, y, -.95], [.34, .03, .02], M.strap, undefined, false);
+for (const s of [-1, 1]) {
+  pad(spine, [s * .64, 5.72, -.7], [.18, .92, .24], M.plate);
+  trace(spine, [[s * .66, 6.1, -.83], [s * .66, 5.72, -.83], [s * .52, 5.4, -.86]], .03);
+  shell(spine, chestOver(.04, [[5.7, .2], [6.05, .32], [6.3, .3]]), M.jacket, { th0: s * 2.3, depth: .03 });
+}
+cyl(spine, [-.2, 6.5, -.68], [.2, 6.5, -.68], .04, .04, M.strap, 8);
+
+/* ---------- pelvis and belt ---------- */
+solid(pelvis, [{ y: 3.7, rx: .32, rz: .3 }, { y: 3.96, rx: .68, rz: .46 }, { y: 4.3, rx: .68, rz: .44 }, { y: 4.5, rx: .62, rz: .41 }], M.pants);
+solid(pelvis, [{ y: 4.24, rx: .72, rz: .48 }, { y: 4.44, rx: .7, rz: .47 }], M.strap, 30);
+pad(pelvis, [0, 4.34, .5], [.5, .24, .08], M.plate);
+pad(pelvis, [0, 4.34, .55], [.26, .13, .05], M.metal);
+box(pelvis, [0, 4.34, .585], [.12, .025, .012], M.teal, undefined, false);
+pad(pelvis, [0, 4.34, -.52], [.8, .3, .14], M.plate);
+box(pelvis, [0, 4.36, -.6], [.36, .1, .02], M.teal, undefined, false);
+for (const s of [-1, 1]) {
+  pad(pelvis, [s * .5, 4.25, .42], [.28, .36, .18], M.jacketDark, [0, s * .85, 0]);
+  pad(pelvis, [s * .74, 4.22, .08], [.2, .42, .34], M.jacketDark, [0, s * 1.5, 0]);
+  pad(pelvis, [s * .42, 4.24, -.5], [.24, .34, .14], M.jacketDark, [0, s * -.5, 0]);
+}
+
+/* ---------- arms ---------- */
+const arms = {};
+const tablet = new THREE.Group();
+for (const s of [-1, 1]) {
+  const S = [s * .88, 6.18, 0], E = [s * 1.06, 4.72, 0], W = [s * 1.17, 3.5, .06];
+  const upper = joint(spine, S, s < 0 ? 'ArmR' : 'ArmL');
+  ball(upper, S, [.28, .28, .28], M.sleeve);
+  limb(upper, S, E, .25, .205, M.sleeve);
+
+  // pauldron with a glowing line
+  const PAULDRON = [{ y: 5.66, rx: .33, rz: .35, cx: s * .95, half: 1.5 }, { y: 5.9, rx: .39, rz: .41, cx: s * .95, half: 1.75 }, { y: 6.24, rx: .39, rz: .42, cx: s * .92, half: 1.85 }, { y: 6.48, rx: .28, rz: .33, cx: s * .9, half: 1.85 }, { y: 6.58, rx: .1, rz: .13, cx: s * .9, half: 1.85 }];
+  const pFine = refine(PAULDRON), onP = (y, th) => onSurface(section(pFine, y), y, s * Math.PI / 2 + th, .012);
+  shell(upper, PAULDRON, M.jacket, { th0: s * Math.PI / 2, depth: .07, cols: 30 });
+  shell(upper, [{ y: 5.2, rx: .26, rz: .28, cx: s * 1, half: 1.05 }, { y: 5.68, rx: .3, rz: .32, cx: s * .965, half: 1.35 }], M.plate, { th0: s * Math.PI / 2, depth: .05 });
+  trace(upper, [onP(6.34, -.3), onP(6.18, -.95), onP(5.86, -.9), onP(5.74, -.3)], .03);
+  trace(upper, [onP(6.34, .3), onP(6.18, .95), onP(5.86, .9), onP(5.74, .3)], .03);
+
+  const fore = joint(upper, E, s < 0 ? 'ForeR' : 'ForeL');
+  ball(fore, E, [.205, .205, .205], M.sleeve);
+  limb(fore, E, W, .2, .15, M.sleeve);
+  // elbow cap, on the back of the arm
+  shell(fore, [{ y: 4.42, rx: .2, rz: .2, cx: E[0], half: .45 }, { y: 4.62, rx: .25, rz: .25, cx: E[0], half: .85 }, { y: 4.86, rx: .25, rz: .25, cx: E[0], half: .85 }, { y: 5.04, rx: .22, rz: .22, cx: E[0], half: .45 }], M.plate, { th0: s * 2.2, depth: .05 });
+  // vambrace
+  const VAMB = [{ y: 3.62, rx: .185, rz: .19, cx: s * 1.16, cz: .05, half: 1.05 }, { y: 4.05, rx: .225, rz: .23, cx: s * 1.115, cz: .03, half: 1.2 }, { y: 4.42, rx: .235, rz: .24, cx: s * 1.08, cz: .01, half: 1.1 }];
+  const vFine = refine(VAMB), onV = (y, th) => onSurface(section(vFine, y), y, s * Math.PI / 2 + th, .012);
+  shell(fore, VAMB, M.lite, { th0: s * Math.PI / 2, depth: .05 });
+  shell(fore, VAMB.map(v => ({ ...v, rx: v.rx + .012, rz: v.rz + .012, half: v.half * .42 })), M.plate, { th0: s * Math.PI / 2, depth: .03 });
+  trace(fore, [onV(3.68, .52), onV(4.36, .52)], .025);
+  trace(fore, [onV(3.68, -.52), onV(4.36, -.52)], .025);
+  band(fore, 3.58, .08, s * 1.165, .055, .185, .19, M.plate);
+  band(fore, 3.655, .025, s * 1.16, .05, .19, .195, M.teal);
+
+  /* a gloved hand; the palm faces the thigh, so fingers curl about z */
+  const hand = joint(fore, W, s < 0 ? 'HandR' : 'HandL');
+  pad(hand, [W[0] + s * .005, W[1] - .2, W[2]], [.15, .4, .34], M.glove);
+  pad(hand, [W[0] + s * .09, W[1] - .2, W[2]], [.05, .28, .28], M.plate);
+  const fingers = [];
+  for (let i = 0; i < 4; i++) {
+    const z = W[2] + (1.5 - i) * .088, len = [.17, .2, .19, .15][i], B = [W[0], W[1] - .4, z];
+    const a = joint(hand, B, 'Finger'), M1 = [B[0], B[1] - len, z], b = joint(a, M1, 'Tip');
+    limb(a, B, M1, .05, .044, M.glove, 8);
+    limb(b, M1, [M1[0], M1[1] - len * .8, z], .044, .036, M.glove, 8);
+    ball(hand, [B[0] + s * .045, B[1] + .02, z], [.028, .04, .04], M.plate);
+    fingers.push({ a, b });
+  }
+  const T = [W[0] - s * .03, W[1] - .13, W[2] + .17], thumb = joint(hand, T, 'Thumb');
+  limb(thumb, T, [T[0] - s * .06, T[1] - .16, T[2] + .08], .055, .046, M.glove, 8);
+  limb(thumb, [T[0] - s * .06, T[1] - .16, T[2] + .08], [T[0] - s * .09, T[1] - .3, T[2] + .1], .046, .036, M.glove, 8);
+  arms[s] = { upper, fore, hand, fingers, thumb, W };
+}
+
+/* the tablet in the left hand */
+const W_L = arms[1].W, tabletAt = [W_L[0] - .06, W_L[1] - .56, W_L[2] + .1];
+const canvasFor = (draw, w, h) => canvasTexture(draw, w, h);
+const screenTex = canvasFor((x, w, h) => {
+  x.fillStyle = '#051b1f'; x.fillRect(0, 0, w, h);
+  x.strokeStyle = '#45f0d8'; x.lineWidth = 3;
+  x.strokeRect(14, 14, w - 28, h - 28);
+  for (let i = 0; i < 8; i++) { x.globalAlpha = .4 + (i % 3) * .3; x.fillStyle = '#45f0d8'; x.fillRect(32, 44 + i * 38, 60 + (i * 53) % 140, 12); }
+  x.globalAlpha = 1; x.beginPath(); x.arc(w * .62, h * .72, 58, 0, 6.3); x.stroke();
+  x.beginPath(); x.arc(w * .62, h * .72, 30, .4, 4.6); x.stroke();
+}, 256, 384);
+tablet.position.set(...rel(tabletAt, W_L)); tablet.rotation.set(.1, -.72, .2); arms[1].hand.add(tablet);
+{
+  const body = new THREE.Mesh(outlined(new THREE.BoxGeometry(.6, .9, .05)), M.plate); body.castShadow = true; body.add(new THREE.Mesh(body.geometry, hullMat)); tablet.add(body);
+  const face = new THREE.Mesh(new THREE.PlaneGeometry(.52, .8), new THREE.MeshBasicMaterial({ map: screenTex, toneMapped: false })); face.position.z = .027; tablet.add(face);
+}
+
+/* ---------- legs ---------- */
+const legs = {};
+for (const s of [-1, 1]) {
+  const H = [s * .4, 4.1, 0], K = [s * .5, 2.35, 0], A = [s * .58, .62, 0];
+  const thigh = joint(root, H, s < 0 ? 'ThighR' : 'ThighL'), shin = joint(thigh, K, 'Shin'), foot = joint(shin, A, 'Foot');
+  solid(thigh, [{ y: 2.3, rx: .32, rz: .34, cx: s * .5 }, { y: 2.9, rx: .41, rz: .44, cx: s * .48 }, { y: 3.5, rx: .46, rz: .5, cx: s * .44 }, { y: 4.08, rx: .45, rz: .48, cx: s * .4 }, { y: 4.3, rx: .28, rz: .3, cx: s * .34 }], M.pants);
+
+  // thigh rig: a holster on the outside, two straps round the leg, a light strap up to the belt
+  band(thigh, 3.58, .1, s * .445, 0, .475, .515, M.strap);
+  band(thigh, 3.08, .1, s * .47, 0, .435, .47, M.strap);
+  pad(thigh, [s * .96, 3.3, .02], [.13, .92, .42], M.jacketDark, [0, 0, s * -.05]);
+  pad(thigh, [s * 1.02, 3.34, .02], [.04, .56, .28], M.plate, [0, 0, s * -.05]);
+  for (const y of [3.58, 3.08]) pad(thigh, [s * .52, y, .48], [.2, .13, .05], M.plate, [0, s * .35, 0]);
+  bar(thigh, [s * .68, 4.2, .28], [s * .82, 3.62, .24], .05, .03, M.strap);
+  pad(thigh, [s * .46, 3.0, -.46], [.42, .5, .06], M.jacketDark, [0, s * -.2, 0]);
+
+  solid(shin, [{ y: 1.4, rx: .29, rz: .31, cx: s * .555 }, { y: 1.85, rx: .37, rz: .4, cx: s * .525 }, { y: 2.42, rx: .33, rz: .35, cx: s * .5 }], M.pants);
+  // knee guard, oval over a padded base
+  const KNEE = [{ y: 1.96, rx: .37, rz: .4, cx: s * .518, half: .45 }, { y: 2.16, rx: .38, rz: .41, cx: s * .51, half: 1.02 }, { y: 2.56, rx: .36, rz: .39, cx: s * .49, half: 1.05 }, { y: 2.86, rx: .4, rz: .43, cx: s * .48, half: .55 }];
+  shell(shin, KNEE, M.jacketDark, { depth: .06 });
+  shell(shin, KNEE.map(k => ({ ...k, rx: k.rx + .03, rz: k.rz + .035, half: k.half * .78 })), M.jacket, { depth: .05 });
+  shell(shin, KNEE.slice(1, 3).map(k => ({ ...k, rx: k.rx + .05, rz: k.rz + .055, half: k.half * .4 })), M.plate, { depth: .03 });
+
+  // boot shaft and shin guard
+  solid(shin, [{ y: .62, rx: .26, rz: .28, cx: s * .58 }, { y: 1.1, rx: .27, rz: .3, cx: s * .565 }, { y: 1.62, rx: .28, rz: .3, cx: s * .55 }], M.under);
+  const GREAVE = [{ y: .84, rx: .275, rz: .31, cx: s * .574, half: .55 }, { y: 1.1, rx: .285, rz: .325, cx: s * .566, half: .78 }, { y: 1.62, rx: .3, rz: .335, cx: s * .55, half: .86 }, { y: 1.8, rx: .31, rz: .345, cx: s * .54, half: .6 }];
+  shell(shin, GREAVE, M.plate, { depth: .05 });
+  const gFine = refine(GREAVE), onG = (y, th) => onSurface(section(gFine, y), y, th, .01);
+  trace(shin, [onG(.96, .24 * s), onG(1.62, .24 * s), onG(1.72, .08 * s)], .035);
+  band(shin, 1.68, .09, s * .548, 0, .315, .35, M.strap);
+  band(shin, .94, .09, s * .574, 0, .285, .315, M.strap);
+  trace(shin, [onSurface(section(gFine, 1.3), 1.3, Math.PI, -.0), onSurface(section(gFine, .8), .8, Math.PI, -.0)], .05);
+
+  // the boot
+  const cx = s * .58, BOOT = [{ y: .08, rx: .325, rz: .66, cx, cz: .24 }, { y: .22, rx: .325, rz: .64, cx, cz: .22 }, { y: .4, rx: .285, rz: .46, cx, cz: .1 }, { y: .62, rx: .27, rz: .34, cx, cz: -.02 }, { y: .86, rx: .265, rz: .29, cx, cz: 0 }];
+  solid(foot, BOOT, M.jacketDark, 34);
+  solid(foot, [{ y: 0, rx: .35, rz: .69, cx, cz: .24 }, { y: .1, rx: .355, rz: .7, cx, cz: .24 }], M.sole, 34);
+  solid(foot, [{ y: .1, rx: .342, rz: .685, cx, cz: .24 }, { y: .128, rx: .342, rz: .685, cx, cz: .24 }], M.teal, 34);
+  // toe cap, heel cup and an instep strap with a buckle
+  shell(foot, [{ y: .1, rx: .335, rz: .67, cx, cz: .24, half: .7 }, { y: .22, rx: .335, rz: .65, cx, cz: .22, half: .72 }, { y: .34, rx: .31, rz: .55, cx, cz: .16, half: .55 }], M.plate, { depth: .05 });
+  shell(foot, [{ y: .1, rx: .335, rz: .67, cx, cz: .24, half: .72 }, { y: .34, rx: .305, rz: .52, cx, cz: .14, half: .72 }, { y: .62, rx: .28, rz: .35, cx, cz: -.02, half: .72 }], M.plate, { th0: Math.PI, depth: .05 });
+  shell(foot, [{ y: .42, rx: .295, rz: .46, cx, cz: .1, half: 1.25 }, { y: .55, rx: .285, rz: .39, cx, cz: .03, half: 1.25 }], M.strap, { depth: .04 });
+  pad(foot, [cx + s * .285, .49, .1], [.18, .13, .03], M.metal, [0, s * 1.35, 0]);
+  legs[s] = { thigh, shin, foot, H };
+}
+
+/* ---------- holograms ---------- */
+const holoTex = (kind, w = 512, h = 340) => canvasTexture((x, W, H) => {
+  x.fillStyle = '#000'; x.fillRect(0, 0, W, H);
+  x.strokeStyle = '#59f4e0'; x.fillStyle = '#59f4e0'; x.lineWidth = 3; x.globalAlpha = .9;
+  x.strokeRect(6, 6, W - 12, H - 12); x.fillRect(6, 6, W - 12, 26);
+  x.font = '800 20px ui-monospace,Menlo,monospace'; x.fillStyle = '#04201f'; x.fillText(kind, 18, 26);
+  x.fillStyle = '#59f4e0';
+  if (kind === 'ARCHITECT // CORE') {
+    x.globalAlpha = .5; for (let i = 1; i < 12; i++) { x.fillRect(i * W / 12, 36, 1, H - 44); }
+    for (let i = 1; i < 7; i++) { x.fillRect(8, 36 + i * (H - 44) / 7, W - 16, 1); }
+    x.globalAlpha = 1; x.beginPath(); for (let i = 0; i <= 40; i++) { const px = 12 + i * (W - 24) / 40, py = H * .62 - Math.sin(i * .5) * 50 - Math.sin(i * 1.7) * 18; i ? x.lineTo(px, py) : x.moveTo(px, py); } x.stroke();
+    for (let i = 0; i < 9; i++) { x.globalAlpha = .55; x.fillRect(30 + i * 50, H - 22 - (i * 37) % 70, 30, (i * 37) % 70 + 12); }
+  } else {
+    for (let i = 0; i < 9; i++) { x.globalAlpha = .35 + (i % 3) * .3; x.fillRect(20, 50 + i * 30, 120 + (i * 83) % (W - 170), 12); }
+  }
+}, w, h);
+const holoMat = tex => new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: .85, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
+function holoPanel(parent, pos, [w, h], tex, rot = [0, 0, 0]) {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), holoMat(tex));
+  m.position.set(...rel(pos, pivotOf(parent))); m.rotation.set(...rot); parent.add(m);
+  return m;
+}
+const wristTex = holoTex('WRIST LINK', 256, 340);
+const wristPanel = holoPanel(arms[1].fore, [1.62, 4.05, .08], [.5, .68], wristTex, [0, -.5, 0]);
+const beam = new THREE.Mesh(new THREE.PlaneGeometry(.26, .9), new THREE.MeshBasicMaterial({ color: 0x45f0d8, transparent: true, opacity: .12, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+beam.position.set(...rel([1.38, 4.02, .06], pivotOf(arms[1].fore))); beam.rotation.set(0, 0, 1.57); arms[1].fore.add(beam);
+const coreTex = holoTex('ARCHITECT // CORE'), sideTex = holoTex('SYSTEM MAP'), logTex = holoTex('LIVE LOG');
+const bigPanels = new THREE.Group(); spine.add(bigPanels); bigPanels.userData.pivot = pivotOf(spine);
+const panels = [holoPanel(bigPanels, [.42, 5.95, 2.5], [2.3, 1.5], coreTex, [-.04, 0, 0]), holoPanel(bigPanels, [-1.75, 5.85, 2.1], [1.4, 1.05], sideTex, [0, .55, 0]), holoPanel(bigPanels, [2.45, 5.85, 2], [1.4, 1.05], logTex, [0, -.55, 0])];
+
+/* ---------- ground marker ---------- */
+const circle = new THREE.Mesh(new THREE.RingGeometry(1.9, 1.95, 64), new THREE.MeshBasicMaterial({ color: 0x8ff5ff, transparent: true, opacity: .55, side: THREE.DoubleSide, depthWrite: false, toneMapped: false }));
+circle.rotation.x = -Math.PI / 2; circle.position.y = .01; root.add(circle);
+
+/* ---------- ui ---------- */
+const VIEWS = { front: [0, 4.25, 24], side: [24, 4.25, 0], back: [0, 4.25, -24], iso: [11, 6.5, 19] };
+let goal = null;
+camera.position.set(...VIEWS.iso);
+document.querySelectorAll('[data-view]').forEach(b => b.onclick = () => { goal = new THREE.Vector3(...VIEWS[b.dataset.view]); });
+controls.addEventListener('start', () => { goal = null; });
+let mode = 'idle', holoW = 0, walkW = 0, waveT = -1;
+const modeButtons = document.querySelectorAll('[data-mode]');
+modeButtons.forEach(b => b.onclick = () => { mode = b.dataset.mode; modeButtons.forEach(o => o.classList.toggle('on', o === b)); });
+document.getElementById('wave').onclick = () => { waveT = 0; };
+function applySize() {
+  camera.aspect = innerWidth / innerHeight;
+  camera.fov = camera.aspect < 1 ? Math.min(60, 26 / camera.aspect) : 26;
+  camera.updateProjectionMatrix();
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.setSize(innerWidth, innerHeight);
+}
+applySize();
+addEventListener('resize', applySize);
+
+/* ---------- pose ---------- */
+const THIGH = 1.75, SHIN = 1.73, ANKLE_Y = .62, WAVE_DUR = 2.2;
+const unit = v => Math.max(-1, Math.min(1, v));
+function legIK(l, drop, stride, lift) { // keeps the sole flat while the hips move
+  const V = l.H[1] - drop - ANKLE_Y - lift, D = Math.min(Math.hypot(stride, V), THIGH + SHIN - 1e-4);
+  const line = Math.atan2(stride, V), hip = Math.acos(unit((THIGH * THIGH + D * D - SHIN * SHIN) / (2 * THIGH * D)));
+  const knee = Math.PI - Math.acos(unit((THIGH * THIGH + SHIN * SHIN - D * D) / (2 * THIGH * SHIN)));
+  l.thigh.position.set(l.H[0], l.H[1] - drop, l.H[2]);
+  l.thigh.rotation.x = -(line + hip);
+  l.shin.rotation.x = knee;
+  l.foot.rotation.x = line + hip - knee;
+}
+const curl = (a, s, base, tip) => a.fingers.forEach(f => { f.a.rotation.z = -s * base; f.b.rotation.z = -s * tip; });
+function pose(time, h = holoW, w = walkW, wave = waveT) {
+  const breathe = Math.sin(time * 1.4), idleW = (1 - h) * (1 - w);
+  const phase = time * 6, bob = Math.abs(Math.sin(phase)) * w;
+  const drop = .03 + breathe * .006 + w * (.13 - bob * .06);
+  pelvis.position.set(0, 4.1 - drop, 0);
+  for (const s of [-1, 1]) {
+    const q = phase + (s > 0 ? 0 : Math.PI);
+    legIK(legs[s], drop, Math.sin(q) * .72 * w, Math.max(0, Math.cos(q)) * .42 * w);
+  }
+  pelvis.rotation.y = Math.sin(phase) * .07 * w;
+  spine.rotation.set(breathe * .01 + .05 * w + .03 * h, -Math.sin(phase) * .14 * w - .08 * h, 0);
+  head.rotation.y = Math.sin(time * .5) * .2 * idleW + .1 * h;
+  head.rotation.x = Math.sin(time * .7) * .02 * idleW + .08 * h + .05 * idleW;
+
+  const R = arms[-1], L = arms[1];
+  for (const s of [-1, 1]) {
+    const a = arms[s], swing = Math.sin(phase + (s > 0 ? Math.PI : 0)) * .48 * w;
+    a.upper.rotation.set(-swing + breathe * .008, 0, s * breathe * .006);
+    a.fore.rotation.x = -.16 - w * (.4 + Math.max(0, swing) * .7);
+    a.hand.rotation.set(0, 0, 0);
+  }
+  curl(R, -1, .5, .55); curl(L, 1, .95, 1.1);
+  L.thumb.rotation.z = -.4; R.thumb.rotation.z = .25;
+
+  // left arm brings the tablet up; right hand reaches out to the panel
+  L.upper.rotation.x += h * -.66; L.upper.rotation.z += h * .06; L.fore.rotation.x += h * -1.32; L.fore.rotation.y = h * -.6;
+  L.hand.rotation.set(h * .1, h * .3, h * .1);
+  R.upper.rotation.x += h * -1.28; R.upper.rotation.z += h * .18; R.fore.rotation.x += h * -.62;
+  R.hand.rotation.x = h * -.14; R.hand.rotation.y = h * -1.2;
+  if (h > .01) { R.fingers.forEach((f, i) => { const open = i === 0 ? .08 : .95; f.a.rotation.z = -(-1) * (.5 + (open - .5) * h); f.b.rotation.z = (.55 + ((i === 0 ? .08 : 1.2) - .55) * h); }); }
+
+  if (wave >= 0) { // right arm goes up and waves
+    const p = wave / WAVE_DUR, up = Math.min(1, Math.min(p, 1 - p) * 6);
+    R.upper.rotation.z += -2.55 * up; R.upper.rotation.x *= 1 - up;
+    R.fore.rotation.x = R.fore.rotation.x * (1 - up) - .22 * up;
+    R.fore.rotation.z = Math.sin(wave * 11) * .3 * up;
+    R.fingers.forEach(f => { f.a.rotation.z *= 1 - up * .85; f.b.rotation.z *= 1 - up * .85; });
+  }
+
+  const flick = .78 + Math.sin(time * 37) * .05 + Math.sin(time * 5.3) * .1;
+  wristPanel.material.opacity = flick; wristPanel.position.y = rel([0, 4.05, 0], pivotOf(arms[1].fore))[1] + Math.sin(time * 1.6) * .02;
+  bigPanels.visible = h > .02;
+  panels.forEach((p, i) => { p.scale.set(Math.max(.01, h), Math.max(.01, Math.min(1, h * 1.4)), 1); p.material.opacity = flick; p.position.y += 0; });
+  const pulse = .85 + Math.sin(time * 2.4) * .15;
+  M.teal.color.setRGB(.27 * pulse, .94 * pulse, .85 * pulse);
+  circle.scale.setScalar(1 + Math.sin(time * 1.2) * .012);
+}
+
+const clock = new THREE.Clock();
+let t = 0;
+
+/* ---------- GLB export ---------- */
+const exportMats = new Map();
+function exportMaterial(mat) {
+  if (!exportMats.has(mat)) exportMats.set(mat, mat.isMeshToonMaterial ? new THREE.MeshStandardMaterial({ color: mat.color, roughness: .62, metalness: .1 }) : mat.clone());
+  return exportMats.get(mat);
+}
+function exportTree(src) {
+  let out;
+  if (src.isMesh) {
+    const g = new THREE.BufferGeometry();
+    for (const name of ['position', 'normal', 'uv']) if (src.geometry.attributes[name]) g.setAttribute(name, src.geometry.attributes[name].clone());
+    if (src.geometry.index) g.setIndex(src.geometry.index.clone());
+    out = new THREE.Mesh(g, exportMaterial(src.material));
+  } else out = new THREE.Group();
+  out.name = src.name;
+  out.position.copy(src.position); out.quaternion.copy(src.quaternion); out.scale.copy(src.scale);
+  for (const child of src.children) { // outlines and additive light are renderer tricks glTF cannot carry
+    if (child.material !== hullMat && child.material?.blending !== THREE.AdditiveBlending) out.add(exportTree(child));
+  }
+  return out;
+}
+document.getElementById('download').onclick = async e => {
+  const button = e.target, label = 'DOWNLOAD GLB';
+  button.disabled = true; button.textContent = 'EXPORTING…';
+  try {
+    pose(0, 0, 0, -1);
+    const glb = await new GLTFExporter().parseAsync(exportTree(root), { binary: true });
+    const url = URL.createObjectURL(new Blob([glb], { type: 'model/gltf-binary' }));
+    const a = document.createElement('a'); a.href = url; a.download = 'aum.glb'; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    button.textContent = label;
+  } catch (err) {
+    console.error(err);
+    button.textContent = 'EXPORT FAILED';
+  }
+  button.disabled = false;
+};
+
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), .1);
+  t += dt;
+  holoW += ((mode === 'holo' ? 1 : 0) - holoW) * (1 - Math.exp(-dt * 7));
+  walkW += ((mode === 'walk' ? 1 : 0) - walkW) * (1 - Math.exp(-dt * 7));
+  if (waveT >= 0) { waveT += dt; if (waveT >= WAVE_DUR) waveT = -1; }
+  pose(t);
+  if (goal) {
+    camera.position.lerp(goal, 1 - Math.exp(-dt * 7));
+    if (camera.position.distanceTo(goal) < .02) goal = null;
+  }
+  controls.update();
+  renderer.render(scene, camera);
+}
+animate();
+</script>
+</body>
+</html>

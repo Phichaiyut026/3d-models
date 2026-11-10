@@ -91,7 +91,7 @@ static func impact(pos: Vector3, tint: Color, strength: float) -> void:
 
 
 ## A crescent of light flying forward from a finishing blow.
-static func crescent(pos: Vector3, forward: Vector3, roll: float, tint: Color, width: float) -> void:
+static func crescent(pos: Vector3, forward: Vector3, roll: float, tint: Color, width: float, travel := 10.0) -> void:
 	var quad := QuadMesh.new()
 	quad.size = Vector2(width, width * 0.72)
 	var material := ShaderMaterial.new()
@@ -105,7 +105,7 @@ static func crescent(pos: Vector3, forward: Vector3, roll: float, tint: Color, w
 	var facing := Basis.looking_at(-forward, Vector3.UP).rotated(forward, roll)
 	instance.global_transform = Transform3D(facing, pos)
 	var tween := instance.create_tween().set_parallel(true)
-	tween.tween_property(instance, "global_position", pos + forward * 10.0, 0.34).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	tween.tween_property(instance, "global_position", pos + forward * travel, 0.34).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 	tween.tween_property(instance, "scale", Vector3.ONE * 1.5, 0.34)
 	tween.tween_method(func(v: float) -> void: material.set_shader_parameter("fade", v), 1.0, 0.0, 0.34).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	tween.chain().tween_callback(instance.queue_free)

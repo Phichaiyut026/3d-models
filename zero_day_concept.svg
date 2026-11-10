@@ -1,0 +1,152 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1500" height="1500" viewBox="-150 -10 1200 1200">
+  <title>Zero Day boss concept</title>
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="34%" r="75%">
+      <stop offset="0" stop-color="#1b2a12"/>
+      <stop offset=".45" stop-color="#0a100c"/>
+      <stop offset="1" stop-color="#030405"/>
+    </radialGradient>
+    <linearGradient id="cloak" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#20252c"/>
+      <stop offset=".55" stop-color="#0d1014"/>
+      <stop offset="1" stop-color="#040506"/>
+    </linearGradient>
+    <linearGradient id="plate" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#454d58"/>
+      <stop offset=".5" stop-color="#1c2128"/>
+      <stop offset="1" stop-color="#0c0f13"/>
+    </linearGradient>
+    <linearGradient id="blade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f4ffd8"/>
+      <stop offset=".35" stop-color="#b8ff2e"/>
+      <stop offset="1" stop-color="#3f7a06"/>
+    </linearGradient>
+    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="9" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="soft" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="3.5" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="haze" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="46"/></filter>
+
+    <g id="pauldron">
+      <path d="M322 330 L232 306 L176 348 L190 438 L250 462 L318 420 Z" fill="url(#plate)" stroke="#6a7482" stroke-width="2"/>
+      <path d="M232 306 L250 462 M176 348 L318 372" stroke="#050608" stroke-width="4" fill="none"/>
+      <path d="M216 322 C186 236 286 212 296 306" fill="none" stroke="#59616d" stroke-width="20"/>
+      <path d="M216 322 C186 236 286 212 296 306" fill="none" stroke="#b8ff2e" stroke-width="2.5" filter="url(#soft)"/>
+      <circle cx="238" cy="382" r="9" fill="#b8ff2e" filter="url(#soft)"/>
+      <rect x="235" y="384" width="6" height="20" fill="#b8ff2e" filter="url(#soft)"/>
+    </g>
+    <g id="cable">
+      <path d="M340 340 C230 250 150 330 92 232 S58 96 118 60" fill="none" stroke="#14181d" stroke-width="15"/>
+      <path d="M340 340 C230 250 150 330 92 232 S58 96 118 60" fill="none" stroke="#b8ff2e" stroke-width="1.8" stroke-dasharray="26 16" filter="url(#soft)"/>
+      <path d="M118 60 l30 -24 l-8 30 l26 8 l-44 18 z" fill="#2a3038" stroke="#b8ff2e" stroke-width="1.5"/>
+      <path d="M350 400 C230 420 120 520 72 450 S46 340 28 306" fill="none" stroke="#14181d" stroke-width="11"/>
+      <path d="M350 400 C230 420 120 520 72 450 S46 340 28 306" fill="none" stroke="#b8ff2e" stroke-width="1.4" stroke-dasharray="14 20" filter="url(#soft)"/>
+    </g>
+    <clipPath id="sliceA"><rect x="0" y="552" width="900" height="16"/></clipPath>
+  </defs>
+
+  <rect x="-150" y="-10" width="1200" height="1200" fill="url(#bg)"/>
+  <circle cx="450" cy="330" r="290" fill="#8fe01a" opacity=".2" filter="url(#haze)"/>
+
+  <g font-family="Menlo, Courier New, monospace" font-size="17" fill="#6fae1b" opacity=".38">
+    <text x="-110" y="620">01000</text><text x="-110" y="650">10110</text><text x="-110" y="680">00000</text><text x="-110" y="710">11010</text><text x="-110" y="740">00101</text>
+    <text x="930" y="170">CVE-?</text><text x="930" y="200">NULL</text><text x="930" y="230">0x00</text><text x="930" y="260">NOFIX</text><text x="930" y="290">0x00</text>
+    <text x="930" y="640">10010</text><text x="930" y="670">00000</text><text x="930" y="700">01101</text>
+    <text x="-110" y="880">0day</text><text x="-110" y="910">0day</text><text x="-110" y="940">NULL</text>
+  </g>
+
+  <g fill="none" stroke="#b8ff2e" transform="rotate(-12 450 300)" filter="url(#soft)">
+    <circle cx="450" cy="300" r="238" stroke-width="20" stroke-dasharray="330 26 420 48 190 22 270 190"/>
+    <circle cx="450" cy="300" r="268" stroke-width="2" stroke-dasharray="3 15"/>
+    <circle cx="450" cy="300" r="208" stroke-width="2" stroke-dasharray="60 12 8 12"/>
+    <path d="M300 505 L605 92" stroke-width="7"/>
+  </g>
+
+  <use xlink:href="#cable"/>
+  <use xlink:href="#cable" transform="translate(900 0) scale(-1 1)"/>
+
+  <path d="M-150 1190 L-150 1030 L0 1020 L180 985 L340 1006 L450 980 L590 1008 L740 982 L900 1022 L1050 1034 L1050 1190 Z" fill="#050709"/>
+  <g fill="none" stroke="#b8ff2e" filter="url(#soft)" stroke-linecap="round">
+    <path d="M450 1010 L366 1042 L322 1032 L240 1088 L150 1104" stroke-width="3.5"/>
+    <path d="M450 1010 L540 1038 L590 1030 L662 1090 L770 1108" stroke-width="3.5"/>
+    <path d="M366 1042 L350 1118 M590 1030 L612 1120 M240 1088 L196 1060 M662 1090 L720 1050" stroke-width="2"/>
+  </g>
+
+  <path d="M326 356 L574 356 L640 620 L690 870 L708 1004 L664 968 L628 1040 L578 972 L540 1064 L490 986 L450 1076 L408 984 L358 1062 L322 972 L272 1040 L236 966 L192 1006 L212 866 L260 620 Z" fill="url(#cloak)" stroke="#2c333c" stroke-width="2"/>
+  <g fill="none" stroke="#000" stroke-width="7" opacity=".7">
+    <path d="M360 460 C330 640 292 820 272 1000"/><path d="M410 520 C400 700 390 860 402 970"/>
+    <path d="M540 460 C570 640 610 820 628 1000"/><path d="M490 520 C500 700 512 860 496 970"/>
+  </g>
+  <g fill="none" stroke="#b8ff2e" stroke-width="2" filter="url(#soft)">
+    <path d="M450 560 V690 L410 730 V860 L438 890 V1000"/>
+    <path d="M450 690 L494 736 V838 L470 866 V940"/>
+    <path d="M410 790 H356 L330 820 V914"/><path d="M494 790 H548 L574 820 V924"/>
+  </g>
+  <g fill="#b8ff2e" filter="url(#soft)">
+    <circle cx="330" cy="918" r="5"/><circle cx="574" cy="928" r="5"/><circle cx="438" cy="1004" r="5"/><circle cx="470" cy="944" r="5"/>
+  </g>
+
+  <path d="M352 356 L548 356 L574 500 L520 584 L380 584 L326 500 Z" fill="url(#plate)" stroke="#6a7482" stroke-width="2"/>
+  <path d="M352 356 L450 420 L548 356 M326 500 L396 470 M574 500 L504 470" fill="none" stroke="#050608" stroke-width="5"/>
+
+  <g>
+    <path d="M404 412 C400 346 500 346 496 412" fill="none" stroke="#6a7482" stroke-width="16"/>
+    <path d="M382 410 H518 L530 544 H370 Z" fill="#0c0f12" stroke="#b8ff2e" stroke-width="3"/>
+    <path d="M451 410 L436 450 L468 480 L438 512 L456 544" fill="none" stroke="#f4ffd8" stroke-width="5" filter="url(#glow)"/>
+    <text x="450" y="490" text-anchor="middle" font-family="Menlo, Courier New, monospace" font-size="26" font-weight="700" fill="#b8ff2e" filter="url(#soft)" stroke="#0c0f12" stroke-width="5" paint-order="stroke">00:00:00</text>
+  </g>
+
+  <use xlink:href="#pauldron"/>
+  <use xlink:href="#pauldron" transform="translate(900 0) scale(-1 1)"/>
+
+  <path d="M196 440 L262 462 L252 610 L196 652 L168 600 Z" fill="url(#plate)" stroke="#6a7482" stroke-width="2"/>
+  <path d="M170 604 L196 652 L248 614 L232 742 L176 762 L150 720 Z" fill="#14181e" stroke="#6a7482" stroke-width="2"/>
+  <path d="M178 626 L168 712 M212 640 L204 738" stroke="#b8ff2e" stroke-width="2.5" filter="url(#soft)"/>
+
+  <path d="M704 440 L638 462 L650 590 L706 620 L738 572 Z" fill="url(#plate)" stroke="#6a7482" stroke-width="2"/>
+  <path d="M736 572 L706 620 L654 588 L676 498 L744 470 L782 490 Z" fill="#14181e" stroke="#6a7482" stroke-width="2"/>
+  <path d="M700 544 L756 492" stroke="#b8ff2e" stroke-width="2.5" filter="url(#soft)"/>
+  <g stroke="#6a7482" stroke-width="2" fill="#1c2128">
+    <path d="M744 470 L752 420 L768 424 L768 480 Z"/><path d="M764 478 L784 424 L800 432 L784 492 Z"/><path d="M782 490 L816 454 L826 468 L796 506 Z"/>
+  </g>
+  <g filter="url(#glow)" fill="#b8ff2e">
+    <rect x="770" y="350" width="24" height="24" transform="rotate(20 782 362)"/>
+    <rect x="812" y="388" width="14" height="14" transform="rotate(44 819 395)"/>
+    <rect x="730" y="372" width="12" height="12" transform="rotate(12 736 378)"/>
+    <rect x="792" y="304" width="11" height="11"/>
+  </g>
+
+  <g transform="rotate(7 176 700)">
+    <rect x="160" y="760" width="32" height="270" fill="url(#blade)" filter="url(#soft)"/>
+    <path d="M160 1030 L176 1078 L192 1030 Z" fill="#3f7a06"/>
+    <path d="M192 880 h48 v26 h-24 v22 h28 v26 h-52 Z M192 985 h34 v20 h-34 Z" fill="url(#blade)" filter="url(#soft)"/>
+    <path fill-rule="evenodd" d="M176 548 m-74 0 a74 74 0 1 0 148 0 a74 74 0 1 0 -148 0 Z M176 516 a22 22 0 0 0 -11 41 l-11 43 h44 l-11 -43 a22 22 0 0 0 -11 -41 Z" fill="#1e242c" stroke="#b8ff2e" stroke-width="3"/>
+    <rect x="164" y="620" width="24" height="142" fill="#1b2026" stroke="#6a7482" stroke-width="2"/>
+    <rect x="152" y="716" width="48" height="48" rx="9" fill="#0e1216" stroke="#6a7482" stroke-width="2"/>
+    <path d="M152 730 H200 M152 746 H200" stroke="#000" stroke-width="3"/>
+  </g>
+
+  <path d="M450 160 C358 160 322 244 330 330 C338 390 374 430 450 442 C526 430 562 390 570 330 C578 244 542 160 450 160 Z" fill="#14181e" stroke="#4e5764" stroke-width="2.5"/>
+  <path d="M450 204 C392 204 366 262 372 330 C378 378 410 402 450 408 C490 402 522 378 528 330 C534 262 508 204 450 204 Z" fill="#020303"/>
+  <g filter="url(#glow)" fill="#d6ff72">
+    <circle cx="450" cy="284" r="27"/>
+    <path d="M436 300 L416 376 H484 L464 300 Z"/>
+  </g>
+  <g fill="#f8ffe6"><circle cx="450" cy="284" r="11"/><path d="M445 300 L436 358 H464 L455 300 Z"/></g>
+
+  <g clip-path="url(#sliceA)" transform="translate(46 0)"><path d="M352 356 L548 356 L574 500 L520 584 L380 584 L326 500 Z" fill="#b8ff2e" opacity=".85"/></g>
+  <g fill="#b8ff2e">
+    <rect x="598" y="648" width="118" height="7" opacity=".85"/><rect x="646" y="664" width="66" height="4" opacity=".6"/>
+    <rect x="210" y="812" width="96" height="6" opacity=".8"/><rect x="186" y="826" width="56" height="4" opacity=".5"/>
+    <rect x="618" y="196" width="70" height="5" opacity=".7"/><rect x="230" y="150" width="52" height="5" opacity=".6"/>
+  </g>
+
+  <g text-anchor="middle" font-family="Menlo, Courier New, monospace">
+    <text x="453" y="1152" font-size="66" font-weight="700" letter-spacing="12" fill="#b8ff2e" opacity=".55" filter="url(#soft)">ZERO DAY</text>
+    <text x="450" y="1150" font-size="66" font-weight="700" letter-spacing="12" fill="#f4ffd8">ZERO DAY</text>
+  </g>
+</svg>

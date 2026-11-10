@@ -5,6 +5,8 @@ render_mode blend_add, unshaded, fog_disabled, cull_disabled, depth_draw_never, 
 uniform float size = 1.15;
 uniform float power = 0.0;
 uniform float flame_seed = 3.7;
+uniform float gold = 0.0;
+uniform float red = 0.0;
 
 varying vec2 v_p;
 
@@ -54,5 +56,9 @@ void fragment() {
 	float flicker = 0.93 + 0.07 * sin(t * 13.0);
 	vec3 col = vec3(0.36, 0.22, 1.0) * halo + vec3(0.34, 0.26, 0.8) * body * flicker
 			+ vec3(0.85, 0.9, 1.0) * wisp * 1.1 + vec3(0.8, 0.75, 1.0) * core * 0.3;
-	ALBEDO = col * smoothstep(1.0, 0.72, length(v_p)) * power * 1.1;
+	vec3 gold_col = vec3(1.0, 0.62, 0.2) * halo + vec3(0.95, 0.68, 0.3) * body * flicker
+			+ vec3(1.0, 0.95, 0.8) * wisp * 1.1 + vec3(1.0, 0.9, 0.7) * core * 0.3;
+	vec3 red_col = vec3(1.0, 0.08, 0.12) * halo + vec3(0.95, 0.12, 0.16) * body * flicker
+			+ vec3(1.0, 0.75, 0.6) * wisp * 1.1 + vec3(1.0, 0.5, 0.4) * core * 0.3;
+	ALBEDO = mix(mix(col, gold_col, gold), red_col, red) * smoothstep(1.0, 0.72, length(v_p)) * power * 1.1;
 }

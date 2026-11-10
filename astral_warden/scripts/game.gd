@@ -1,7 +1,7 @@
 extends Node
 ## Global game state, input map and the rest/death/victory flow.
 
-const BOSS_NAME := "วาเรน ผู้พิทักษ์หอดาว"
+const BOSS_NAME := "SYSTEM OVERLORD"
 const SETTINGS_PATH := "user://settings.cfg"
 
 var world: Node3D
@@ -41,6 +41,8 @@ func _define_inputs() -> void:
 		"move_forward": KEY_W, "move_back": KEY_S, "move_left": KEY_A, "move_right": KEY_D,
 		"run": KEY_SHIFT, "roll": KEY_SPACE, "lock_on": KEY_Q, "interact": KEY_E,
 		"vial": KEY_R, "bolt": KEY_F, "heavy": KEY_C, "upgrade": KEY_U, "weapon": KEY_X,
+		"transform": KEY_T, "skill_1": KEY_1, "skill_2": KEY_2, "skill_3": KEY_3, "skill_4": KEY_4, "skill_5": KEY_5, "skill_6": KEY_6, "skill_7": KEY_7,
+		"fly": KEY_V, "fly_down": KEY_CTRL,
 	}
 	for action: String in keys:
 		InputMap.add_action(action)
@@ -109,6 +111,9 @@ func warmup() -> void:
 	var at := camera.global_position - camera.global_transform.basis.z * 6.0
 	var tint := Color(0.7, 0.55, 1.0)
 	player.rig.set_armed_instant(true)
+	player.rig.set_form(true, true)
+	CosmicFx.warm(at)
+	OverlordSkills.warm(at)
 	player.rig.warm_effects(at)
 	player.warm_trail(at)
 	Fx.impact(at, tint, 1.0)
@@ -121,6 +126,7 @@ func warmup() -> void:
 		await RenderingServer.frame_post_draw
 	player.rig.set_energy(0.0)
 	player.rig.set_blade_sparks(false)
+	player.rig.set_form(false, true)
 	player.rig.set_armed_instant(false)
 	warming = false
 	menu.finish_loading()

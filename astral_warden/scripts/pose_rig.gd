@@ -6,7 +6,7 @@ extends Node3D
 const POSED := ["upper", "armR", "foreR", "hand_R", "armL", "foreL", "legR", "shinR", "footR", "legL", "shinL", "footL"]
 
 ## Actions whose legs are posed freely, so the feet are not pinned to the ground.
-const UNGROUNDED := ["roll", "death", "rest", "slam"]
+const UNGROUNDED := ["roll", "death", "rest", "slam", "comet"]
 
 # Gait curves as [phase, value] pairs. Phase 0 is heel strike; toe-off is near 0.6.
 const WALK_KNEE := [[0.0, 0.1], [0.14, 0.34], [0.4, 0.08], [0.6, 0.6], [0.74, 1.2], [0.9, 0.3], [1.0, 0.1]]
@@ -26,6 +26,44 @@ const ACTIONS := {
 		[0.3, {"armR": Vector3(-1.9, 0, -0.5), "foreR": Vector3(-1.0, 0, 0), "hand_R": Vector3(-0.2, 0, 0), "upper": Vector3(-0.1, -0.25, 0)}],
 		[0.8, {"armR": Vector3(-1.75, 0, -0.45), "foreR": Vector3(-1.1, 0, 0), "hand_R": Vector3(-0.2, 0, 0), "upper": Vector3(-0.05, -0.2, 0)}],
 		[1.0, {"armR": Vector3(-0.3, 0, 0.1), "foreR": Vector3(-0.5, 0, 0), "hand_R": Vector3(0, 0, 0), "upper": Vector3(0, 0, 0)}],
+	],
+	"ascend": [
+		[0.0, {"armR": Vector3(-0.9, 0, 0.7), "foreR": Vector3(-1.7, 0, 0), "armL": Vector3(-0.9, 0, -0.7), "foreL": Vector3(-1.7, 0, 0), "upper": Vector3(0.35, 0, 0), "legR": Vector3(-0.5, 0, 0.06), "shinR": Vector3(0.9, 0, 0), "legL": Vector3(-0.5, 0, -0.06), "shinL": Vector3(0.9, 0, 0), "lift": Vector3.ZERO}],
+		[0.56, {"armR": Vector3(-1.0, 0, 0.85), "foreR": Vector3(-1.9, 0, 0), "armL": Vector3(-1.0, 0, -0.85), "foreL": Vector3(-1.9, 0, 0), "upper": Vector3(0.55, 0, 0), "legR": Vector3(-0.9, 0, 0.06), "shinR": Vector3(1.5, 0, 0), "legL": Vector3(-0.9, 0, -0.06), "shinL": Vector3(1.5, 0, 0), "lift": Vector3.ZERO}],
+		[0.66, {"armR": Vector3(-2.7, 0, -0.45), "foreR": Vector3(-0.1, 0, 0), "armL": Vector3(-2.7, 0, 0.45), "foreL": Vector3(-0.1, 0, 0), "upper": Vector3(-0.35, 0, 0), "legR": Vector3(-0.05, 0, 0.05), "shinR": Vector3(0.12, 0, 0), "legL": Vector3(-0.05, 0, -0.05), "shinL": Vector3(0.12, 0, 0), "lift": Vector3(0, 0.2, 0)}, "snap"],
+		[1.0, {"armR": Vector3(-2.7, 0, -0.45), "foreR": Vector3(-0.1, 0, 0), "armL": Vector3(-2.7, 0, 0.45), "foreL": Vector3(-0.1, 0, 0), "upper": Vector3(-0.35, 0, 0), "legR": Vector3(-0.05, 0, 0.05), "shinR": Vector3(0.12, 0, 0), "legL": Vector3(-0.05, 0, -0.05), "shinL": Vector3(0.12, 0, 0), "lift": Vector3(0, 0.24, 0)}],
+	],
+	"sky_spread": [
+		[0.0, {"armR": Vector3(-0.8, 0, 0.3), "foreR": Vector3(-1.0, 0, 0), "armL": Vector3(-0.8, 0, -0.3), "foreL": Vector3(-1.0, 0, 0), "upper": Vector3(0.1, 0, 0), "lift": Vector3.ZERO}],
+		[0.2, {"armR": Vector3(-2.4, 0, -0.7), "foreR": Vector3(-0.2, 0, 0), "armL": Vector3(-2.4, 0, 0.7), "foreL": Vector3(-0.2, 0, 0), "upper": Vector3(-0.22, 0, 0), "legR": Vector3(0.05, 0, 0.05), "shinR": Vector3(0.1, 0, 0), "legL": Vector3(0.05, 0, -0.05), "shinL": Vector3(0.1, 0, 0), "lift": Vector3(0, 0.2, 0)}],
+		[1.0, {"armR": Vector3(-2.5, 0, -0.75), "foreR": Vector3(-0.15, 0, 0), "armL": Vector3(-2.5, 0, 0.75), "foreL": Vector3(-0.15, 0, 0), "upper": Vector3(-0.26, 0, 0), "legR": Vector3(0.05, 0, 0.05), "shinR": Vector3(0.1, 0, 0), "legL": Vector3(0.05, 0, -0.05), "shinL": Vector3(0.1, 0, 0), "lift": Vector3(0, 0.26, 0)}],
+	],
+	"comet": [
+		[0.0, {"armR": Vector3(-2.9, 0, 0.1), "foreR": Vector3(-0.1, 0, 0), "armL": Vector3(-2.9, 0, -0.1), "foreL": Vector3(-0.1, 0, 0), "upper": Vector3(0.2, 0, 0), "root": Vector3(0.9, 0, 0), "legR": Vector3(0.25, 0, 0), "shinR": Vector3(0.3, 0, 0), "legL": Vector3(0.1, 0, 0), "shinL": Vector3(0.5, 0, 0)}],
+		[1.0, {"armR": Vector3(-2.95, 0, 0.1), "foreR": Vector3(-0.05, 0, 0), "armL": Vector3(-2.95, 0, -0.1), "foreL": Vector3(-0.05, 0, 0), "upper": Vector3(0.2, 0, 0), "root": Vector3(1.15, 0, 0), "legR": Vector3(0.3, 0, 0), "shinR": Vector3(0.25, 0, 0), "legL": Vector3(0.15, 0, 0), "shinL": Vector3(0.45, 0, 0)}],
+	],
+	"boss_beam": [
+		[0.0, {"armR": Vector3(0.1, 0, -0.5), "foreR": Vector3(-0.8, 0, 0), "armL": Vector3(0.1, 0, 0.5), "foreL": Vector3(-0.8, 0, 0), "upper": Vector3(0.3, 0, 0)}],
+		[0.28, {"armR": Vector3(0.6, 0, -0.7), "foreR": Vector3(-0.5, 0, 0), "armL": Vector3(0.6, 0, 0.7), "foreL": Vector3(-0.5, 0, 0), "upper": Vector3(-0.3, 0, 0)}],
+		[1.0, {"armR": Vector3(0.65, 0, -0.75), "foreR": Vector3(-0.45, 0, 0), "armL": Vector3(0.65, 0, 0.75), "foreL": Vector3(-0.45, 0, 0), "upper": Vector3(-0.34, 0, 0)}],
+	],
+	"edge": [
+		[0.0, {"armR": Vector3(-1.6, 0, 0.4), "foreR": Vector3(-0.9, 0, 0), "hand_R": Vector3(-0.2, 0, 0), "armL": Vector3(-1.0, 0, -0.7), "foreL": Vector3(-0.8, 0, 0), "upper": Vector3(-0.1, -0.2, 0), "root": Vector3.ZERO, "legR": Vector3(0.2, 0, 0.08), "shinR": Vector3(0.4, 0, 0), "legL": Vector3(-0.4, 0, -0.08), "shinL": Vector3(0.5, 0, 0)}],
+		[0.46, {"armR": Vector3(-3.05, 0, 0.3), "foreR": Vector3(-0.3, 0, 0), "hand_R": Vector3(-0.2, 0, 0), "armL": Vector3(-1.4, 0, -0.95), "foreL": Vector3(-0.4, 0, 0), "upper": Vector3(-0.32, -0.2, 0), "root": Vector3(-0.05, 0, 0), "legR": Vector3(0.3, 0, 0.08), "shinR": Vector3(0.5, 0, 0), "legL": Vector3(-0.55, 0, -0.08), "shinL": Vector3(0.65, 0, 0)}],
+		[0.58, {"armR": Vector3(-0.75, 0, 0.3), "foreR": Vector3(-0.1, 0, 0), "hand_R": Vector3(0.1, 0, 0), "armL": Vector3(0.4, 0, 0.3), "foreL": Vector3(-0.7, 0, 0), "upper": Vector3(0.5, 0.1, 0), "root": Vector3(0.1, 0.05, 0), "legR": Vector3(-0.9, 0, 0.1), "shinR": Vector3(1.05, 0, 0), "legL": Vector3(0.6, 0, -0.1), "shinL": Vector3(0.35, 0, 0)}, "snap"],
+		[1.0, {"armR": Vector3(-0.7, 0, 0.35), "foreR": Vector3(-0.25, 0, 0), "hand_R": Vector3(0.05, 0, 0), "armL": Vector3(0.3, 0, 0.25), "foreL": Vector3(-0.7, 0, 0), "upper": Vector3(0.4, 0.08, 0), "root": Vector3(0.08, 0.04, 0), "legR": Vector3(-0.85, 0, 0.1), "shinR": Vector3(1.0, 0, 0), "legL": Vector3(0.55, 0, -0.1), "shinL": Vector3(0.32, 0, 0)}],
+	],
+	"erasure": [
+		[0.0, {"armL": Vector3(-0.9, 0, -0.4), "foreL": Vector3(-1.7, 0, 0), "armR": Vector3(0.1, 0, -0.5), "foreR": Vector3(-0.5, 0, 0), "upper": Vector3(-0.08, 0.5, 0), "lift": Vector3.ZERO}],
+		[0.14, {"armL": Vector3(-1.58, 0, -0.08), "foreL": Vector3(-0.04, 0, 0), "armR": Vector3(0.1, 0, -0.75), "foreR": Vector3(-0.3, 0, 0), "upper": Vector3(0.14, -0.35, 0), "lift": Vector3(0, 0.14, 0)}, "snap"],
+		[1.0, {"armL": Vector3(-1.58, 0, -0.08), "foreL": Vector3(-0.04, 0, 0), "armR": Vector3(0.1, 0, -0.75), "foreR": Vector3(-0.3, 0, 0), "upper": Vector3(0.1, -0.3, 0), "lift": Vector3(0, 0.18, 0)}],
+	],
+	"bigbang": [
+		[0.0, {"armR": Vector3(-1.0, 0, -0.5), "foreR": Vector3(-0.5, 0, 0), "armL": Vector3(-1.0, 0, 0.5), "foreL": Vector3(-0.5, 0, 0), "upper": Vector3(0, 0, 0), "lift": Vector3.ZERO}],
+		[0.28, {"armR": Vector3(-1.4, 0, -1.25), "foreR": Vector3(-0.15, 0, 0), "armL": Vector3(-1.4, 0, 1.25), "foreL": Vector3(-0.15, 0, 0), "upper": Vector3(-0.16, 0, 0), "lift": Vector3(0, 0.3, 0)}],
+		[0.58, {"armR": Vector3(-1.25, 0, 0.9), "foreR": Vector3(-1.75, 0, 0), "armL": Vector3(-1.25, 0, -0.9), "foreL": Vector3(-1.75, 0, 0), "upper": Vector3(0.34, 0, 0), "lift": Vector3(0, 0.38, 0)}],
+		[0.64, {"armR": Vector3(-1.75, 0, -1.4), "foreR": Vector3(-0.08, 0, 0), "armL": Vector3(-1.75, 0, 1.4), "foreL": Vector3(-0.08, 0, 0), "upper": Vector3(-0.38, 0, 0), "lift": Vector3(0, 0.56, 0)}, "snap"],
+		[1.0, {"armR": Vector3(-1.75, 0, -1.4), "foreR": Vector3(-0.1, 0, 0), "armL": Vector3(-1.75, 0, 1.4), "foreL": Vector3(-0.1, 0, 0), "upper": Vector3(-0.3, 0, 0), "lift": Vector3(0, 0.5, 0)}],
 	],
 	"cut1": [
 		[0.0, {"armR": Vector3(-1.9, 0, -0.7), "foreR": Vector3(-1.2, 0, 0), "hand_R": Vector3(0.1, 0, -0.3), "armL": Vector3(-0.7, 0, -0.3), "foreL": Vector3(-1.3, 0, 0), "upper": Vector3(-0.1, -0.85, 0), "root": Vector3(0, -0.4, 0), "legR": Vector3(0.35, 0, 0.08), "shinR": Vector3(0.7, 0, 0), "legL": Vector3(-0.45, 0, -0.08), "shinL": Vector3(0.7, 0, 0)}],
@@ -149,6 +187,11 @@ func register(joint_name: String, node: Node3D) -> Node3D:
 	joints[joint_name] = node
 	_rot[joint_name] = Vector3.ZERO
 	return node
+
+
+## Bodies that can show a hit override this.
+func flash_hit() -> void:
+	pass
 
 
 func play(p_action: String, length: float, hold := false) -> void:

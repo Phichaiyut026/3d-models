@@ -21,7 +21,7 @@
 </script>
 </head>
 <body>
-<div id="title">GROK CYBER-FIGHTER<small>ลากเพื่อหมุน · เลื่อนเพื่อซูม · คลิกขวาลากเพื่อเลื่อน</small></div>
+<div id="title">GROK, GOD OF DESTRUCTION<small>ลากเพื่อหมุน · เลื่อนเพื่อซูม · คลิกขวาลากเพื่อเลื่อน</small></div>
 <div id="bar">
   <button data-view="front">FRONT</button>
   <button data-view="side">SIDE</button>
@@ -43,6 +43,12 @@
   <button data-act="kick">KICK</button>
   <button data-act="baton">BATON</button>
   <span class="gap"></span>
+  <button data-act="dAscend">ASCEND</button>
+  <button data-act="dRush">GOD RUSH</button>
+  <button data-act="dCut">VOID CUT</button>
+  <button data-act="dOrb">ANNIHILATE</button>
+  <button data-act="dObliterate">OBLITERATE</button>
+  <span class="gap"></span>
   <button id="download">DOWNLOAD GLB</button>
 </div>
 <script type="module">
@@ -55,12 +61,12 @@ const scene = new THREE.Scene();
 scene.background = (() => {
   const c = document.createElement('canvas'); c.width = 2; c.height = 256;
   const x = c.getContext('2d'), g = x.createLinearGradient(0, 0, 0, 256);
-  g.addColorStop(0, '#050811'); g.addColorStop(.55, '#0b1730'); g.addColorStop(.76, '#123356'); g.addColorStop(.86, '#0a1524'); g.addColorStop(1, '#05080f');
+  g.addColorStop(0, '#05030c'); g.addColorStop(.55, '#150a33'); g.addColorStop(.76, '#3a1668'); g.addColorStop(.86, '#180a30'); g.addColorStop(1, '#07040f');
   x.fillStyle = g; x.fillRect(0, 0, 2, 256);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
   return t;
 })();
-const camera = new THREE.PerspectiveCamera(26, innerWidth / innerHeight, .1, 200);
+const camera = new THREE.PerspectiveCamera(26, innerWidth / innerHeight, .1, 900);
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -68,28 +74,28 @@ document.body.appendChild(renderer.domElement);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.target.set(0, 4.25, 0);
-controls.minDistance = 6; controls.maxDistance = 60;
+controls.minDistance = 6; controls.maxDistance = 200;
 
-scene.add(new THREE.HemisphereLight(0xa9c8ff, 0x24344e, 2.1));
+scene.add(new THREE.HemisphereLight(0xc8b6ff, 0x2a1848, 2.1));
 const key = new THREE.DirectionalLight(0xf2f6ff, 3);
 key.position.set(-5, 13, 11); key.castShadow = true;
 key.shadow.mapSize.set(2048, 2048);
 Object.assign(key.shadow.camera, { left: -7, right: 7, top: 11, bottom: -3, far: 45 });
 key.shadow.bias = -.0012; key.shadow.normalBias = .03;
 scene.add(key);
-const rim = new THREE.DirectionalLight(0x38e2ff, 4.2); // cyan rim, so black armour still reads on a dark set
+const rim = new THREE.DirectionalLight(0xb060ff, 4.6); // cyan rim, so black armour still reads on a dark set
 rim.position.set(7, 8, -10); scene.add(rim);
-const rimRed = new THREE.DirectionalLight(0xff3a30, 2.6);
+const rimRed = new THREE.DirectionalLight(0xff3ad0, 3);
 rimRed.position.set(-8, 4, -7); scene.add(rimRed);
-const impactLight = new THREE.PointLight(0x7fe9ff, 0, 18, 1.4);
+const impactLight = new THREE.PointLight(0xd39cff, 0, 18, 1.4);
 impactLight.position.set(0, 4.5, 3.5); scene.add(impactLight);
 
 const floorTile = (() => {
   const S = 128, c = document.createElement('canvas'); c.width = c.height = S;
   const x = c.getContext('2d');
-  x.fillStyle = '#121a2b'; x.fillRect(0, 0, S, S);
-  x.fillStyle = '#2fb7d6'; x.fillRect(0, 0, S, 2); x.fillRect(0, 0, 2, S);
-  x.fillStyle = '#1a2a42'; x.fillRect(0, S / 2, S, 1); x.fillRect(S / 2, 0, 1, S);
+  x.fillStyle = '#140c24'; x.fillRect(0, 0, S, S);
+  x.fillStyle = '#7a3cd6'; x.fillRect(0, 0, S, 2); x.fillRect(0, 0, 2, S);
+  x.fillStyle = '#2a1a48'; x.fillRect(0, S / 2, S, 1); x.fillRect(S / 2, 0, 1, S);
   const t = new THREE.CanvasTexture(c);
   t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(30, 30);
   t.anisotropy = 8; t.colorSpace = THREE.SRGBColorSpace;
@@ -122,15 +128,16 @@ const visorMat = new THREE.ShaderMaterial({ // a live HUD: dark glass, a sweepin
       float scan = exp(-pow((a - sin(time * .9) * 1.05) * 7., 2.));
       float rows = smoothstep(.72, 1., sin(h * 62.)) * .1;
       float eye = (1. - smoothstep(.0, .3, abs(abs(a) - .42) - .15)) * exp(-pow((h - .58) * 7.5, 2.));
-      vec3 c = vec3(.012, .03, .05) + vec3(.1, .55, .75) * (rows + scan * .45 + sheen * .5);
-      c += mix(vec3(.2, .85, 1.), vec3(1., .22, .14), flare) * eye * (.9 + flare * 1.6);
+      vec3 c = vec3(.02, .01, .05) + vec3(.42, .16, .85) * (rows + scan * .45 + sheen * .5);
+      c += mix(vec3(.85, .4, 1.), vec3(1., .95, .85), flare) * eye * (1.2 + flare * 1.8);
       gl_FragColor = vec4(c, 1.);
     }`,
 });
 const M = {
-  suit: toon(0x191b21), strap: toon(0x101114), armor: toon(0x2b2f37), armorLite: toon(0x3e444e),
-  silver: toon(0x98a1ab), silverDark: toon(0x6f7883), visor: visorMat,
-  red: flat(0xe3201d), light: flat(0xf3f7ff), neon: flat(0x38e2ff),
+  suit: toon(0x1a1030), strap: toon(0x0e0a1a), armor: toon(0x2c1a52), armorLite: toon(0x4a2c86),
+  silver: toon(0xe6b53e), silverDark: toon(0xa87a22), visor: visorMat, cloth: toon(0x5a1f9a), rock: toon(0x2a2038),
+  gem: flat(0xff3ad0),
+  red: flat(0xff3ad0), light: flat(0xf3f7ff), neon: flat(0xc45cff),
 };
 
 /* a soft flame: distance to a tapering capsule, on a quad that turns about its axis to face the camera */
@@ -346,12 +353,12 @@ function decal(parent, secs, yBottom, yTop, half, texture, th0 = 0, lift = .012)
 const FONT = 'Arial,Helvetica,sans-serif';
 const chestLogo = canvasTexture((x, w, h) => {
   x.textAlign = 'center'; x.textBaseline = 'middle';
-  x.fillStyle = '#e3201d'; x.font = `900 150px ${FONT}`; x.fillText('xAI', w / 2, h * .36);
+  x.fillStyle = '#ffc94a'; x.font = `900 150px ${FONT}`; x.fillText('xAI', w / 2, h * .36);
   x.fillStyle = '#f3f7ff'; x.font = `800 74px ${FONT}`; x.fillText('GROK', w / 2, h * .83);
 });
 const shoulderLogo = canvasTexture((x, w, h) => {
   x.textAlign = 'center'; x.textBaseline = 'middle';
-  x.fillStyle = '#e3201d'; x.font = `900 136px ${FONT}`; x.fillText('xAI', w / 2, h * .36);
+  x.fillStyle = '#ffc94a'; x.font = `900 136px ${FONT}`; x.fillText('xAI', w / 2, h * .36);
   x.fillStyle = '#c9d0d8'; x.font = `800 66px ${FONT}`; x.fillText('GROK', w / 2, h * .82);
 });
 const backLogo = canvasTexture((x, w, h) => {
@@ -478,7 +485,7 @@ const batonGlow = { value: .3 };
   const A = [-1.32, 4.02, .2], B = [-1.94, 1.2, .5], P = u => lerp3(A, B, u);
   const hand = joint(arms[-1].hand, P(.22), 'Baton');
   baton = hand; batonPivotLocal = [rel(P(.42), P(.22)), rel(P(1), P(.22))];
-  softFlame(hand, P(.33), rel(B, P(.33)), { len: dist(P(.33), B), rad: .3, color: 0xff2a20, power: batonGlow });
+  softFlame(hand, P(.33), rel(B, P(.33)), { len: dist(P(.33), B), rad: .3, color: 0xb44cff, power: batonGlow });
   cyl(hand, A, B, .065, .065, M.strap, 12);
   cyl(hand, P(-.015), P(.03), .09, .09, M.silverDark, 12);
   cyl(hand, P(.97), P(1.02), .092, .092, M.silverDark, 12);
@@ -610,16 +617,16 @@ for (const s of [-1, 1]) {
 
   // exhaust flames and fist energy
   const top = [s * .29, 5.28, -.95], end = [s * .32, 4.9, -1.08];
-  softFlame(spine, lerp3(top, end, 1.03), rel(end, top), { len: 1.25, rad: .2, color: 0x38c8ff, power: thrust });
+  softFlame(spine, lerp3(top, end, 1.03), rel(end, top), { len: 1.25, rad: .2, color: 0xb06cff, power: thrust });
   const W = [s * 1.42, 3.66, .12];
-  softFlame(arms[s].hand, [W[0] + s * .02, W[1] - .32, W[2] + .05], [0, -1, 0], { len: .02, rad: .62, color: 0x38e2ff, power: fistGlow[s] });
+  softFlame(arms[s].hand, [W[0] + s * .02, W[1] - .32, W[2] + .05], [0, -1, 0], { len: .02, rad: .62, color: 0xc45cff, power: fistGlow[s] });
 }
 { // chest core, seated under the logo
   const hex = r => Array.from({ length: 6 }, (_, i) => [Math.cos(i / 6 * Math.PI * 2 + Math.PI / 6) * r, Math.sin(i / 6 * Math.PI * 2 + Math.PI / 6) * r]);
   const p = onChest(5.3, 0, .11);
   add(spine, shapeGeo(hex(.2), .05, .012), M.silverDark, p);
   add(spine, shapeGeo(hex(.125), .03), M.neon, [p[0], p[1], p[2] + .035], [0, 0, 0], false);
-  softFlame(spine, [p[0], p[1], p[2] + .06], [0, 1, 0], { len: .02, rad: .55, color: 0x38e2ff, power: coreGlow });
+  softFlame(spine, [p[0], p[1], p[2] + .06], [0, 1, 0], { len: .02, rad: .55, color: 0xc45cff, power: coreGlow });
 }
 
 /* ---------- combat effects ---------- */
@@ -655,7 +662,7 @@ function makeRibbon(colorA, colorB, width = 1) { // a strip through recent posit
     },
   };
 }
-const ribbons = { 1: makeRibbon(0x0f8fb0, 0xbdf4ff), [-1]: makeRibbon(0x0f8fb0, 0xbdf4ff), baton: makeRibbon(0xc41510, 0xffc2a8) };
+const ribbons = { 1: makeRibbon(0x7a24c8, 0xecd2ff), [-1]: makeRibbon(0x7a24c8, 0xecd2ff), baton: makeRibbon(0xa81fd0, 0xffd8f4) };
 
 const softDot = (() => {
   const c = document.createElement('canvas'); c.width = c.height = 32;
@@ -664,7 +671,7 @@ const softDot = (() => {
   x.fillStyle = g; x.fillRect(0, 0, 32, 32);
   return new THREE.CanvasTexture(c);
 })();
-const P_N = 380, pPos = new Float32Array(P_N * 3), pCol = new Float32Array(P_N * 3), pVel = new Float32Array(P_N * 3), pLife = new Float32Array(P_N), pMax = new Float32Array(P_N);
+const P_N = 1500, pPos = new Float32Array(P_N * 3), pCol = new Float32Array(P_N * 3), pVel = new Float32Array(P_N * 3), pLife = new Float32Array(P_N), pMax = new Float32Array(P_N);
 let pNext = 0, camShake = 0, flash = 0;
 const sparkGeo = new THREE.BufferGeometry();
 sparkGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
@@ -687,7 +694,7 @@ const ringShader = `uniform float r, a; uniform vec3 color; varying vec2 vUv;
   }`;
 const ringMaterial = (billboard) => new THREE.ShaderMaterial({
   transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
-  uniforms: { r: { value: 0 }, a: { value: 0 }, color: { value: new THREE.Color(0x38e2ff) }, size: { value: 1 } },
+  uniforms: { r: { value: 0 }, a: { value: 0 }, color: { value: new THREE.Color(0xc45cff) }, size: { value: 1 } },
   vertexShader: billboard
     ? `uniform float size; varying vec2 vUv; void main(){ vUv = uv; vec4 c = modelViewMatrix * vec4(0., 0., 0., 1.); gl_Position = projectionMatrix * (c + vec4(position.xy * size, 0., 0.)); }`
     : `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }`,
@@ -699,7 +706,7 @@ const makeRings = (count, billboard) => Array.from({ length: count }, () => {
   mesh.visible = false; mesh.renderOrder = 2; mesh.frustumCulled = false; scene.add(mesh);
   return { mesh, age: 0, life: .36, strength: 1, billboard };
 });
-const airRings = makeRings(5, true), floorRings = makeRings(3, false);
+const airRings = makeRings(16, true), floorRings = makeRings(10, false);
 function ring(pool, q, size, strength, life, color) {
   const o = pool.find(x => !x.mesh.visible) || pool[0], u = o.mesh.material.uniforms;
   o.mesh.position.set(q.x, pool === floorRings ? .05 : q.y, q.z);
@@ -707,7 +714,7 @@ function ring(pool, q, size, strength, life, color) {
   u.color.value.set(color); o.age = 0; o.life = life; o.strength = strength; o.mesh.visible = true;
 }
 const beamPower = { value: 0 };
-const beam = softFlame(scene, [0, 0, 0], [0, 0, 1], { len: 4.5, rad: .8, color: 0x38e2ff, power: beamPower });
+const beam = softFlame(scene, [0, 0, 0], [0, 0, 1], { len: 4.5, rad: .8, color: 0xc45cff, power: beamPower });
 let beamAge = 9;
 function fireBeam(q) { beam.position.set(q.x, q.y, q.z + .3); beamAge = 0; }
 function updateFx(dt) {
@@ -733,6 +740,127 @@ function updateFx(dt) {
   beam.visible = beamPower.value > 0;
   flash *= Math.exp(-dt * 8);
 }
+
+/* ---------- regalia of a destroyer ---------- */
+const auraPower = { value: .85 }, orbPower = { value: 1 };
+{
+  // gold collar, front and back, set with gems
+  const COLLAR = [{ y: 6.02, rx: 1.04, rz: .74, half: 1.05 }, { y: 6.3, rx: .92, rz: .68, half: 1.25 }, { y: 6.56, rx: .6, rz: .54, half: 1.35 }];
+  shell(spine, COLLAR, M.silver, { depth: .08 });
+  shell(spine, COLLAR.map(c => ({ ...c, half: c.half * .8 })), M.silverDark, { th0: Math.PI, depth: .08 });
+  const fine = refine(COLLAR);
+  for (const th of [-.9, -.45, 0, .45, .9]) ball(spine, onSurface(section(fine, 6.26), 6.26, th, .05), th ? [.06, .06, .05] : [.11, .11, .07], M.gem);
+
+  // crown, third eye and swept horns
+  shell(head, lifted(DOME, .065, [[7.52, 1.65], [7.7, 1.6]]), M.silver, { depth: .05 });
+  add(head, shapeGeo([[-.24, 0], [.24, 0], [.1, .42], [0, .9], [-.1, .42]], .05, .012), M.silver, [0, 7.6, .67], [-.2, 0, 0]);
+  ball(head, [0, 7.74, .72], [.085, .1, .05], M.gem);
+  softFlame(head, [0, 7.74, .76], [0, 1, 0], { len: .02, rad: .42, color: 0xff3ad0, power: orbPower });
+  for (const s of [-1, 1]) {
+    const a = [s * .5, 7.74, -.08], b = [s * 1.02, 8.36, -.38], c = [s * 1.16, 9.2, -.9];
+    limb(head, a, b, .13, .09, M.silver, 10);
+    limb(head, b, c, .09, .012, M.silverDark, 10);
+    // chest straps and shoulder blades
+    bar(spine, onChest(6.1, s * .5), onChest(5.42, s * .14), .1, .04, M.silver);
+    for (let i = 0; i < 3; i++) limb(arms[s].upper, [s * (1.16 + i * .17), 6.28 - i * .04, -.2 + i * .2], [s * (1.5 + i * .24), 7.2 - i * .18, -.34 + i * .28], .1, .01, M.silver, 8);
+    const { A } = legs[s];
+    band(legs[s].foot, .78, .07, A[0], A[2], .33, .35, M.silver);
+  }
+
+  // long sashes from the belt
+  band(pelvis, 4.3, .12, 0, 0, .76, .54, M.silver);
+  ball(pelvis, [0, 4.3, .6], [.12, .12, .06], M.gem);
+  const sash = (z, length, width) => {
+    const g = new THREE.Group(); g.position.set(0, .15, z); pelvis.add(g);
+    const pts = k => [[-width * k, .1], [width * k, .1], [(width + .08) * k, -length * .86], [0, -length * k - .1 + .1], [-(width + .08) * k, -length * .86]];
+    add(g, shapeGeo(pts(1), .025), M.silver);
+    add(g, shapeGeo(pts(.84).map(([x, y]) => [x, y - .02]), .012), M.cloth, [0, 0, .014], [0, 0, 0], false);
+    add(g, shapeGeo(pts(.84).map(([x, y]) => [x, y - .02]), .012), M.cloth, [0, 0, -.014], [0, 0, 0], false);
+    return g;
+  };
+  var sashFront = sash(.58, 2.1, .34), sashBack = sash(-.55, 2.5, .42);
+}
+
+// the destruction orb held over the left hand
+const ORB_AT = [1.42 + .02, 3.66 - .32 - .98, .12 + .05];
+const orb = joint(arms[1].hand, ORB_AT, 'DestructionOrb');
+const orbCore = new THREE.Mesh(new THREE.SphereGeometry(.56, 28, 20), new THREE.MeshBasicMaterial({ color: 0x07020f, toneMapped: false }));
+orb.add(orbCore);
+const orbCorona = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.ShaderMaterial({
+  transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, uniforms: { time: fxTime, power: orbPower },
+  vertexShader: `varying vec2 vP; void main(){ vP = position.xy * 2.; vec4 c = modelViewMatrix * vec4(0., 0., 0., 1.); float s = length((modelMatrix * vec4(1., 0., 0., 0.)).xyz); gl_Position = projectionMatrix * (c + vec4(position.xy * 3.1 * s, .1, 0.)); }`,
+  fragmentShader: `uniform float time, power; varying vec2 vP;
+    void main(){
+      float d = length(vP), a = atan(vP.y, vP.x);
+      float rays = .6 + .4 * sin(a * 9. + time * 3.) * sin(a * 5. - time * 2.1);
+      float ring = exp(-pow((d - .37) / .035, 2.));
+      float halo = smoothstep(.34, .4, d) * pow(max(1. - (d - .37) / .62, 0.), 2.6) * rays;
+      vec3 col = vec3(.5, .12, 1.) * halo * 1.3 + vec3(1., .78, 1.) * ring * 1.5;
+      gl_FragColor = vec4(col * power, 1.);
+    }`,
+}));
+orbCorona.frustumCulled = false; orb.add(orbCorona);
+const orbDisc = new THREE.Mesh(new THREE.TorusGeometry(.92, .018, 6, 60), new THREE.MeshBasicMaterial({ color: 0xe6b0ff, toneMapped: false }));
+orbDisc.rotation.x = 1.25; orb.add(orbDisc);
+
+// the god-aura, kept behind the body from every angle
+const aura = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({
+  transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, uniforms: { time: fxTime, power: auraPower },
+  vertexShader: `varying vec2 vP; void main(){ vP = position.xy; vec4 c = modelViewMatrix * vec4(0., 0., 0., 1.); c.xyz += vec3(position.xy * vec2(4.2, 6.6), -1.8); gl_Position = projectionMatrix * c; }`,
+  fragmentShader: `uniform float time, power; varying vec2 vP;
+    float h(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+    float n(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f); return mix(mix(h(i), h(i + vec2(1, 0)), f.x), mix(h(i + vec2(0, 1)), h(i + vec2(1, 1)), f.x), f.y); }
+    float fbm(vec2 p){ float a = .5, s = 0.; for (int i = 0; i < 4; i++) { s += a * n(p); p = p * 2.03 + 11.; a *= .5; } return s; }
+    void main(){
+      float t = time;
+      float body = 1. - length(vP / vec2(.62, .8 + .14 * vP.y));
+      float flames = fbm(vec2(vP.x * 3.6, vP.y * 2.4 - t * 1.6));
+      float edge = smoothstep(-.16, .34, body + (flames - .5) * .62) * smoothstep(1., .82, abs(vP.y));
+      float streak = pow(fbm(vec2(vP.x * 18., vP.y * 1.2 - t * 3.4)), 3.) * 3.2;
+      vec3 col = mix(vec3(.2, .03, .62), vec3(.82, .42, 1.), edge * edge) * edge * (.55 + streak);
+      col += vec3(1., .86, 1.) * pow(edge, 7.) * .3;
+      for (int i = 0; i < 3; i++) { // forked lightning, re-struck several times a second
+        float f = float(i), beat = floor(t * 8. + f * .37);
+        float x0 = sin(f * 2.4 + beat * 1.7) * .58, xb = x0 + (fbm(vec2(vP.y * 7. + f, beat)) - .5) * .42;
+        float bolt = smoothstep(.014, 0., abs(vP.x - xb)) * smoothstep(.95, .35, abs(vP.y)) * step(.5, h(vec2(beat, f)));
+        col += vec3(.92, .72, 1.) * bolt * 1.9;
+      }
+      gl_FragColor = vec4(col * power, 1.);
+    }`,
+}));
+aura.frustumCulled = false; aura.position.y = 4.4; aura.renderOrder = -1; root.add(aura);
+
+// the ground answers: cracked glyphs, and rocks torn loose
+const groundFx = new THREE.Group(); root.add(groundFx);
+const glyph = new THREE.Mesh(new THREE.PlaneGeometry(9.6, 9.6).rotateX(-Math.PI / 2), new THREE.ShaderMaterial({
+  transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, uniforms: { time: fxTime, power: auraPower },
+  vertexShader: `varying vec2 vP; void main(){ vP = position.xz / 4.8; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }`,
+  fragmentShader: `uniform float time, power; varying vec2 vP;
+    float h(float v){ return fract(sin(v * 91.7) * 43758.5453); }
+    void main(){
+      float d = length(vP), a = atan(vP.y, vP.x), s = floor((a + 3.1416) / 6.2832 * 15.);
+      float wob = sin(d * 18. + s * 4.) * .05 + sin(d * 41. + s) * .02;
+      float crack = smoothstep(.022, 0., abs(fract((a + wob + 3.1416) / 6.2832 * 15.) - .5) * (.3 + d)) * smoothstep(1., .12, d) * step(.3, h(s));
+      float ring = smoothstep(.012, 0., abs(d - .58)) + smoothstep(.008, 0., abs(d - .68)) * step(.5, fract(a * 8. + time * .35));
+      float glow = pow(max(1. - d, 0.), 3.) * .34;
+      vec3 col = vec3(.55, .16, 1.) * (crack * 1.3 + ring * .85 + glow) + vec3(1., .8, 1.) * crack * .35;
+      gl_FragColor = vec4(col * (.75 + .25 * sin(time * 3.)) * power, 1.);
+    }`,
+}));
+glyph.position.y = .02; glyph.renderOrder = 1; groundFx.add(glyph);
+const rockBelt = new THREE.Group(); groundFx.add(rockBelt);
+const rocks = Array.from({ length: 14 }, (_, i) => {
+  const a = i / 14 * Math.PI * 2 + (i % 3) * .3, r = 2 + (i * 37 % 10) / 10 * 1.05, size = .13 + (i * 53 % 10) / 10 * .26;
+  const m = add(rockBelt, new THREE.IcosahedronGeometry(size, 0), M.rock, [Math.cos(a) * r, 0, Math.sin(a) * r]);
+  return { m, y: .35 + (i * 71 % 10) / 10 * 2.6, seed: i * 1.7 };
+});
+
+// embers of ki climbing through the aura
+const KI = 130, kiPos = new Float32Array(KI * 3), kiSeed = Array.from({ length: KI }, (_, i) => ({ a: i * 2.39996, r: .9 + (i * 13 % 21) / 10, v: .9 + (i * 7 % 13) / 8, o: (i * 29 % 97) / 9.7 }));
+const kiGeo = new THREE.BufferGeometry();
+kiGeo.setAttribute('position', new THREE.BufferAttribute(kiPos, 3));
+const kiPoints = new THREE.Points(kiGeo, new THREE.PointsMaterial({ color: 0xd8a0ff, size: .13, map: softDot, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+kiPoints.frustumCulled = false; root.add(kiPoints);
 
 /* ---------- ui ---------- */
 const VIEWS = { front: [0, 4.25, 25], side: [25, 4.25, 0], back: [0, 4.25, -25], iso: [13, 7.5, 20] };
@@ -763,6 +891,7 @@ actButtons.forEach(b => b.onclick = () => { if (act) return; setMode('fight'); a
    L and R are the character's arms: x raises the shoulder forward (negative), y turns the elbow,
    z swings it out, f opens the elbow (positive). The left arm leads, the right holds the baton. */
 const GUARD = { x: -.55, y: .7, f: -2.1, twist: -.3, lean: .1, drop: .32, stride: .55 };
+const AT_EASE = { x: -.1, y: .05, f: -.38, twist: -.06, lean: .02, drop: .05, stride: .16 }; // standing unbothered between moves
 const pk = (m, ch, keys) => { (m[ch] ||= []).push(...keys); };
 function punch(m, side, t0, t1, kind = 'straight', power = 1, turn = true) {
   const S = side > 0 ? 'L' : 'R', span = t1 - t0, a = t0 + span * .22, b = t0 + span * .44, c = t0 + span * .64;
@@ -850,23 +979,23 @@ const FX = {
   hit(s, power) {
     const q = fistWorld(s);
     q.z += .22;
-    ring(airRings, q, .55 + power * .45, .9, .28, 0x38e2ff); burst(q, 8 + power * 7 | 0, 4.5);
+    ring(airRings, q, .55 + power * .45, .9, .28, 0xc45cff); burst(q, 8 + power * 7 | 0, 4.5);
     camShake = Math.max(camShake, .03 + power * .05); flash = Math.max(flash, 6 + power * 9);
   },
   blast() {
     const q = fistWorld(-1);
     q.z += .3;
-    ring(airRings, q, 3.2, 1.5, .42, 0xbdf4ff); ring(airRings, { x: q.x, y: q.y, z: q.z + 1.2 }, 2, 1.2, .34, 0x38e2ff);
+    ring(airRings, q, 3.2, 1.5, .42, 0xecd2ff); ring(airRings, { x: q.x, y: q.y, z: q.z + 1.2 }, 2, 1.2, .34, 0xc45cff);
     burst(q, 70, 9); fireBeam(q); camShake = .42; flash = 70;
   },
   smash() {
     const a = fistWorld(1), b = fistWorld(-1), q = a.clone().add(b).multiplyScalar(.5);
-    ring(floorRings, q, 13, 1.8, .7, 0x38e2ff); ring(floorRings, q, 7, 1.3, .45, 0xff4a3a);
+    ring(floorRings, q, 13, 1.8, .7, 0xc45cff); ring(floorRings, q, 7, 1.3, .45, 0xff4a3a);
     burst(q, 120, 10); camShake = .5; flash = 80;
   },
   kick() {
     const q = legs[-1].foot.localToWorld(new THREE.Vector3(legs[-1].A[0] * 0, -.3, .75));
-    ring(airRings, q, 1.3, 1.1, .32, 0x38e2ff); burst(q, 22, 5.5); camShake = .14; flash = 22;
+    ring(airRings, q, 1.3, 1.1, .32, 0xc45cff); burst(q, 22, 5.5); camShake = .14; flash = 22;
   },
   batonHit() {
     const q = baton.localToWorld(new THREE.Vector3(...batonPivotLocal[1]));
@@ -874,10 +1003,126 @@ const FX = {
   },
 };
 
+/* ---------- powers of destruction ---------- */
+const destroySkyMat = new THREE.ShaderMaterial({
+  side: THREE.BackSide, transparent: true, depthWrite: false, uniforms: { a: { value: 0 }, time: fxTime },
+  vertexShader: `varying vec3 vD; void main(){ vD = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }`,
+  fragmentShader: `uniform float a, time; varying vec3 vD;
+    float h(vec3 p){ return fract(sin(dot(p, vec3(12.9, 78.2, 37.7))) * 43758.5); }
+    void main(){
+      vec3 d = normalize(vD);
+      float n = sin(d.x * 5. + time * .3) * sin(d.y * 7. - time * .2) * sin(d.z * 4. + 1.);
+      float st = step(.97, h(floor(d * 110.))) * (.5 + .5 * sin(time * 4. + h(floor(d * 110.) + 2.) * 30.));
+      gl_FragColor = vec4(vec3(.02, .005, .05) + vec3(.42, .07, .78) * smoothstep(-.2, .8, n) + vec3(st), a);
+    }`,
+});
+const destroySky = new THREE.Mesh(new THREE.SphereGeometry(400, 32, 22), destroySkyMat);
+destroySky.visible = false; destroySky.renderOrder = -2; destroySky.frustumCulled = false; scene.add(destroySky);
+
+const pillarPower = { value: 0 };
+softFlame(scene, [0, 0, 0], [0, 1, 0], { len: 220, rad: 8, color: 0xb06cff, power: pillarPower });
+
+// the orb of annihilation, raised overhead and thrown
+const deathOrbPower = { value: 0 };
+const deathOrb = new THREE.Group(); deathOrb.position.set(0, 16, 3); deathOrb.visible = false; scene.add(deathOrb);
+deathOrb.add(new THREE.Mesh(new THREE.SphereGeometry(1, 28, 20), new THREE.MeshBasicMaterial({ color: 0x050109, toneMapped: false })));
+const deathOrbGlow = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.ShaderMaterial({
+  transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, uniforms: { time: fxTime, power: deathOrbPower },
+  vertexShader: `varying vec2 vP; void main(){ vP = position.xy * 2.; vec4 c = modelViewMatrix * vec4(0., 0., 0., 1.); float s = length((modelMatrix * vec4(1., 0., 0., 0.)).xyz); gl_Position = projectionMatrix * (c + vec4(position.xy * s * 5.2, .1, 0.)); }`,
+  fragmentShader: `uniform float time, power; varying vec2 vP;
+    void main(){
+      float d = length(vP), a = atan(vP.y, vP.x), rays = .6 + .4 * sin(a * 9. + time * 3.) * sin(a * 5. - time * 2.);
+      float ring = exp(-pow((d - .385) / .03, 2.)), halo = smoothstep(.37, .41, d) * pow(max(1. - (d - .385) / .6, 0.), 2.4) * rays;
+      gl_FragColor = vec4((vec3(.55, .12, 1.) * halo * 1.5 + vec3(1., .82, 1.) * ring * 1.7) * power, 1.);
+    }`,
+}));
+deathOrbGlow.frustumCulled = false; deathOrb.add(deathOrbGlow);
+
+const blastMat = new THREE.ShaderMaterial({
+  transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, uniforms: { a: { value: 0 } },
+  vertexShader: `varying vec3 vN, vV; void main(){ vec4 p = modelViewMatrix * vec4(position, 1.); vN = normalize(normalMatrix * normal); vV = normalize(-p.xyz); gl_Position = projectionMatrix * p; }`,
+  fragmentShader: `uniform float a; varying vec3 vN, vV;
+    void main(){ float edge = pow(1. - abs(dot(normalize(vN), normalize(vV))), 1.6); gl_FragColor = vec4(mix(vec3(.5, .15, 1.), vec3(1., .9, 1.), edge) * (edge * 1.7 + .22) * a, 1.); }`,
+});
+const blastShell = new THREE.Mesh(new THREE.SphereGeometry(1, 40, 28), blastMat);
+blastShell.position.set(0, 6, 0); blastShell.visible = false; scene.add(blastShell);
+
+const rayPool = Array.from({ length: 70 }, () => {
+  const power = { value: 0 }, mesh = softFlame(scene, [0, 0, 0], [0, 1, 0], { len: 150, rad: .32, color: 0xd080ff, power });
+  mesh.visible = false;
+  return { mesh, power, age: 9, life: .3, base: 1 };
+});
+const UP_AXIS = new THREE.Vector3(0, 1, 0);
+function fireRay(from, to, life = .3, base = 2.4) {
+  const o = rayPool.find(r => r.age >= r.life) || rayPool[0];
+  o.mesh.position.copy(from); o.mesh.quaternion.setFromUnitVectors(UP_AXIS, to.clone().sub(from).normalize()); o.age = 0; o.life = life; o.base = base; o.mesh.visible = true;
+}
+function updateRays(dt) {
+  for (const o of rayPool) {
+    if (o.age >= o.life) { o.mesh.visible = false; continue; }
+    o.age += dt; o.power.value = o.base * (1 - o.age / o.life);
+  }
+}
+const V = (x, y, z) => new THREE.Vector3(x, y, z);
+const armsUp = (m, a, b, side) => { const S = side > 0 ? 'L' : 'R'; pk(m, S + 'x', [[0, 0], [a, -2.35], [b, -2.35], [1, 0]]); pk(m, S + 'y', [[0, 0], [a, side * .7], [b, side * .7], [1, 0]]); pk(m, S + 'f', [[0, 0], [a, 1.75], [b, 1.75], [1, 0]]); };
+
+Object.assign(MOVES, {
+  dAscend: build(5.6, m => {
+    armsUp(m, .2, .86, 1); armsUp(m, .2, .86, -1);
+    pk(m, 'asc', [[.08, 0], [.46, 1], [.88, 1], [1, 0]]); pk(m, 'pillar', [[.4, 0], [.46, 2.6], [.84, 2], [.92, 0]]); pk(m, 'sky', [[.04, 0], [.2, 1], [.94, 1], [1, 0]]);
+    pk(m, 'leap', [[.1, 0], [.44, 3], [.88, 3], [1, 0]]); pk(m, 'eye', [[0, 0], [.2, 1], [.9, 1], [1, 0]]); pk(m, 'boost', [[.3, 0], [.46, 3], [.88, 2], [1, 0]]); pk(m, 'lean', [[0, 0], [.2, -.2], [.86, -.2], [1, 0]]);
+    for (let i = 0; i < 14; i++) m.fx.push([.12 + i * .023, 'dGather']);
+    m.fx.push([.46, 'dBurst']);
+  }),
+  dRush: build(4, m => {
+    for (let i = 0; i < 40; i++) { const t = .05 + i * .0205; punch(m, i % 2 ? -1 : 1, t, t + .06, i % 5 === 4 ? 'hook' : 'straight', 1, false); m.fx.push([t + .03, 'dPunch', i % 2 ? -1 : 1]); }
+    pk(m, 'dash', [[0, 0], [.04, 1.4], [.92, 2.6], [1, 0]]); pk(m, 'boost', [[0, 0], [.05, 1.8], [.92, 1.8], [1, 0]]); pk(m, 'lean', [[0, 0], [.05, .1], [.92, .1], [1, 0]]); pk(m, 'sky', [[.02, 0], [.1, .7], [.94, .7], [1, 0]]);
+    m.fx.push([.92, 'dFinish']);
+  }),
+  dCut: build(3.6, m => {
+    pk(m, 'baton', [[0, 0], [.1, 1], [.9, 1], [1, 0]]); pk(m, 'Bp', [[0, 0], [.14, 2], [.9, 2.4], [1, 0]]);
+    const keys = [[0, 0]]; for (let i = 0; i < 8; i++) { keys.push([.14 + i * .092, i % 2 ? -.5 : -2.05]); } keys.push([.9, -.45], [1, 0]);
+    pk(m, 'Rx', keys); pk(m, 'Ry', [[0, 0], [.14, -.7], [.9, -.7], [1, 0]]); pk(m, 'Rf', [[0, 0], [.14, 1.7], [.9, 1.8], [1, 0]]);
+    pk(m, 'twist', [[0, 0], ...Array.from({ length: 8 }, (_, i) => [.14 + i * .092, i % 2 ? .6 : -.4]), [1, 0]]);
+    pk(m, 'sky', [[.02, 0], [.14, .8], [.92, .8], [1, 0]]); pk(m, 'eye', [[0, 0], [.14, 1], [.9, 1], [1, 0]]);
+    for (let i = 0; i < 8; i++) m.fx.push([.15 + i * .092, 'dCut']);
+    m.fx.push([.9, 'dCutEnd']);
+  }),
+  dOrb: build(5.2, m => {
+    armsUp(m, .14, .64, 1);
+    pk(m, 'Lx', [[.64, 0], [.72, 1.4], [.86, 2.35], [1, 0]]);
+    pk(m, 'orb', [[.08, 0], [.6, 5.4], [.68, 5.4], [.84, 2], [.88, 0]]); pk(m, 'orbZ', [[.66, 0], [.86, 130]]); pk(m, 'sky', [[.03, 0], [.18, 1], [.96, 1], [1, 0]]);
+    pk(m, 'shell', [[.86, 0], [.98, 1]]); pk(m, 'eye', [[0, 0], [.16, 1.2], [.92, 1.2], [1, 0]]); pk(m, 'lean', [[0, 0], [.2, -.14], [.62, -.14], [.72, .22], [1, 0]]);
+    for (let i = 0; i < 20; i++) m.fx.push([.1 + i * .024, 'dGather']);
+    m.fx.push([.68, 'dThrow'], [.86, 'dBoom']);
+  }),
+  dObliterate: build(5.8, m => {
+    armsUp(m, .28, .58, 1); armsUp(m, .28, .58, -1);
+    pk(m, 'Lx', [[.58, 0], [.66, 2.2], [.92, 2.2], [1, 0]]); pk(m, 'Rx', [[.58, 0], [.66, 2.2], [.92, 2.2], [1, 0]]);
+    pk(m, 'sky', [[.03, 0], [.2, 1], [.96, 1], [1, 0]]); pk(m, 'leap', [[.1, 0], [.5, 6], [.58, 6], [.66, 0]]); pk(m, 'drop', [[.58, 0], [.66, 1], [.9, .9], [1, 0]]);
+    pk(m, 'shell', [[.64, 0], [.96, 1]]); pk(m, 'asc', [[.1, 0], [.56, 1], [.66, .3], [1, 0]]); pk(m, 'eye', [[0, 0], [.3, 1.4], [.92, 1.4], [1, 0]]); pk(m, 'lean', [[0, 0], [.4, -.26], [.58, -.26], [.66, .6], [.92, .5], [1, 0]]);
+    m.fx.push([.66, 'dObliterate']);
+  }),
+});
+Object.assign(FX, {
+  dGather() { const a = Math.random() * Math.PI * 2, q = V(Math.cos(a) * 36, 2 + Math.random() * 30, Math.sin(a) * 36); fireRay(q, V(0, 14, 3), .3, 1.7); camShake = Math.max(camShake, .22); flash = Math.max(flash, 20); },
+  dBurst() { for (const r of [16, 30, 50]) ring(airRings, V(0, 10, 0), r, 2.2, .85, 0xecd2ff); ring(floorRings, V(0, .1, 0), 44, 2.2, 1, 0xc45cff); burst(V(0, 6, 0), 340, 22); camShake = 1.8; flash = 260; },
+  dPunch(s) { const q = fistWorld(s); fireRay(q, V(q.x + (Math.random() - .5) * 26, q.y + (Math.random() - .5) * 18, q.z + 150), .22, 2.2); ring(airRings, V(q.x, q.y, q.z + 3), 2.4, 1, .2, 0xc45cff); burst(q, 7, 9); camShake = Math.max(camShake, .32); flash = Math.max(flash, 30); },
+  dFinish() { const q = fistWorld(-1); for (const r of [12, 24, 40]) ring(airRings, q, r, 2.3, .75, 0xecd2ff); burst(q, 280, 26); camShake = 1.8; flash = 280; },
+  dCut() {
+    const a = Math.random() * Math.PI, c = V(root.position.x, 9, 12 + Math.random() * 10), d = V(Math.cos(a), Math.sin(a), .1).multiplyScalar(75);
+    fireRay(c.clone().sub(d), c.clone().add(d), .5, 3); ring(airRings, c, 8, 1.5, .3, 0xecd2ff); camShake = Math.max(camShake, .8); flash = Math.max(flash, 120);
+  },
+  dCutEnd() { for (let i = 0; i < 16; i++) { const a = i / 16 * Math.PI, d = V(Math.cos(a), Math.sin(a), 0).multiplyScalar(75), c = V(0, 10, 16); fireRay(c.clone().sub(d), c.clone().add(d), .7, 3); } ring(airRings, V(0, 10, 16), 46, 2.4, .9, 0xecd2ff); burst(V(0, 10, 16), 300, 28); camShake = 2.2; flash = 340; },
+  dThrow() { ring(airRings, V(0, 16, 3), 30, 2.2, .7, 0xecd2ff); burst(V(0, 16, 3), 160, 20); camShake = 1.5; flash = 200; },
+  dBoom() { for (const r of [36, 66, 110]) ring(airRings, V(0, 16, 133), r, 2.6, 1, 0xecd2ff); ring(floorRings, V(0, .1, 90), 90, 2.5, 1.1, 0xc45cff); burst(V(0, 16, 133), 700, 56); camShake = 3.2; flash = 520; },
+  dObliterate() { ring(floorRings, V(0, .1, 0), 120, 2.8, 1.2, 0xecd2ff); ring(floorRings, V(0, .1, 0), 62, 2.2, .8, 0xc45cff); burst(V(0, 1, 0), 900, 50); for (let i = 0; i < 32; i++) { const a = i / 32 * Math.PI * 2; fireRay(V(0, .5, 0), V(Math.cos(a) * 150, 40 + (i % 3) * 22, Math.sin(a) * 150), .7, 2.8); } camShake = 3.6; flash = 620; },
+});
+
 /* ---------- pose ---------- */
 const clock = new THREE.Clock();
 let t = 0, ribbonNow = { 1: 0, [-1]: 0, baton: 0 };
-const redBase = new THREE.Color(0xe3201d), neonBase = new THREE.Color(0x38e2ff);
+const redBase = new THREE.Color(0xff3ad0), neonBase = new THREE.Color(0xc45cff);
 const THIGH = 1.75, SHIN = 1.6, ANKLE_Y = .6;
 const unit = v => Math.max(-1, Math.min(1, v));
 function legIK(l, drop, stride) { // keeps the sole flat at a fixed place while the hips move
@@ -891,27 +1136,39 @@ function legIK(l, drop, stride) { // keeps the sole flat at a fixed place while 
 }
 function pose(time, fw = fightW, name = act, p = name ? actT / MOVES[name].dur : 0) {
   const m = name ? MOVES[name] : null, ch = key => (m && m[key] ? track(p, m[key]) : 0);
-  const breathe = Math.sin(time * 1.5), idleW = 1 - fw, bounce = Math.sin(time * 5.2) * fw;
+  const breathe = Math.sin(time * 1.5), idleW = 1 - fw, bounce = Math.sin(time * 1.5) * fw;
+  // the moves are authored from the boxing guard, so it comes up only for as long as a move lasts
+  const strike = m ? track(p, [[0, 0], [.14, 1], [.86, 1], [1, 0]]) : 0, G = {};
+  for (const key of Object.keys(GUARD)) G[key] = AT_EASE[key] + (GUARD[key] - AT_EASE[key]) * strike;
 
-  const drop = fw * (GUARD.drop + bounce * .035) + ch('drop');
+  const drop = fw * (G.drop + bounce * .035) + ch('drop');
   pelvis.position.set(0, 4.1 - drop, 0);
-  root.position.set(0, ch('leap'), ch('dash'));
-  for (const s of [-1, 1]) legIK(legs[s], drop, s * fw * GUARD.stride);
+  root.position.set(0, ch('leap') + idleW * (.8 + Math.sin(time * 1.3) * .1), ch('dash'));
+  for (const s of [-1, 1]) legIK(legs[s], drop, s * fw * G.stride);
+  for (const s of [-1, 1]) { // hovering, the legs hang loose and the toes drop
+    legs[s].thigh.rotation.x += idleW * (s > 0 ? -.2 : .05);
+    legs[s].shin.rotation.x += idleW * (s > 0 ? .34 : .12);
+    legs[s].foot.rotation.x += idleW * .62;
+  }
   const kicker = legs[-1], kx = ch('kx'), ks = ch('ks');
   if (kx || ks) { kicker.thigh.rotation.x += kx; kicker.shin.rotation.x = Math.max(.02, kicker.shin.rotation.x * (1 - Math.min(1, Math.abs(kx) * 1.5)) + ks); kicker.foot.rotation.x = .3; }
 
-  const twist = fw * GUARD.twist + ch('twist');
-  spine.rotation.set(breathe * .012 + fw * GUARD.lean + ch('lean'), twist, 0);
+  const twist = fw * G.twist + ch('twist');
+  spine.rotation.set(breathe * .012 + fw * G.lean + ch('lean'), twist, 0);
   head.rotation.y = Math.sin(time * .55) * .14 * idleW - twist * .75;
   head.rotation.x = Math.sin(time * .8) * .02 * idleW - fw * .1;
 
   for (const s of [-1, 1]) {
-    const S = s > 0 ? 'L' : 'R', a = arms[s], lift = (s > 0 ? -.1 : 0) * fw;
-    a.upper.rotation.set(fw * GUARD.x + lift + ch(S + 'x'), -s * fw * GUARD.y + ch(S + 'y'), s * (breathe * .012 * idleW + ch(S + 'z')));
-    a.fore.rotation.x = -.02 + Math.sin(time * 1.5 + .8) * .012 * idleW + fw * GUARD.f + ch(S + 'f');
+    const S = s > 0 ? 'L' : 'R', a = arms[s], lift = (s > 0 ? -.1 : 0) * fw * strike;
+    a.upper.rotation.set(fw * G.x + lift + ch(S + 'x'), -s * fw * G.y + ch(S + 'y'), s * (breathe * .012 * idleW + ch(S + 'z')));
+    a.fore.rotation.x = -.02 + Math.sin(time * 1.5 + .8) * .012 * idleW + fw * G.f + ch(S + 'f');
     fistGlow[s].value = fw * .16 + ch(S + 'p');
     ribbonNow[s] = ch(S + 't');
   }
+  arms[1].upper.rotation.x -= idleW * .62;
+  arms[1].upper.rotation.z += idleW * .14;
+  arms[1].fore.rotation.x -= idleW * 1.9;
+  arms[-1].upper.rotation.z -= idleW * .16;
   const out = Math.min(1, idleW + ch('baton'));
   baton.visible = out > .01; baton.scale.setScalar(Math.max(.001, out));
   batonGlow.value = out * (.28 + Math.sin(time * 7) * .05 + ch('Bp'));
@@ -925,6 +1182,31 @@ function pose(time, fw = fightW, name = act, p = name ? actT / MOVES[name].dur :
   const pulse = .78 + Math.sin(time * 2.6) * .22 + ch('eye') * .3;
   M.neon.color.copy(neonBase).multiplyScalar(pulse);
   M.red.color.copy(redBase).multiplyScalar(.82 + Math.sin(time * 3) * .18);
+
+  orb.visible = idleW > .02;
+  orb.scale.setScalar(Math.max(.001, idleW) * (1 + Math.sin(time * 2.4) * .04));
+  orbDisc.rotation.z = time * 1.6;
+  orbPower.value = .95 + Math.sin(time * 5.1) * .08;
+  auraPower.value = .85 + fw * .2 + ch('eye') * .55 + ch('boost') * .35 + Math.sin(time * 9.5) * .04 + ch('asc') * 1.1;
+  groundFx.position.set(0, -root.position.y, -root.position.z);
+  glyph.scale.setScalar(1 + ch('asc') * 1.6 + ch('shell') * .6);
+  const voidSky = Math.min(1, ch('sky')); destroySky.visible = voidSky > .01; destroySkyMat.uniforms.a.value = voidSky;
+  pillarPower.value = ch('pillar') * (.85 + Math.sin(time * 31) * .15);
+  const sphere = ch('orb'); deathOrb.visible = sphere > .02; deathOrb.scale.setScalar(Math.max(.01, sphere)); deathOrb.position.z = 3 + ch('orbZ'); deathOrbPower.value = Math.min(1.2, sphere * .5);
+  const blast = ch('shell'); blastShell.visible = blast > .002 && blast < .995; blastShell.scale.setScalar(blast * 230); blastMat.uniforms.a.value = (1 - blast) * 1.5;
+  rockBelt.rotation.y = time * .1;
+  for (const r of rocks) {
+    r.m.position.y = r.y + Math.sin(time * .8 + r.seed) * .22 + ch('asc') * (3 + r.seed * .7);
+    r.m.rotation.set(time * .4 + r.seed, time * .3 + r.seed * 2, 0);
+  }
+  for (let i = 0; i < KI; i++) {
+    const k = kiSeed[i], y = (time * k.v + k.o) % 10;
+    kiPos.set([Math.cos(k.a + time * .2) * k.r * (1 - y * .04), y - root.position.y + .2, Math.sin(k.a + time * .2) * k.r * (1 - y * .04)], i * 3);
+  }
+  kiGeo.attributes.position.needsUpdate = true;
+  const sway = Math.sin(time * 1.5);
+  sashFront.rotation.x = -fw * .45 - idleW * .08 + sway * .035;
+  sashBack.rotation.x = fw * .4 + idleW * .1 - sway * .03;
 }
 
 /* ---------- GLB export ---------- */
@@ -994,6 +1276,7 @@ function animate() {
     ribbons.baton.push(baton.localToWorld(new THREE.Vector3(...batonPivotLocal[0])), baton.localToWorld(new THREE.Vector3(...batonPivotLocal[1])), ribbonNow.baton, at);
   }
   updateFx(dt);
+  updateRays(dt);
   due.forEach(([, fx, ...args]) => FX[fx](...args));
   for (const r of Object.values(ribbons)) r.draw(t);
   if (goal) {

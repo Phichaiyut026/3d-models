@@ -8,6 +8,7 @@ var _failures := 0
 
 func _ready() -> void:
 	get_window().unfocusable = true # Keeps real keystrokes out of the scripted run.
+	get_window().mouse_passthrough = true # And real clicks: they would start swings mid-test.
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--shots="):
 			_dir = arg.substr(8)
@@ -21,6 +22,14 @@ func _check(label: String, ok: bool) -> void:
 		print("  state=%s attack=%s t=%.2f hp=%.0f stamina=%.0f pos=%s game=%s lock=%.2f" % [pl.state, pl._attack_name, pl.state_time, pl.hp, pl.stamina, pl.global_position, Game.state, pl._input_lock])
 	if not ok:
 		_failures += 1
+
+
+## Loading covers the menu, so a click sent any earlier never reaches the buttons.
+func _wait_loaded() -> void:
+	await _wait(1.0)
+	while Game.warming:
+		await get_tree().process_frame
+	await _wait(2.0)
 
 
 func _wait(seconds: float) -> void:
@@ -308,12 +317,264 @@ func _bench() -> void:
 	get_tree().quit()
 
 
+func _park_front(p: Player, at: Vector3) -> void:
+	p.global_position = Vector3(at.x, Game.terrain.get_height(at.x, at.z) + 0.3, at.z)
+	p.velocity = Vector3.ZERO
+	p.rig.rotation.y = 0.0
+	p.cam_yaw = 0.35
+	p.cam_pitch = -0.1
+	p._cam_root.global_position = p.global_position + Vector3(0, 2.05, 0)
+
+
+func _wait_skill(p: Player, key: String, progress: float, shot_name: String) -> void:
+	var frames := 0
+	while frames < 600 and not (p.state == "skill" and p._skill_key == key and p.state_time / p.state_length >= progress):
+		frames += 1
+		await get_tree().process_frame
+	await _shot(shot_name)
+
+
+func _wait_move(p: Player) -> void:
+	var frames := 0
+	while frames < 900 and p.state != "move":
+		frames += 1
+		await get_tree().process_frame
+
+
+## The first form's seven powers, all aimed at one soldier standing ahead.
+func _test_first_skills(p: Player) -> void:
+	var soldier: Enemy = null
+	for enemy in Game.enemies:
+		if not enemy.is_boss:
+			soldier = enemy
+			break
+	for key: String in Player.FIRST_SKILLS:
+		var skill: Dictionary = Player.FIRST_SKILLS[key]
+		p.fp = p.max_fp
+		p._skill_cooldowns.clear()
+		_park_front(p, Vector3(0, 0, 88))
+		var look := Vector3(-sin(p.cam_yaw), 0, -cos(p.cam_yaw))
+		soldier.reset()
+		soldier.hp = 99999.0
+		soldier.freeze(40.0)
+		soldier.global_position = p.global_position + look * 9.0
+		soldier.global_position.y = Game.terrain.get_height(soldier.global_position.x, soldier.global_position.z) + 0.2
+		await _wait(0.35)
+		await _tap(key)
+		await _wait(0.05)
+		_check("first form " + skill["id"] + " starts", p.state == "skill" and p._skill_key == key)
+		_check("first form " + skill["id"] + " spends focus", p.fp < p.max_fp)
+		await _wait_skill(p, key, 0.55, "first_%s" % skill["id"])
+		await _wait_move(p)
+		await _wait(1.0)
+		_check("first form " + skill["id"] + " damages enemies", soldier.hp < 99999.0)
+	soldier.reset()
+	p._skill_cooldowns.clear()
+	p.fp = p.max_fp
+
+
+func _test_flight(p: Player) -> void:
+	_park_front(p, Vector3(0, 0, 88))
+	await _wait(0.5)
+	var ground_y := p.global_position.y
+	await _tap("fly")
+	await get_tree().physics_frame
+	_check("V takes off", p.flying)
+	Input.action_press("roll")
+	await _wait(1.0)
+	Input.action_release("roll")
+	_check("Space climbs", p.global_position.y > ground_y + 8.0)
+	await _wait(0.2)
+	var height := p.global_position.y
+	await _wait(0.8)
+	_check("holds its height in the air", absf(p.global_position.y - height) < 0.4)
+	await _shot("fly_hover")
+	var from := p.global_position
+	Input.action_press("move_forward")
+	Input.action_press("run")
+	await _wait(1.2)
+	await _shot("fly_fast")
+	Input.action_release("run")
+	Input.action_release("move_forward")
+	_check("flies forward quickly", from.distance_to(p.global_position) > 25.0)
+	await _tap("fly")
+	await get_tree().physics_frame
+	_check("V comes back down", not p.flying)
+	await _wait(2.6)
+	_check("lands on the ground", p.is_on_floor())
+	Input.action_press("move_forward")
+	await _wait(0.8)
+	Input.action_release("move_forward")
+	await _shot("walk_supreme")
+	_check("still walks on the ground", p.is_on_floor() and not p.flying)
+
+
+func _test_supreme(p: Player) -> void:
+	Game.player.hp = p.max_hp
+	_park_front(p, Vector3(0, 0, 88))
+	await _wait(0.8)
+	await _shot("form_1_first")
+	_check("starts in the first form", not p.rig.is_supreme and p.rig.scale.x < 1.01)
+	await _test_first_skills(p)
+	_park_front(p, Vector3(0, 0, 88))
+	await _wait(0.4)
+
+	await _tap("transform")
+	_check("T starts the change", p.state == "transform")
+	_check("nothing hurts during the change", not p.take_damage(50.0, p.global_position + Vector3(0, 0, 3)))
+	await _wait(0.9)
+	await _shot("form_2_gather")
+	await _wait(0.4)
+	await _shot("form_3_burst")
+	await _wait(1.0)
+	_check("becomes the supreme form", p.rig.is_supreme and p.state == "move")
+	await _wait(1.8)
+	_park_front(p, Vector3(0, 0, 88))
+	await _wait(1.0)
+	await _shot("form_4_supreme")
+	_check("the supreme form is larger", p.rig.scale.x > 1.8)
+	_check("the supreme form is all but immortal", p.max_hp >= Player.SUPREME_HP and p.hp >= p.max_hp * 0.99)
+	var tough_hp := p.hp
+	p.take_damage(150.0, p.global_position + Vector3(0, 0, 3))
+	_check("big hits barely register", tough_hp - p.hp <= 3.5)
+	_check("the supreme form does not flinch", p.state == "move" and p._knockback.length() < 0.01)
+	await _wait(0.6)
+	_park_front(p, Vector3(0, 0, 88))
+	p.cam_yaw = PI
+	await _wait(0.5)
+	await _shot("form_5_back")
+	p.cam_yaw = 0.35
+
+	await _test_flight(p)
+	_park_front(p, Vector3(0, 0, 88))
+	await _wait(0.5)
+
+	# Soldiers lined up in front, so each power has something to hit.
+	var soldiers: Array[Enemy] = []
+	for enemy in Game.enemies:
+		if not enemy.is_boss and soldiers.size() < 3:
+			soldiers.append(enemy)
+	var place := func(dist: float) -> void:
+		var i := 0
+		for s in soldiers:
+			s.reset()
+			s.hp = 99999.0
+			s.freeze(40.0)
+			# Skills fire where the camera looks.
+			var look := Vector3(-sin(p.cam_yaw), 0, -cos(p.cam_yaw))
+			s.global_position = p.global_position + look * (dist + i * 1.5) + look.cross(Vector3.UP) * (i - 1) * 2.0
+			s.global_position.y = Game.terrain.get_height(s.global_position.x, s.global_position.z) + 0.2
+			i += 1
+
+	for key: String in Player.SKILL_KEYS:
+		p.fp = p.max_fp
+		p._skill_cooldowns.clear()
+		_park_front(p, Vector3(0, 0, 88))
+		place.call(11.0)
+		await _wait(0.4)
+		var hp_before := soldiers[1].hp
+		var skill: Dictionary = Player.SKILLS[key]
+		await _tap(key)
+		await _wait(0.05)
+		_check(skill["id"] + " starts", p.state == "skill" and p._skill_key == key)
+		_check(skill["id"] + " spends focus", p.fp < p.max_fp)
+		_check(skill["id"] + " goes on cooldown", p.skill_cooldown(key) > 0.0 and not p.skill_ready(key))
+		_check(skill["id"] + " cannot be hurt", not p.take_damage(50.0, p.global_position + Vector3(0, 0, 3)))
+		await _wait_skill(p, key, minf(float(skill["at"]) + 0.08, 0.5) if skill["id"] != "bigbang" else 0.5, "skill_%s_1" % skill["id"])
+		if skill["id"] == "edge":
+			p.cam_yaw = 1.35 # The cut runs straight away from the usual camera; this shows its length.
+		var late := {"edge": 0.72, "genesis": 0.62, "multiverse": 0.45, "erasure": 0.5, "bigbang": 0.68}
+		await _wait_skill(p, key, late[skill["id"]], "skill_%s_2" % skill["id"])
+		await _wait_move(p)
+		await _wait(0.9)
+		_check(skill["id"] + " damages enemies", soldiers[1].hp < hp_before)
+	for s in soldiers:
+		s.reset()
+
+	await _shot("form_6_hud")
+	p._transform_cooldown = 0.0
+	await _tap("transform")
+	_check("T starts the way back", p.state == "transform")
+	await _wait(1.3)
+	_check("returns to the first form", not p.rig.is_supreme and p.state == "move")
+	_check("health returns to normal", p.max_hp < 1000.0 and p.hp == p.max_hp)
+	await _wait(1.0)
+	_check("back to normal size", p.rig.scale.x < 1.05)
+	await _shot("form_7_returned")
+	p.rig.set_form(true, true)
+	p.respawn(Game.shrines[0])
+	_check("dying or respawning clears the form", not p.rig.is_supreme)
+
+
+func _test_boss_skills(p: Player) -> void:
+	var boss: Enemy = Game.boss
+	boss.reset()
+	await _wait(0.2)
+	p.global_position = boss.home + Vector3(0, 0.3, 9)
+	p.global_position.y = Game.terrain.get_height(p.global_position.x, p.global_position.z) + 0.3
+	p.velocity = Vector3.ZERO
+	p.cam_yaw = 0.25
+	p.rig.rotation.y = PI
+	p._cam_root.global_position = p.global_position + Vector3(0, 2.05, 0)
+	await _wait(0.5)
+	await _shot("boss_aura")
+	_check("the boss wakes with the player near", Game.boss_active)
+	for skill: String in OverlordSkills.SKILLS:
+		boss.global_position = boss.home
+		boss._cooldown = 9.0
+		boss._skill_cooldown = 99.0
+		p.global_position.x = boss.home.x
+		p.global_position.z = boss.home.z + 9.0
+		p.hp = 99999.0
+		p.state = "move"
+		boss.begin_skill(skill)
+		await _wait(0.1)
+		_check(skill + " starts", boss.state == "skill")
+		await _wait(float(OverlordSkills.SKILLS[skill]["length"]) * 0.62)
+		await _shot("boss_%s" % skill)
+		await _wait(float(OverlordSkills.SKILLS[skill]["length"]) * 0.42 + 0.3)
+		_check(skill + " hurts a player who stands still", p.hp < 99999.0)
+		_check(skill + " ends", boss.state != "skill")
+		boss.state = "chase"
+	boss.reset()
+	Game.boss_active = false
+	p.hp = p.max_hp
+	p.state = "move"
+
+
 func _run() -> void:
 	if "--bench" in OS.get_cmdline_user_args():
 		await _bench()
 		return
+	if "--menus" in OS.get_cmdline_user_args():
+		await _wait_loaded()
+		await _click_button(Game.menu.start_button)
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		await _wait(1.0)
+		await _test_menus(Game.player)
+		print("AUTOTEST DONE failures=%d" % _failures)
+		get_tree().quit(1 if _failures > 0 else 0)
+		return
+	if "--boss" in OS.get_cmdline_user_args():
+		await _wait_loaded()
+		await _click_button(Game.menu.start_button)
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		await _wait(1.0)
+		await _test_boss_skills(Game.player)
+		print("AUTOTEST DONE failures=%d" % _failures)
+		get_tree().quit(1 if _failures > 0 else 0)
+		return
+	if "--supreme" in OS.get_cmdline_user_args():
+		await _wait_loaded()
+		await _click_button(Game.menu.start_button)
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		await _wait(1.0)
+		await _test_supreme(Game.player)
+		print("AUTOTEST DONE failures=%d" % _failures)
+		get_tree().quit(1 if _failures > 0 else 0)
+		return
 	var p := Game.player
-	await _wait(2.5)
+	await _wait_loaded()
 	await _shot("01_title")
 
 	_check("menu is open at launch", Game.menu.current_screen() == "main")
@@ -466,6 +727,7 @@ func _run() -> void:
 	p._cam_root.global_position = p.global_position + Vector3(0, 2.05, 0)
 	await _wait(0.4)
 	_check("boss wakes", Game.boss_active)
+	_check("the boss is the System Overlord", boss.rig is OverlordModel)
 	await _shot("12_boss")
 	p.hp = 99999.0
 	await _wait(6.0)
@@ -500,6 +762,8 @@ func _run() -> void:
 	await _shot("15_victory")
 
 	await _test_blade_summon(p)
+	await _test_supreme(p)
+	await _test_boss_skills(p)
 	await _test_menus(p)
 	print("FPS %d" % Engine.get_frames_per_second())
 	print("AUTOTEST DONE failures=%d" % _failures)
