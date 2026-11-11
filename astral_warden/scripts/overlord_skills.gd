@@ -13,8 +13,20 @@ const SKILLS := {
 	"beam": {"anim": "boss_beam", "length": 3.2, "at": 0.3},
 	"delete": {"anim": "sky_spread", "length": 3.5, "at": 0.08},
 	"worldend": {"anim": "bigbang", "length": 5.2, "at": 0.06},
+	"devour": {"anim": "sky_spread", "length": 5.4, "at": 0.12},
+	"ray": {"anim": "boss_beam", "length": 5.2, "at": 0.3},
+	"horizon": {"anim": "sky_spread", "length": 6.4, "at": 0.1},
+	"flick": {"anim": "cast", "length": 9.4, "at": 0.08, "anim_length": 9.4},
+	"daemon_beam": {"anim": "cast", "length": 2.3, "at": 0.02, "anim_length": 2.3},
+	"rootkit_wave": {"anim": "slash3", "length": 1.5, "at": 0.54},
+	"rootkit_call": {"anim": "sky_spread", "length": 1.8, "at": 0.4},
 }
 const ROTATION := ["shards", "spikes", "glitch", "beam", "delete"]
+const OBLIVION_ROTATION := ["devour", "glitch", "ray", "spikes", "horizon", "delete", "shards"]
+const WEB := 0.62 ## Metres per unit of system_overlord.html.
+const FLICK_SAFE := 20.0
+const DOOM := preload("res://shaders/doom_sheet.gdshader")
+const SKY := preload("res://shaders/sky_dome.gdshader")
 
 
 static func _casting(boss: Enemy, run: int) -> bool:
@@ -43,6 +55,187 @@ static func fire(boss: Enemy, skill: String) -> void:
 			_delete(boss)
 		"worldend":
 			_world_end(boss)
+		"devour":
+			_devour(boss)
+		"ray":
+			_ray(boss)
+		"horizon":
+			_horizon(boss)
+		"flick":
+			_flick(boss)
+		"daemon_beam":
+			SoldierSkills.beam(boss)
+		"rootkit_wave":
+			SoldierSkills.wave(boss)
+		"rootkit_call":
+			SoldierSkills.call_processes(boss)
+
+
+## OBLIVION's powers turn the sky to blood-red space while they last.
+static func _sky(seconds: float) -> void:
+	var sphere := SphereMesh.new()
+	sphere.radius = 1600.0
+	sphere.height = 3200.0
+	sphere.radial_segments = 32
+	sphere.rings = 22
+	var material := ShaderMaterial.new()
+	material.shader = SKY
+	material.set_shader_parameter("red", 1.0)
+	var node := MeshInstance3D.new()
+	node.mesh = sphere
+	node.material_override = material
+	node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	node.extra_cull_margin = 2000.0
+	Game.world.add_child(node)
+	node.global_position = Game.player.global_position
+	var set_a := func(v: float) -> void: material.set_shader_parameter("a", v)
+	var tween := node.create_tween()
+	tween.tween_method(set_a, 0.0, 1.0, 0.5)
+	tween.tween_interval(maxf(seconds - 1.0, 0.1))
+	tween.tween_method(set_a, 1.0, 0.0, 0.5)
+	tween.tween_callback(node.queue_free)
+
+
+static func _hole(boss: Enemy, size: float) -> void:
+	(boss.rig as OverlordModel).set_hole(size)
+
+
+## The hole opens wide and drags the player in, crushing what it catches.
+static func _devour(boss: Enemy) -> void:
+	var run := Game.run_id
+	Game.hud.banner("DEVOUR", "อย่าให้ถูกดูดเข้าไป", RED, 1.6)
+	_sky(4.6)
+	_hole(boss, 2.0)
+	for i in 36:
+		if not _casting(boss, run):
+			break
+		var p := Game.player
+		var to := boss.global_position - p.global_position
+		to.y = 0.0
+		p.drag(to.normalized() * 8.0)
+		Game.shake(0.3)
+		if i % 4 == 0:
+			_crush(boss, run, p.global_position)
+		await _wait(0.12)
+	_hole(boss, 1.0)
+	if _casting(boss, run):
+		CosmicFx.shock(boss.chest_position(), 30.0, 2.4, 0.9, RED)
+		Game.shake(1.2)
+
+
+static func _crush(boss: Enemy, run: int, pos: Vector3) -> void:
+	var radius := 6.0
+	zone(pos, radius, 0.7)
+	await _wait(0.7)
+	if not _casting(boss, run):
+		return
+	CosmicFx.shock(_ground(pos) + Vector3(0, 1.0, 0), 9.0, 2.0, 0.6, RED)
+	Fx.burst(_ground(pos) + Vector3(0, 0.5, 0), RED, 30, 14.0, 0.1)
+	Game.shake(0.5)
+	var to := Game.player.global_position - pos
+	to.y = 0.0
+	if to.length() < radius:
+		Game.player.take_damage(110.0, pos)
+
+
+## HAWKING RAY: what the black hole breathes out. It chases the player, slowly.
+static func _ray(boss: Enemy) -> void:
+	var run := Game.run_id
+	var length := 150.0 * WEB
+	Game.hud.banner("HAWKING RAY", "วิ่งหลบลำแสง", RED, 1.4)
+	_sky(3.6)
+	_hole(boss, 1.9)
+	var made := CosmicFx.flame(150.0, 5.0, Color("ff1030"), Game.world)
+	var beam: MeshInstance3D = made[0]
+	(made[1] as ShaderMaterial).set_shader_parameter("world_scale", WEB)
+	(made[1] as ShaderMaterial).set_shader_parameter("power", 2.4)
+	var origin := boss.chest_position() + Vector3(0, 3.0, 0)
+	var aim := (Game.player.chest() - origin).normalized()
+	for tick in 30:
+		if not _casting(boss, run):
+			break
+		var p := Game.player
+		origin = boss.chest_position() + Vector3(0, 3.0, 0)
+		aim = aim.slerp((p.chest() - origin).normalized(), 0.06).normalized()
+		boss.rig.rotation.y = atan2(aim.x, aim.z)
+		beam.global_transform = Transform3D(Basis(Quaternion(Vector3.UP, aim)), origin)
+		Game.shake(0.35)
+		if tick % 3 == 0:
+			CosmicFx.shock(origin + aim * randf_range(8.0, length), randf_range(6.0, 11.0), 1.8, 0.55, RED)
+		var along := (p.chest() - origin).dot(aim)
+		if along > 0.0 and along < length and (p.chest() - origin - aim * along).length() < 3.6:
+			p.take_damage(34.0, origin)
+			Fx.burst(p.chest(), RED, 10, 7.0)
+		await _wait(0.1)
+	beam.queue_free()
+	_hole(boss, 1.0)
+
+
+## EVENT HORIZON: everything near it is pulled in, then it collapses. Get far away.
+static func _horizon(boss: Enemy) -> void:
+	var run := Game.run_id
+	var radius := 40.0
+	var seconds := 4.8
+	var center := boss.global_position
+	Game.hud.banner("EVENT HORIZON", "วิ่งออกจากวงให้ทัน", RED, 2.2)
+	_sky(5.8)
+	_hole(boss, 3.2)
+	zone(center, radius, seconds)
+	var ticks := int(seconds / 0.12)
+	for i in ticks:
+		if not _casting(boss, run):
+			_hole(boss, 1.0)
+			return
+		var p := Game.player
+		var to := center - p.global_position
+		to.y = 0.0
+		p.drag(to.normalized() * 5.0)
+		Game.shake(0.3)
+		await _wait(0.12)
+	_hole(boss, 1.0)
+	if not _casting(boss, run):
+		return
+	for r: float in [24.0, 48.0, 80.0]:
+		CosmicFx.shock(boss.chest_position(), r, 2.6, 1.0, RED)
+	CosmicFx.shock(center, radius, 2.6, 1.2, RED, true)
+	CosmicFx.flash(Color(1.0, 0.25, 0.25), 0.85, 0.8)
+	Game.shake(2.4)
+	var away := Game.player.global_position - center
+	away.y = 0.0
+	if away.length() < radius:
+		Game.player.take_damage(300.0, center)
+
+
+## FLICK OF DOOM: one finger, and reality drains away. Only standing at its feet survives.
+static func _flick(boss: Enemy) -> void:
+	var run := Game.run_id
+	var seconds := 7.2
+	Game.hud.banner("FLICK OF DOOM", "วิ่งเข้าไปประชิดบอส!", RED, 3.0)
+	_sky(8.6)
+	var rect := Game.hud.screen_doom
+	var material: ShaderMaterial = rect.material
+	material.set_shader_parameter("aspect", rect.size.x / maxf(rect.size.y, 1.0))
+	material.set_shader_parameter("p", 0.0)
+	rect.visible = true
+	var steps := int(seconds / 0.1)
+	for i in steps:
+		if not _casting(boss, run):
+			rect.visible = false
+			return
+		material.set_shader_parameter("p", float(i) / steps * 0.72)
+		if i % 8 == 0:
+			Fx.ring(boss.global_position, FLICK_SAFE, Color.WHITE, 0.7)
+		Game.shake(0.25)
+		await _wait(0.1)
+	rect.visible = false
+	if not _casting(boss, run):
+		return
+	CosmicFx.flash(Color(0.0, 0.0, 0.0), 1.0, 1.2)
+	Game.shake(2.6)
+	var to := Game.player.global_position - boss.global_position
+	to.y = 0.0
+	if to.length() > FLICK_SAFE:
+		Game.player.take_damage(1500.0, boss.global_position)
 
 
 ## A disc on the ground that fills up over `seconds`, then frees itself.
@@ -72,19 +265,19 @@ static func _glitch(boss: Enemy) -> void:
 	Fx.ring(boss.global_position, 6.0, RED, 0.3)
 	# Beside the player, not behind: behind would put the whole body on top of the camera.
 	var side := p.forward().cross(Vector3.UP) * (1.0 if randf() > 0.5 else -1.0)
-	var at := p.global_position + side * 5.5
+	var at := p.global_position + side * 5.5 * boss.body_scale()
 	boss.global_position = _ground(at) + Vector3(0, 0.15, 0)
 	var to := p.global_position - boss.global_position
 	boss.rig.rotation.y = atan2(to.x, to.z)
 	Fx.burst(boss.chest_position(), RED, 50, 10.0, 0.1)
-	boss.rig.play("slash2", 1.2)
+	boss.rig.play("o_reaper", 1.3)
 	Game.shake(0.3)
 	await _wait(0.5)
 	if not _casting(boss, run):
 		return
 	Fx.crescent(boss.chest_position(), boss.forward(), -0.7, RED, 9.0, 8.0)
 	Game.shake(0.4)
-	if p.global_position.distance_to(boss.global_position) < 7.2:
+	if p.global_position.distance_to(boss.global_position) < 7.2 * boss.body_scale():
 		p.take_damage(125.0, boss.global_position)
 
 
@@ -97,7 +290,7 @@ static func _shards(boss: Enemy) -> void:
 		var p := Game.player
 		var side := -1.0 if i % 2 == 0 else 1.0
 		var right := boss.forward().cross(Vector3.UP)
-		var from := boss.global_position + right * side * randf_range(1.5, 3.5) + Vector3(0, randf_range(4.5, 6.2), 0)
+		var from := boss.global_position + (right * side * randf_range(1.5, 3.5) + Vector3(0, randf_range(4.5, 6.2), 0)) * boss.body_scale()
 		var aim := (p.chest() + Vector3(randf_range(-1.2, 1.2), randf_range(-0.5, 0.8), randf_range(-1.2, 1.2)) - from).normalized()
 		var shard := BossShard.new()
 		shard.direction = aim

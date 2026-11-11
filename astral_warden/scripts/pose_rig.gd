@@ -6,7 +6,9 @@ extends Node3D
 const POSED := ["upper", "armR", "foreR", "hand_R", "armL", "foreL", "legR", "shinR", "footR", "legL", "shinL", "footL"]
 
 ## Actions whose legs are posed freely, so the feet are not pinned to the ground.
-const UNGROUNDED := ["roll", "death", "rest", "slam", "comet"]
+const UNGROUNDED := ["roll", "death", "rest", "slam", "comet", "hero_land"]
+## Sword cuts, drawn as one flowing curve instead of pose to pose.
+const SWINGS := ["cut1", "cut2", "cut3", "cleave"]
 
 # Gait curves as [phase, value] pairs. Phase 0 is heel strike; toe-off is near 0.6.
 const WALK_KNEE := [[0.0, 0.1], [0.14, 0.34], [0.4, 0.08], [0.6, 0.6], [0.74, 1.2], [0.9, 0.3], [1.0, 0.1]]
@@ -126,6 +128,12 @@ const ACTIONS := {
 		[0.0, {"legR": Vector3(-1.5, 0, 0), "shinR": Vector3(1.6, 0, 0), "footR": Vector3(0, 0, 0), "legL": Vector3(0.25, 0, 0), "shinL": Vector3(2.0, 0, 0), "footL": Vector3(0.6, 0, 0), "upper": Vector3(0.45, 0, 0), "armR": Vector3(-0.5, 0, 0.5), "foreR": Vector3(-0.6, 0, 0), "armL": Vector3(-0.5, 0, -0.5), "foreL": Vector3(-0.6, 0, 0), "lift": Vector3(0, -0.34, 0)}],
 		[1.0, {"legR": Vector3(-1.5, 0, 0), "shinR": Vector3(1.6, 0, 0), "footR": Vector3(0, 0, 0), "legL": Vector3(0.25, 0, 0), "shinL": Vector3(2.0, 0, 0), "footL": Vector3(0.6, 0, 0), "upper": Vector3(0.45, 0, 0), "armR": Vector3(-0.5, 0, 0.5), "foreR": Vector3(-0.6, 0, 0), "armL": Vector3(-0.5, 0, -0.5), "foreL": Vector3(-0.6, 0, 0), "lift": Vector3(0, -0.34, 0)}],
 	],
+	# Down on one knee, fist in the dirt, head bowed; then rising slowly.
+	"hero_land": [
+		[0.0, {"legR": Vector3(0.45, 0, 0.14), "shinR": Vector3(2.15, 0, 0), "footR": Vector3(0.75, 0, 0), "legL": Vector3(-1.65, 0, -0.16), "shinL": Vector3(1.75, 0, 0), "footL": Vector3(-0.1, 0, 0), "upper": Vector3(0.95, 0.12, 0), "armR": Vector3(-0.55, 0, 0.1), "foreR": Vector3(-0.08, 0, 0), "hand_R": Vector3(0.2, 0, 0), "armL": Vector3(0.95, 0, -1.05), "foreL": Vector3(-0.35, 0, 0), "root": Vector3(0.2, 0, 0), "lift": Vector3(0, -0.4, 0)}, "snap"],
+		[0.62, {"legR": Vector3(0.42, 0, 0.14), "shinR": Vector3(2.1, 0, 0), "footR": Vector3(0.72, 0, 0), "legL": Vector3(-1.6, 0, -0.16), "shinL": Vector3(1.7, 0, 0), "footL": Vector3(-0.1, 0, 0), "upper": Vector3(0.82, 0.1, 0), "armR": Vector3(-0.6, 0, 0.1), "foreR": Vector3(-0.12, 0, 0), "hand_R": Vector3(0.2, 0, 0), "armL": Vector3(0.9, 0, -1.0), "foreL": Vector3(-0.4, 0, 0), "root": Vector3(0.16, 0, 0), "lift": Vector3(0, -0.37, 0)}],
+		[1.0, {"legR": Vector3(0.0, 0, 0.05), "shinR": Vector3(0.2, 0, 0), "footR": Vector3(-0.2, 0, 0), "legL": Vector3(-0.1, 0, -0.05), "shinL": Vector3(0.2, 0, 0), "footL": Vector3(-0.1, 0, 0), "upper": Vector3(0.02, 0, 0), "armR": Vector3(0, 0, 0.1), "foreR": Vector3(-0.3, 0, 0), "hand_R": Vector3(0, 0, 0), "armL": Vector3(0, 0, -0.15), "foreL": Vector3(-0.3, 0, 0), "root": Vector3.ZERO, "lift": Vector3.ZERO}],
+	],
 	"hit": [
 		[0.0, {"upper": Vector3(-0.55, 0.25, 0), "armR": Vector3(0.4, 0, -0.4), "armL": Vector3(0.4, 0, 0.4)}],
 		[1.0, {"upper": Vector3(-0.1, 0, 0), "armR": Vector3(0, 0, 0), "armL": Vector3(0, 0, 0)}],
@@ -164,6 +172,7 @@ var idle_pose := {} ## Absolute pose held when standing still, if the body has i
 var right_hand_free := false ## Empty right hand swings like the left; a held weapon does not.
 var run_hold := {} ## Absolute pose the weapon arm settles into at a full run.
 var guarding := false ## Keeps the off arm on the guard instead of the idle pose.
+var extra_actions := {} ## Actions only this body has, in the same format as ACTIONS.
 var speed := 0.0
 
 var action := ""
@@ -349,9 +358,40 @@ func _grounding(pose: Dictionary) -> float:
 	return (deepest - (thigh + shin_length)) / unit
 
 
+## One continuous curve through the keys, so the blade never stops dead at a key on its way round.
+func _swing_pose(keys: Array, t: float) -> Dictionary:
+	_snapping = false
+	var last := keys.size() - 1
+	var i := 0
+	while i < last - 1 and t >= keys[i + 1][0]:
+		i += 1
+	var a: Array = keys[i]
+	var b: Array = keys[i + 1]
+	var before: Array = keys[maxi(i - 1, 0)]
+	var after: Array = keys[mini(i + 2, last)]
+	var span: float = maxf(b[0] - a[0], 0.001)
+	var u := clampf((t - a[0]) / span, 0.0, 1.0)
+	var u2 := u * u
+	var u3 := u2 * u
+	var out := {}
+	for joint_name: String in a[1]:
+		var p0: Vector3 = a[1][joint_name]
+		var p1: Vector3 = b[1].get(joint_name, p0)
+		var m0 := Vector3.ZERO
+		var m1 := Vector3.ZERO
+		if i > 0:
+			m0 = (p1 - (before[1].get(joint_name, p0) as Vector3)) / maxf(b[0] - before[0], 0.001) * span
+		if i + 1 < last:
+			m1 = ((after[1].get(joint_name, p1) as Vector3) - p0) / maxf(after[0] - a[0], 0.001) * span
+		out[joint_name] = p0 * (2.0 * u3 - 3.0 * u2 + 1.0) + m0 * (u3 - 2.0 * u2 + u) + p1 * (-2.0 * u3 + 3.0 * u2) + m1 * (u3 - u2)
+	return out
+
+
 func _action_pose() -> Dictionary:
-	var keys: Array = ACTIONS[action]
+	var keys: Array = extra_actions[action] if extra_actions.has(action) else ACTIONS[action]
 	var t := action_progress()
+	if action in SWINGS:
+		return _swing_pose(keys, t)
 	var from: Array = keys[0]
 	var to: Array = keys[keys.size() - 1]
 	for i in keys.size() - 1:
@@ -393,6 +433,8 @@ func update_pose(delta: float) -> void:
 		var overlay := _action_pose()
 		if _snapping:
 			rate = 90.0
+		elif action in SWINGS:
+			rate = 26.0
 		var weight := 1.0 if hold_action else 1.0 - smoothstep(0.74, 1.0, t)
 		for joint_name: String in overlay:
 			pose[joint_name] = (pose[joint_name] as Vector3).lerp(overlay[joint_name], weight)

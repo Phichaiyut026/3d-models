@@ -1,0 +1,157 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 1600 1000" font-family="Tahoma, Leelawadee UI, sans-serif">
+  <title>System Overlord soldiers concept</title>
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="42%" r="75%">
+      <stop offset="0" stop-color="#2a0a10"/>
+      <stop offset=".55" stop-color="#110709"/>
+      <stop offset="1" stop-color="#040305"/>
+    </radialGradient>
+    <linearGradient id="plate" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3c3f4e"/>
+      <stop offset=".55" stop-color="#21232e"/>
+      <stop offset="1" stop-color="#14151d"/>
+    </linearGradient>
+    <linearGradient id="void" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#14151d"/>
+      <stop offset="1" stop-color="#020204"/>
+    </linearGradient>
+    <linearGradient id="blade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffd9dc"/>
+      <stop offset=".35" stop-color="#ff0a24"/>
+      <stop offset="1" stop-color="#7a0512"/>
+    </linearGradient>
+    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="7" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <pattern id="hex" width="44" height="50" patternUnits="userSpaceOnUse">
+      <path d="M22 1 L42 13 L42 37 L22 49 L2 37 L2 13 Z" fill="none" stroke="#ff0a24" stroke-width="2" opacity=".8"/>
+    </pattern>
+  </defs>
+  <rect width="1600" height="1000" fill="url(#bg)"/>
+  <text x="800" y="62" text-anchor="middle" fill="#ffd9dc" font-size="34" font-weight="700" letter-spacing="5">กองทัพของ SYSTEM OVERLORD</text>
+  <text x="800" y="96" text-anchor="middle" fill="#a8878b" font-size="18">ทหารทุกตัวคือโปรแกรมของระบบ เกราะดำ เส้นวงจรแดง และสลายเป็นพิกเซลเมื่อถูกทำลาย</text>
+  <line x1="60" y1="760" x2="1540" y2="760" stroke="#ff0a24" stroke-width="2" opacity=".45"/>
+
+  <!-- PROCESS -->
+  <g transform="translate(200 0)">
+    <g fill="url(#plate)" stroke="#5a5e70" stroke-width="2">
+      <path d="M-34 590 L-8 590 L-14 680 L-20 750 L-58 750 L-44 680 Z"/>
+      <path d="M8 590 L34 590 L44 680 L58 750 L20 750 L14 680 Z"/>
+      <path d="M-48 450 L48 450 L36 540 L30 600 L-30 600 L-36 540 Z"/>
+      <path d="M-82 452 L-50 444 L-52 520 L-64 590 L-88 586 L-84 520 Z"/>
+      <path d="M82 452 L50 444 L52 520 L60 560 L100 548 L104 570 L52 600 L34 530 Z"/>
+    </g>
+    <path d="M-34 400 Q0 356 34 400 L30 446 L-30 446 Z" fill="url(#void)" stroke="#5a5e70" stroke-width="2"/>
+    <g filter="url(#glow)" fill="#ff0a24">
+      <rect x="-26" y="408" width="52" height="7"/>
+      <rect x="-3" y="408" width="6" height="26"/>
+      <path d="M0 470 L10 492 L0 520 L-10 492 Z"/>
+    </g>
+    <g filter="url(#glow)">
+      <path d="M108 556 L122 552 L150 300 L132 262 L116 306 Z" fill="url(#blade)"/>
+    </g>
+    <g fill="#ff0a24" filter="url(#glow)">
+      <rect x="-104" y="470" width="10" height="10"/><rect x="-122" y="500" width="7" height="7"/>
+      <rect x="-110" y="540" width="12" height="12"/><rect x="-136" y="450" width="6" height="6"/>
+    </g>
+  </g>
+
+  <!-- FIREWALL -->
+  <g transform="translate(590 0)">
+    <g fill="url(#plate)" stroke="#5a5e70" stroke-width="2">
+      <path d="M-74 590 L-14 590 L-22 750 L-96 750 Z"/>
+      <path d="M14 590 L74 590 L96 750 L22 750 Z"/>
+      <path d="M-104 370 L104 370 L84 540 L66 610 L-66 610 L-84 540 Z"/>
+      <path d="M-150 360 L-104 340 L-96 440 L-116 520 L-156 506 Z"/>
+      <path d="M150 360 L104 340 L96 440 L112 500 L160 488 Z"/>
+    </g>
+    <path d="M-34 344 Q0 306 34 344 L34 376 L-34 376 Z" fill="url(#void)" stroke="#5a5e70" stroke-width="2"/>
+    <rect x="-24" y="350" width="48" height="8" fill="#ff0a24" filter="url(#glow)"/>
+    <g>
+      <path d="M-40 300 L120 300 L170 400 L170 610 L40 720 L-40 720 L-90 620 L-90 400 Z" fill="#14151d" fill-opacity=".82" stroke="#ff0a24" stroke-width="5" filter="url(#glow)"/>
+      <path d="M-40 300 L120 300 L170 400 L170 610 L40 720 L-40 720 L-90 620 L-90 400 Z" fill="url(#hex)"/>
+      <path d="M40 440 L78 510 L40 580 L2 510 Z" fill="#ff0a24" filter="url(#glow)"/>
+    </g>
+  </g>
+
+  <!-- DAEMON -->
+  <g transform="translate(965 0)">
+    <g fill="none" stroke="#3c3f4e" stroke-width="9" stroke-linecap="round">
+      <path d="M-40 560 Q-70 640 -30 730"/><path d="M-14 570 Q-30 650 -2 744"/>
+      <path d="M14 570 Q34 640 8 736"/><path d="M40 560 Q84 620 42 722"/>
+    </g>
+    <g fill="#ff0a24" filter="url(#glow)">
+      <circle cx="-30" cy="730" r="6"/><circle cx="-2" cy="744" r="6"/><circle cx="8" cy="736" r="6"/><circle cx="42" cy="722" r="6"/>
+    </g>
+    <path d="M0 290 Q88 298 92 400 L108 590 L60 560 L30 600 L0 568 L-30 600 L-60 560 L-108 590 L-92 400 Q-88 298 0 290 Z" fill="url(#void)" stroke="#5a5e70" stroke-width="2"/>
+    <path d="M0 322 Q50 330 52 396 Q34 440 0 442 Q-34 440 -52 396 Q-50 330 0 322 Z" fill="#020204"/>
+    <circle cx="0" cy="384" r="26" fill="#ff0a24" filter="url(#glow)"/>
+    <circle cx="0" cy="384" r="10" fill="#ffd9dc"/>
+    <g fill="url(#plate)" stroke="#5a5e70" stroke-width="2">
+      <path d="M-92 430 L-130 408 L-158 368 L-150 350 L-120 378 L-84 396 Z"/>
+      <path d="M92 430 L130 408 L158 368 L150 350 L120 378 L84 396 Z"/>
+    </g>
+    <g filter="url(#glow)">
+      <circle cx="-164" cy="342" r="18" fill="#ff0a24"/><circle cx="164" cy="342" r="18" fill="#ff0a24"/>
+    </g>
+    <circle cx="0" cy="384" r="66" fill="none" stroke="#ff0a24" stroke-width="2" stroke-dasharray="14 10" opacity=".7"/>
+  </g>
+
+  <!-- ROOTKIT -->
+  <g transform="translate(1365 0)">
+    <g fill="#4a0a14" stroke="#7a0512" stroke-width="2">
+      <path d="M-70 330 L70 330 L126 720 L96 690 L74 740 L44 700 L14 752 L-16 702 L-46 744 L-72 694 L-104 730 Z"/>
+    </g>
+    <g fill="url(#plate)" stroke="#5a5e70" stroke-width="2">
+      <path d="M-178 180 L-84 320 L-110 380 Z"/><path d="M-196 286 L-92 350 L-110 410 Z"/>
+      <path d="M178 180 L84 320 L110 380 Z"/><path d="M196 286 L92 350 L110 410 Z"/>
+      <path d="M-58 590 L-10 590 L-18 750 L-78 750 Z"/>
+      <path d="M10 590 L58 590 L78 750 L18 750 Z"/>
+      <path d="M-88 330 L88 330 L66 510 L50 610 L-50 610 L-66 510 Z"/>
+      <path d="M-134 330 L-88 312 L-88 420 L-100 520 L-140 512 Z"/>
+      <path d="M134 330 L88 312 L88 420 L128 470 L156 446 L168 470 L100 530 Z"/>
+    </g>
+    <path d="M-40 268 L-54 204 L-24 240 L0 186 L24 240 L54 204 L40 268 L34 320 L-34 320 Z" fill="url(#void)" stroke="#8f6a26" stroke-width="3"/>
+    <g fill="#ff0a24" filter="url(#glow)">
+      <path d="M-26 282 L-6 292 L-26 296 Z"/><path d="M26 282 L6 292 L26 296 Z"/>
+      <path d="M0 370 L26 420 L0 480 L-26 420 Z"/>
+    </g>
+    <g filter="url(#glow)">
+      <path d="M166 456 L184 450 L222 190 L206 170 L212 130 L186 160 L178 220 Z" fill="url(#blade)"/>
+    </g>
+    <rect x="146" y="438" width="62" height="14" fill="#8f6a26" transform="rotate(-18 176 446)"/>
+  </g>
+
+  <!-- labels -->
+  <g text-anchor="middle">
+    <g transform="translate(200 806)">
+      <text fill="#ffd9dc" font-size="28" font-weight="700" letter-spacing="3">PROCESS</text>
+      <text y="30" fill="#ff5a68" font-size="18">พลทหาร · มาเป็นฝูง</text>
+      <text y="62" fill="#c9c2c4" font-size="16">สูง 2.2 ม. · เลือด 150</text>
+      <text y="88" fill="#c9c2c4" font-size="16">ฟันเร็ว เข้ารุมจากหลายทาง</text>
+      <text y="114" fill="#c9c2c4" font-size="16">ตายแล้วสลายเป็นพิกเซล</text>
+    </g>
+    <g transform="translate(590 806)">
+      <text fill="#ffd9dc" font-size="28" font-weight="700" letter-spacing="3">FIREWALL</text>
+      <text y="30" fill="#ff5a68" font-size="18">ทหารโล่ · ขวางทาง</text>
+      <text y="62" fill="#c9c2c4" font-size="16">สูง 3.2 ม. · เลือด 420</text>
+      <text y="88" fill="#c9c2c4" font-size="16">โล่พลังกันด้านหน้า 100%</text>
+      <text y="114" fill="#c9c2c4" font-size="16">ฟันหนักทำลายโล่ หรืออ้อมไปข้างหลัง</text>
+    </g>
+    <g transform="translate(965 806)">
+      <text fill="#ffd9dc" font-size="28" font-weight="700" letter-spacing="3">DAEMON</text>
+      <text y="30" fill="#ff5a68" font-size="18">นักยิง · ลอยตัว</text>
+      <text y="62" fill="#c9c2c4" font-size="16">สูง 2.6 ม. · เลือด 110</text>
+      <text y="88" fill="#c9c2c4" font-size="16">ชาร์จลำแสงจากระยะไกล แล้ววาร์ปหนี</text>
+      <text y="114" fill="#c9c2c4" font-size="16">ต้องบินหรือยิงดาวไปจัดการ</text>
+    </g>
+    <g transform="translate(1365 806)">
+      <text fill="#ffd9dc" font-size="28" font-weight="700" letter-spacing="3">ROOTKIT</text>
+      <text y="30" fill="#ff5a68" font-size="18">ผู้บัญชาการ · มินิบอส</text>
+      <text y="62" fill="#c9c2c4" font-size="16">สูง 4.5 ม. · เลือด 1,200</text>
+      <text y="88" fill="#c9c2c4" font-size="16">เรียก PROCESS มาเพิ่ม ฟันคลื่นแดง</text>
+      <text y="114" fill="#c9c2c4" font-size="16">เฝ้าทางเข้าหอดาว</text>
+    </g>
+  </g>
+</svg>

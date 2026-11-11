@@ -506,6 +506,121 @@ func _test_supreme(p: Player) -> void:
 	_check("dying or respawning clears the form", not p.rig.is_supreme)
 
 
+func _wait_scene_end(scene: Cutscene) -> void:
+	var frames := 0
+	while scene.is_playing() and frames < 3000:
+		frames += 1
+		await get_tree().process_frame
+
+
+func _test_cutscenes(p: Player) -> void:
+	Game.cutscenes_on = true
+	var scene: Cutscene = Game.cutscene
+	var boss: Enemy = Game.boss
+	var soldier: Enemy = null
+	for enemy in Game.enemies:
+		if not enemy.is_boss:
+			soldier = enemy
+			break
+
+	# The change of form, watched to the end.
+	_park_front(p, Vector3(0, 0, 88))
+	await _wait(0.5)
+	await _tap("transform")
+	_check("T opens the scene", scene.is_playing() and Game.state == "cutscene")
+	_check("the form waits for the scene", not p.rig.is_supreme)
+	_check("everyone else stops", soldier.process_mode == Node.PROCESS_MODE_DISABLED)
+	_check("nothing hurts during the scene", not p.take_damage(50.0, p.global_position + Vector3(0, 0, 3)))
+	await _wait(0.9)
+	await _shot("scene_form_1")
+	await _wait(1.2)
+	await _shot("scene_form_2")
+	await _wait(1.3)
+	await _shot("scene_form_3")
+	await _wait(0.95)
+	await _shot("scene_form_4_reveal")
+	await _wait(1.4)
+	await _shot("scene_form_5_hero")
+	await _wait_scene_end(scene)
+	_check("the scene ends in the supreme form", p.rig.is_supreme and p.state == "move" and Game.state == "play")
+	_check("the view is handed back", p.view_camera().current and Game.camera == p.view_camera())
+	_check("everyone moves again", soldier.process_mode == Node.PROCESS_MODE_INHERIT)
+
+	p._transform_cooldown = 0.0
+	await _tap("transform")
+	_check("going back needs no scene", not scene.is_playing() and p.state == "transform")
+	await _wait(1.3)
+	_check("back in the first form", not p.rig.is_supreme and p.state == "move")
+
+	# Skipping still changes the form.
+	p._transform_cooldown = 0.0
+	await _wait(0.4)
+	await _tap("transform")
+	await _wait(0.5)
+	await _tap("cutscene_skip")
+	await get_tree().process_frame
+	_check("Tab skips the scene", not scene.is_playing() and Game.state == "play")
+	_check("a skipped scene still changes the form", p.rig.is_supreme and p.state == "move")
+	await _wait(0.5)
+	p._transform_cooldown = 0.0
+	await _tap("transform")
+	await _wait(1.3)
+	_check("first form again", not p.rig.is_supreme)
+
+	# The boss talks first, and only then fights.
+	Game.boss_intro_seen = false
+	boss.reset()
+	p.refill()
+	p.global_position = boss.home + Vector3(0, 0.3, 24)
+	await _wait(0.5)
+	_check("the boss opens with a scene", scene.is_playing() and Game.state == "cutscene")
+	_check("the fight has not started", not Game.boss_active and boss.state == "idle")
+	var boss_hp := boss.hp
+	boss.take_hit(9999.0, 0.0, p.global_position, false)
+	_check("the boss cannot be hit while talking", boss.hp == boss_hp and boss.state == "idle")
+	var lines := 0
+	while scene.is_playing() and scene.waiting_for_press() and lines < 12:
+		lines += 1
+		await _wait(0.9)
+		await _shot("scene_boss_%d" % lines)
+		var at := scene.index
+		await _tap("roll")
+		await _wait(0.4)
+		if scene.is_playing() and scene.index == at:
+			await _tap("roll")
+			await _wait(0.1)
+	_check("every line was shown", lines == 5)
+	await _wait(0.6)
+	await _shot("scene_boss_title")
+	await _wait_scene_end(scene)
+	_check("the fight starts after the talk", Game.boss_active and boss.state != "idle" and Game.state == "play")
+	_check("the closing press does not swing", p.state == "move")
+	await _wait(0.6)
+	await _shot("scene_boss_fight")
+
+	# It only says this once per run.
+	p.take_damage(p.hp + 10.0, boss.global_position)
+	await _wait(3.6)
+	_check("back at a shrine", Game.state == "play" and not Game.boss_active)
+	p.global_position = boss.home + Vector3(0, 0.3, 24)
+	await _wait(0.5)
+	_check("the rematch starts straight away", not scene.is_playing() and Game.boss_active)
+	p.global_position = Game.shrines[0].global_position + Vector3(0, 0.3, -3.5)
+	boss.reset()
+	Game.boss_active = false
+	await _wait(0.3)
+
+	# Leaving for the menu mid-scene puts everything back.
+	p._transform_cooldown = 0.0
+	await _tap("transform")
+	_check("a scene is running", scene.is_playing())
+	Game.return_to_title()
+	await get_tree().process_frame
+	_check("the menu ends the scene", not scene.is_playing() and Game.state == "title" and p.view_camera().current)
+	_check("the menu frees everyone", soldier.process_mode == Node.PROCESS_MODE_INHERIT and not p.rig.is_supreme and p.state == "move")
+	_check("a new run hears the boss again", not Game.boss_intro_seen)
+
+
 func _test_boss_skills(p: Player) -> void:
 	var boss: Enemy = Game.boss
 	boss.reset()
@@ -561,6 +676,15 @@ func _run() -> void:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 		await _wait(1.0)
 		await _test_boss_skills(Game.player)
+		print("AUTOTEST DONE failures=%d" % _failures)
+		get_tree().quit(1 if _failures > 0 else 0)
+		return
+	if "--cutscene" in OS.get_cmdline_user_args():
+		await _wait_loaded()
+		await _click_button(Game.menu.start_button)
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		await _wait(1.0)
+		await _test_cutscenes(Game.player)
 		print("AUTOTEST DONE failures=%d" % _failures)
 		get_tree().quit(1 if _failures > 0 else 0)
 		return

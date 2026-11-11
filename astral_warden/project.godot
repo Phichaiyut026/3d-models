@@ -22,8 +22,21 @@ Game="*res://scripts/game.gd"
 
 window/size/viewport_width=1600
 window/size/viewport_height=900
+window/size/window_width_override=640
+window/size/window_height_override=360
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
+
+[shader_globals]
+
+corruption={
+"type": "float",
+"value": 0.0
+}
+corrupt_center={
+"type": "vec3",
+"value": Vector3(22, 0, -136)
+}
 
 [physics]
 
