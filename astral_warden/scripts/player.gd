@@ -14,10 +14,10 @@ const PLAY_RADIUS := 222.0
 const SHEATHE_AFTER := 5.0 ## Seconds out of combat before the blade is put away.
 
 const ATTACKS := {
-	"light1": {"anim": "cut1", "length": 0.8, "from": 0.36, "to": 0.52, "damage": 34.0, "poise": 16.0, "stamina": 16.0, "lunge": 9.0, "reach": 3.6, "arc": 150.0, "tint": Color(0.62, 0.46, 1.0), "trail": 1.45, "trail_from": 0.33, "impact": 0.7, "stop": 0.085, "kick": 0.15},
-	"light2": {"anim": "cut2", "length": 0.68, "from": 0.26, "to": 0.48, "damage": 36.0, "poise": 16.0, "stamina": 16.0, "lunge": 4.5, "reach": 3.4, "arc": 150.0, "tint": Color(0.38, 0.55, 1.0), "trail": 1.0},
-	"light3": {"anim": "cut3", "length": 0.9, "from": 0.34, "to": 0.56, "damage": 58.0, "poise": 34.0, "stamina": 22.0, "lunge": 6.0, "reach": 3.8, "arc": 90.0, "tint": Color(0.9, 0.42, 1.0), "trail": 1.25, "wave": 1.57, "wave_width": 5.0, "ground": true},
-	"heavy": {"anim": "cleave", "length": 1.3, "from": 0.4, "to": 0.6, "damage": 104.0, "poise": 70.0, "stamina": 34.0, "lunge": 5.0, "reach": 4.1, "arc": 90.0, "tint": Color(1.0, 0.72, 0.95), "trail": 1.5, "wave": -0.85, "wave_width": 7.0, "ground": true},
+	"light1": {"anim": "cut1", "length": 0.92, "from": 0.36, "to": 0.52, "damage": 34.0, "poise": 16.0, "stamina": 16.0, "lunge": 9.0, "reach": 3.6, "arc": 150.0, "tint": Color(0.62, 0.46, 1.0), "trail": 1.45, "trail_from": 0.33, "impact": 0.7, "stop": 0.05, "kick": 0.15},
+	"light2": {"anim": "cut2", "length": 0.8, "from": 0.26, "to": 0.48, "damage": 36.0, "poise": 16.0, "stamina": 16.0, "lunge": 4.5, "reach": 3.4, "arc": 150.0, "tint": Color(0.38, 0.55, 1.0), "trail": 1.0},
+	"light3": {"anim": "cut3", "length": 1.02, "from": 0.34, "to": 0.56, "damage": 58.0, "poise": 34.0, "stamina": 22.0, "lunge": 6.0, "reach": 3.8, "arc": 90.0, "tint": Color(0.9, 0.42, 1.0), "trail": 1.25, "wave": 1.57, "wave_width": 5.0, "ground": true},
+	"heavy": {"anim": "cleave", "length": 1.42, "from": 0.4, "to": 0.6, "damage": 104.0, "poise": 70.0, "stamina": 34.0, "lunge": 5.0, "reach": 4.1, "arc": 90.0, "tint": Color(1.0, 0.72, 0.95), "trail": 1.5, "wave": -0.85, "wave_width": 7.0, "ground": true},
 }
 const CHAIN := {"light1": "light2", "light2": "light3", "light3": "light1"}
 
@@ -36,23 +36,31 @@ const SUPREME_WAVE_RANGE := 40.0
 const SUPREME_WAVE_WIDTH := 6.0
 ## The five powers of the supreme form. `at` is when the blow lands, as a share of `length`.
 const SKILLS := {
-	"skill_1": {"id": "edge", "name": "ดาบอนันต์", "anim": "edge", "length": 1.8, "at": 0.6, "cost": 20.0, "cooldown": 1.5, "tint": Color(1.0, 0.78, 0.4)},
-	"skill_2": {"id": "genesis", "name": "กำเนิดจักรวาล", "anim": "sky_spread", "length": 2.4, "at": 0.14, "cost": 30.0, "cooldown": 4.0, "tint": Color(0.45, 0.6, 1.0)},
-	"skill_3": {"id": "multiverse", "name": "พหุจักรวาล", "anim": "sky_spread", "length": 2.3, "at": 0.05, "cost": 40.0, "cooldown": 5.0, "tint": Color(1.0, 0.45, 0.82)},
-	"skill_4": {"id": "erasure", "name": "ลบล้าง", "anim": "erasure", "length": 2.2, "at": 0.14, "cost": 50.0, "cooldown": 7.0, "tint": Color(0.82, 0.74, 1.0)},
-	"skill_5": {"id": "bigbang", "name": "บิกแบง", "anim": "bigbang", "length": 3.6, "at": 0.62, "cost": 80.0, "cooldown": 10.0, "tint": Color(1.0, 0.94, 0.72)},
+	"skill_1": {"id": "edge", "name": "ดาบอนันต์", "anim": "m_edge", "length": 4.8, "at": 0.61, "cost": 20.0, "cooldown": 1.5, "tint": Color(1.0, 0.78, 0.4)},
+	"skill_2": {"id": "genesis", "name": "กำเนิดจักรวาล", "anim": "m_genesis", "length": 6.0, "at": 0.15, "cost": 30.0, "cooldown": 4.0, "tint": Color(0.45, 0.6, 1.0)},
+	"skill_3": {"id": "multiverse", "name": "พหุจักรวาล", "anim": "m_multiverse", "length": 6.4, "at": 0.86, "cost": 40.0, "cooldown": 5.0, "tint": Color(1.0, 0.45, 0.82)},
+	"skill_4": {"id": "erasure", "name": "ลบล้าง", "anim": "m_erasure", "length": 4.4, "at": 0.3, "cost": 50.0, "cooldown": 7.0, "tint": Color(0.82, 0.74, 1.0)},
+	"skill_5": {"id": "bigbang", "name": "บิกแบง", "anim": "m_bigbang", "length": 7.4, "at": 0.605, "cost": 80.0, "cooldown": 10.0, "tint": Color(1.0, 0.94, 0.72)},
 }
 const SKILL_KEYS := ["skill_1", "skill_2", "skill_3", "skill_4", "skill_5"]
 ## The first form's powers, on the keys 1 to 7.
 const FIRST_SKILLS := {
-	"skill_1": {"id": "nova", "name": "โนวา", "anim": "erasure", "length": 1.0, "at": 0.2, "cost": 18.0, "cooldown": 3.0, "tint": Color(0.82, 0.74, 1.0)},
-	"skill_2": {"id": "comet", "name": "ดาวหาง", "anim": "comet", "length": 0.85, "at": 0.0, "cost": 22.0, "cooldown": 4.0, "tint": Color(0.66, 0.5, 1.0), "dash": 34.0},
-	"skill_3": {"id": "galaxy", "name": "กาแล็กซี", "anim": "sky_spread", "length": 1.9, "at": 0.1, "cost": 30.0, "cooldown": 8.0, "tint": Color(0.45, 0.6, 1.0)},
-	"skill_4": {"id": "barrage", "name": "ระดมดาว", "anim": "erasure", "length": 1.75, "at": 0.08, "cost": 26.0, "cooldown": 6.0, "tint": Color(0.72, 0.62, 1.0)},
-	"skill_5": {"id": "starfall", "name": "ดาวตก", "anim": "sky_spread", "length": 2.2, "at": 0.12, "cost": 40.0, "cooldown": 12.0, "tint": Color(1.0, 0.82, 0.96)},
-	"skill_6": {"id": "hole", "name": "หลุมดำ", "anim": "sky_spread", "length": 2.3, "at": 0.08, "cost": 50.0, "cooldown": 16.0, "tint": Color(0.5, 0.34, 0.9)},
-	"skill_7": {"id": "supernova", "name": "ซูเปอร์โนวา", "anim": "bigbang", "length": 2.9, "at": 0.62, "cost": 70.0, "cooldown": 24.0, "tint": Color(0.95, 0.9, 1.0)},
+	"skill_1": {"id": "nova", "name": "โนวา", "anim": "m_nova", "length": 1.55, "at": 0.42, "cost": 18.0, "cooldown": 3.0, "tint": Color(0.82, 0.74, 1.0)},
+	"skill_2": {"id": "comet", "name": "ดาวหาง", "anim": "m_comet", "length": 2.7, "at": 0.6, "cost": 22.0, "cooldown": 4.0, "tint": Color(0.66, 0.5, 1.0), "dash": 16.0},
+	"skill_3": {"id": "galaxy", "name": "กาแล็กซี", "anim": "m_galaxy", "length": 3.0, "at": 0.5, "cost": 30.0, "cooldown": 8.0, "tint": Color(0.45, 0.6, 1.0)},
+	"skill_4": {"id": "barrage", "name": "ระดมดาว", "anim": "m_barrage", "length": 2.5, "at": 0.16, "cost": 26.0, "cooldown": 6.0, "tint": Color(0.72, 0.62, 1.0)},
+	"skill_5": {"id": "starfall", "name": "ดาวตก", "anim": "m_starfall", "length": 3.6, "at": 0.2, "cost": 40.0, "cooldown": 12.0, "tint": Color(1.0, 0.82, 0.96)},
+	"skill_6": {"id": "hole", "name": "หลุมดำ", "anim": "m_hole", "length": 3.8, "at": 0.76, "cost": 50.0, "cooldown": 16.0, "tint": Color(0.5, 0.34, 0.9)},
+	"skill_7": {"id": "supernova", "name": "ซูเปอร์โนวา", "anim": "m_supernova", "length": 4.8, "at": 0.67, "cost": 70.0, "cooldown": 24.0, "tint": Color(0.95, 0.9, 1.0)},
 }
+const COMET_FROM := 0.3 ## The dive covers the ground between these shares of the move.
+const COMET_TO := 0.6
+const DIVE_SPEED := 70.0
+const DIVE_MIN_HEIGHT := 2.5
+const HERO_FALL_SPEED := 20.0 ## Hitting the ground faster than this ends in a hero landing.
+const HERO_LAND_TIME := 1.25
+const OBLIVION_BASE_HP := 420.0 ## The health the boss's numbers were written against.
+const OBLIVION_POWER := 1.35
 const FIRST_FOCUS_REGEN := 5.0
 const FLY_SPEED := 18.0
 const FLY_FAST_SPEED := 46.0
@@ -111,6 +119,10 @@ var _first_max_hp := 420.0
 var _hp_boosted := false
 var flying := false
 var _fly_climb := 0.0
+var _comet_speed := 0.0
+var _scene_walk := Vector3.ZERO
+var _scene_tween: Tween
+var _drop_tail: MeshInstance3D
 
 
 func _ready() -> void:
@@ -196,6 +208,12 @@ func refill() -> void:
 
 
 func respawn(shrine: Shrine) -> void:
+	if Game.powers != null:
+		Game.powers.stop()
+	if _scene_tween != null:
+		_scene_tween.kill() # A skipped scene must not keep walking the body away.
+	_scene_walk = Vector3.ZERO
+	rig.visible = true
 	_set_supreme_health(false)
 	set_flying(false)
 	refill()
@@ -289,7 +307,10 @@ func _physics_process(delta: float) -> void:
 	_knockback = _knockback.move_toward(Vector3.ZERO, 24.0 * delta)
 	velocity.x = horizontal.x + _knockback.x
 	velocity.z = horizontal.z + _knockback.z
-	if flying:
+	var fell := -velocity.y
+	if state == "dive":
+		velocity.y = -DIVE_SPEED
+	elif flying:
 		var climb := 0.0
 		if Game.state == "play" and state != "dead" and _input_lock <= 0.0:
 			climb = (1.0 if Input.is_action_pressed("roll") else 0.0) - (1.0 if Input.is_action_pressed("fly_down") else 0.0)
@@ -314,11 +335,16 @@ func _physics_process(delta: float) -> void:
 	if global_position.y < ground - 0.2:
 		global_position.y = ground + 0.1
 		velocity.y = 0.0
+	if Game.state == "play":
+		if state == "dive" and (is_on_floor() or global_position.y <= ground + 0.3):
+			_start_hero_land()
+		elif state == "move" and not flying and is_on_floor() and fell > HERO_FALL_SPEED:
+			_start_hero_land()
 
 	_tick_from = _tick_to
 	_tick_to = global_position
 	var walking := not flying and (state == "move" or state == "sheathe" or state == "summon")
-	rig.set_motion(horizontal if walking else Vector3.ZERO)
+	rig.set_motion(_scene_walk if _scene_walk != Vector3.ZERO else (horizontal if walking else Vector3.ZERO))
 	rig.set_flight(flying, clampf(Vector2(horizontal.x, horizontal.z).length() / FLY_FAST_SPEED * 1.4, 0.0, 1.0))
 	_update_blade_effects()
 
@@ -330,7 +356,7 @@ func _regen(delta: float) -> void:
 		var rate := 18.0 if blocking else 48.0
 		stamina = minf(max_stamina, stamina + rate * delta)
 	fp = minf(max_fp, fp + (SUPREME_FOCUS_REGEN if rig.is_supreme else FIRST_FOCUS_REGEN) * delta)
-	if rig.is_supreme:
+	if rig.is_supreme and not Game.oblivion_fighting():
 		hp = minf(max_hp, hp + max_hp * SUPREME_HP_REGEN * delta)
 	_transform_cooldown -= delta
 	for key: String in _skill_cooldowns:
@@ -356,6 +382,12 @@ func _run_state(delta: float, dir: Vector3) -> Vector3:
 			_state_transform()
 		"skill":
 			return _state_skill()
+		"dive":
+			Fx.burst(chest(), CosmicFx.GOLD if rig.is_supreme else Color(0.7, 0.55, 1.0), 4, 3.0, 0.1)
+		"land":
+			if state_time >= state_length:
+				rig.set_energy(0.0)
+				_finish_action()
 		"summon":
 			if target != null:
 				_face(target.global_position - global_position, 14.0, delta)
@@ -367,8 +399,8 @@ func _run_state(delta: float, dir: Vector3) -> Vector3:
 					_start_attack(next, dir)
 			return dir * GUARD_SPEED
 		"sheathe":
-			if Input.is_action_just_pressed("fly") and rig.is_supreme:
-				set_flying(not flying) # Putting the blade away should not swallow the key.
+			if Input.is_action_just_pressed("fly") and not Game.in_haven():
+				_toggle_flight() # Putting the blade away should not swallow the key.
 			if dir.length() > 0.05:
 				_face(dir, 11.0, delta)
 			if state_time >= state_length:
@@ -434,6 +466,12 @@ func _state_move(delta: float, dir: Vector3) -> Vector3:
 	return dir * move_speed
 
 
+## Dragged along by a black hole.
+func drag(force: Vector3) -> void:
+	if state != "dead":
+		_knockback = force
+
+
 func lock_input(seconds: float) -> void:
 	_input_lock = seconds
 
@@ -441,6 +479,8 @@ func lock_input(seconds: float) -> void:
 func _try_actions(dir: Vector3) -> bool:
 	if _input_lock > 0.0:
 		return false
+	if Game.in_haven():
+		return _try_haven_actions()
 	if Input.is_action_just_pressed("roll") and stamina > 8.0 and not flying:
 		_start_roll(dir)
 		return true
@@ -462,8 +502,8 @@ func _try_actions(dir: Vector3) -> bool:
 	if Input.is_action_just_pressed("transform") and _transform_cooldown <= 0.0:
 		_start_transform()
 		return true
-	if Input.is_action_just_pressed("fly") and rig.is_supreme:
-		set_flying(not flying)
+	if Input.is_action_just_pressed("fly"):
+		_toggle_flight()
 		return true
 	for key: String in skill_keys():
 		if Input.is_action_just_pressed(key) and skill_ready(key):
@@ -474,6 +514,23 @@ func _try_actions(dir: Vector3) -> bool:
 		rig.play("drink", 0.95)
 		_set_state("drink", 0.95)
 		return true
+	return _try_shrine()
+
+
+## Nothing can be fought in Safe Mode: only talking, resting and leaving.
+func _try_haven_actions() -> bool:
+	if Input.is_action_just_pressed("interact"):
+		if Game.haven.near_exit(global_position):
+			Game.leave_haven()
+			return true
+		var npc := Game.haven.nearest_npc(global_position)
+		if npc != null:
+			Game.cutscene.npc_talk(npc)
+			return true
+	return _try_shrine()
+
+
+func _try_shrine() -> bool:
 	var shrine := Game.nearest_shrine(global_position, 3.6)
 	if shrine != null:
 		if Input.is_action_just_pressed("interact"):
@@ -598,8 +655,70 @@ func set_flying(on: bool) -> void:
 	if on:
 		velocity.y = 0.0
 		global_position.y += 0.6
-		Fx.ring(global_position, 7.0, CosmicFx.GOLD, 0.4)
-		Fx.burst(global_position + Vector3(0, 0.3, 0), CosmicFx.GOLD, 26, 9.0)
+		var tint := CosmicFx.GOLD if rig.is_supreme else Color(0.7, 0.55, 1.0)
+		Fx.ring(global_position, 7.0, tint, 0.4)
+		Fx.burst(global_position + Vector3(0, 0.3, 0), tint, 26, 9.0)
+
+
+## Leaving the air from any height is a dive straight down into a hero landing.
+func _toggle_flight() -> void:
+	if not flying:
+		set_flying(true)
+		return
+	var height := global_position.y - Game.terrain.get_height(global_position.x, global_position.z)
+	set_flying(false)
+	if height > DIVE_MIN_HEIGHT:
+		blocking = false
+		rig.set_block(0.0)
+		rig.set_energy(1.0)
+		rig.play("comet", 30.0, true)
+		_set_state("dive", 0.0)
+
+
+## The opening: falls out of the sky, trailing fire, down to `foot`.
+func drop_from_sky(foot: Vector3, height: float, seconds: float) -> void:
+	var sky := foot + Vector3(0, height, 0)
+	global_position = sky
+	_tick_from = sky
+	_tick_to = sky
+	_cam_root.global_position = foot + Vector3(0, _cam_height, 0)
+	rig.set_energy(1.0)
+	rig.play("comet", seconds + 1.0, true)
+	var made := CosmicFx.flame(46.0, 5.0, Color(0.7, 0.55, 1.0), Game.world)
+	_drop_tail = made[0]
+	(made[1] as ShaderMaterial).set_shader_parameter("power", 2.2)
+	var fall := func(v: float) -> void:
+		velocity = Vector3.ZERO
+		global_position = sky.lerp(foot, v)
+		if is_instance_valid(_drop_tail):
+			_drop_tail.global_position = global_position + Vector3(0, 1.2, 0)
+	_scene_tween = create_tween()
+	_scene_tween.tween_method(fall, 0.0, 1.0, seconds).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+
+
+## The moment of impact, also used when the fall is skipped.
+func land_for_scene(foot: Vector3) -> void:
+	if _scene_tween != null:
+		_scene_tween.kill()
+	if is_instance_valid(_drop_tail):
+		_drop_tail.queue_free()
+	global_position = foot
+	_tick_from = foot
+	_tick_to = foot
+	_start_hero_land()
+
+
+func _start_hero_land() -> void:
+	velocity = Vector3.ZERO
+	_knockback = Vector3.ZERO
+	rig.play("hero_land", HERO_LAND_TIME)
+	rig.set_energy(0.5)
+	_set_state("land", HERO_LAND_TIME)
+	CosmicFx.crater(global_position)
+	CosmicFx.flash(Color(1.0, 0.92, 0.7), 0.45, 0.3)
+	Game.shake(1.1)
+	Game.hit_stop(0.09)
+	_fov_punch = -10.0
 
 
 ## The change of form takes a moment, and nothing can touch the warrior during it.
@@ -609,6 +728,9 @@ func _start_transform() -> void:
 	blocking = false
 	rig.set_block(0.0)
 	_trail.active = false
+	if _transform_goal and Game.cutscene.transformation(self):
+		_set_state("transform", length)
+		return
 	rig.set_energy(1.0)
 	rig.play("ascend", length)
 	_set_state("transform", length)
@@ -620,27 +742,103 @@ func _state_transform() -> void:
 	var t := state_time / state_length
 	if not _did_event and t >= 0.62:
 		_did_event = true
-		rig.set_form(_transform_goal)
-		_set_supreme_health(_transform_goal)
-		if not _transform_goal:
-			set_flying(false)
-		if _transform_goal:
-			CosmicFx.pillar(global_position, 200.0, 1.3, CosmicFx.GOLD, 16.0)
-			CosmicFx.flash(Color(1.0, 0.92, 0.7), 0.9, 0.7)
-			Fx.burst(chest(), CosmicFx.GOLD, 60, 16.0, 0.09)
-			Fx.ring(global_position, 40.0, CosmicFx.PALE, 0.9)
-			Game.shake(1.5)
-			# The arrival alone is enough to flatten anything standing close.
-			for enemy in Game.enemies:
-				if enemy.is_alive() and enemy.global_position.distance_to(global_position) < 30.0:
-					enemy.take_hit(3000.0 * damage_scale, 300.0, global_position, false, CosmicFx.GOLD, 1.0)
-			Game.hud.banner("ร่างสูงสุด", "COSMIC WARRIOR · SUPREME", CosmicFx.GOLD, 2.4)
-		else:
-			Fx.burst(chest(), Color(0.7, 0.55, 1.0), 40, 9.0)
-			Game.shake(0.3)
+		apply_form()
 	if t >= 1.0:
-		_transform_cooldown = TRANSFORM_COOLDOWN
-		_finish_action()
+		end_transform()
+
+
+## The moment the body actually changes, whether played in a scene or not.
+func apply_form() -> void:
+	rig.set_form(_transform_goal)
+	_set_supreme_health(_transform_goal)
+	if _transform_goal:
+		CosmicFx.pillar(global_position, 200.0, 1.3, CosmicFx.GOLD, 16.0)
+		CosmicFx.flash(Color(1.0, 0.92, 0.7), 0.9, 0.7)
+		Fx.burst(chest(), CosmicFx.GOLD, 60, 16.0, 0.09)
+		Fx.ring(global_position, 40.0, CosmicFx.PALE, 0.9)
+		Game.shake(1.5)
+		# The arrival alone is enough to flatten anything standing close.
+		for enemy in Game.enemies:
+			if enemy.is_alive() and enemy.global_position.distance_to(global_position) < 30.0:
+				enemy.take_hit(3000.0 * damage_scale, 300.0, global_position, false, CosmicFx.GOLD, 1.0)
+		Game.hud.banner("ร่างสูงสุด", "COSMIC WARRIOR · SUPREME", CosmicFx.GOLD, 2.4)
+	else:
+		Fx.burst(chest(), Color(0.7, 0.55, 1.0), 40, 9.0)
+		Game.shake(0.3)
+
+
+func end_transform() -> void:
+	_transform_cooldown = TRANSFORM_COOLDOWN
+	rig.stop_action()
+	_finish_action()
+	lock_input(0.3) # The press that ended a scene must not also swing the sword.
+
+
+func view_camera() -> Camera3D:
+	return _camera
+
+
+## Stops whatever the warrior was doing, so a scene starts from a clean stance.
+func halt_for_scene() -> void:
+	Game.powers.stop()
+	blocking = false
+	rig.set_block(0.0)
+	rig.stance["armL"] = Vector3.ZERO
+	rig.stance["foreL"] = Vector3.ZERO
+	rig.guarding = false
+	rig.cancel_draw()
+	rig.stop_action()
+	rig.set_energy(0.0)
+	rig.set_blade_growth(0.0)
+	_after_summon = ""
+	_knockback = Vector3.ZERO
+	velocity = Vector3.ZERO
+	target = null
+	_finish_action()
+
+
+func stand_for_scene() -> void:
+	rig.stop_action()
+
+
+## Turns the body slowly to look at something.
+func turn_for_scene(at: Vector3) -> void:
+	var to := at - global_position
+	var goal := rig.rotation.y + wrapf(atan2(to.x, to.z) - rig.rotation.y, -PI, PI)
+	rig.create_tween().tween_property(rig, "rotation:y", goal, 0.9).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+
+
+## Walks a scene's path. The body moves by tween, so the legs are told the pace directly.
+func walk_for_scene(goal: Vector3, seconds: float) -> void:
+	var to := goal - global_position
+	to.y = 0.0
+	rig.rotation.y = atan2(to.x, to.z)
+	_scene_walk = to / seconds
+	_scene_tween = create_tween()
+	_scene_tween.tween_property(self, "global_position", goal, seconds)
+	_scene_tween.tween_callback(func() -> void: _scene_walk = Vector3.ZERO)
+
+
+## Beaten: power gone, back in the first form, down on one knee.
+func defeat_for_scene() -> void:
+	halt_for_scene()
+	rig.set_form(false, true)
+	_set_supreme_health(false)
+	hp = 1.0
+	rig.set_armed_instant(false)
+	rig.play("rest", 2.0, true)
+
+
+func place_for_scene(at: Vector3, facing: Vector3) -> void:
+	set_flying(false)
+	global_position = at
+	_tick_from = at
+	_tick_to = at
+	var to := facing - at
+	rig.rotation.y = atan2(to.x, to.z)
+	cam_yaw = atan2(-to.x, -to.z)
+	cam_pitch = -0.17
+	_cam_root.global_position = at + Vector3(0, _cam_height, 0)
 
 
 func _start_skill(key: String) -> void:
@@ -653,35 +851,29 @@ func _start_skill(key: String) -> void:
 	rig.set_block(0.0)
 	_trail.active = false
 	_snap_face(Vector3.ZERO)
-	if skill["id"] == "edge" and not rig.is_armed:
-		rig.set_armed_instant(true)
-		Fx.burst(rig.blade_tip.global_position, CosmicFx.GOLD, 24, 6.0)
 	rig.set_energy(1.0)
-	rig.play(skill["anim"], skill["length"])
+	rig.play(skill["anim"], skill["length"], true)
 	_set_state("skill", skill["length"])
 	Game.hud.banner(skill["name"], "", skill["tint"], 1.3)
-	if skill["id"] == "bigbang":
-		CosmicSkills.big_bang_charge(self, skill["length"] * skill["at"])
-	elif skill["id"] == "supernova":
-		CosmicSkills.supernova_charge(self, skill["length"] * skill["at"])
+	Game.powers.start(self, skill["id"])
+	if skill.has("dash"):
+		# Comes down on the locked target, or a fixed way ahead.
+		_comet_speed = skill["dash"]
+		if target != null:
+			_comet_speed = minf(global_position.distance_to(target.global_position) / ((COMET_TO - COMET_FROM) * skill["length"]), 30.0)
 
 
 func _state_skill() -> Vector3:
 	var skill: Dictionary = skill_info(_skill_key)
 	var t := state_time / state_length
-	if skill["id"] == "edge":
-		rig.set_blade_growth(smoothstep(0.1, 0.42, t) * (1.0 - smoothstep(0.76, 0.97, t)))
-		rig.set_blade_power(1.0)
-	if not _did_event and t >= skill["at"]:
-		_did_event = true
-		if not skill.has("dash"):
-			CosmicSkills.fire(self, skill["id"])
+	Game.powers.update(t)
+	_trail.active = Game.powers.channel("Bt") > 0.3
 	var motion := Vector3.ZERO
-	if skill.has("dash") and t < 0.92:
-		motion = forward() * float(skill["dash"])
-		CosmicSkills.comet_tick(self, _hit_list)
+	if skill.has("dash") and t >= COMET_FROM and t < COMET_TO:
+		motion = forward() * _comet_speed
 	if t >= 1.0:
-		rig.set_blade_growth(0.0)
+		Game.powers.finish()
+		rig.stop_action()
 		_finish_action()
 	return motion
 
@@ -851,8 +1043,23 @@ func take_damage(amount: float, from: Vector3) -> bool:
 		return false
 	if state == "roll" and state_time / state_length < 0.78:
 		return false
-	if state == "transform" or state == "skill":
+	var oblivion := Game.oblivion_fighting()
+	if state == "transform" or state == "dive" or state == "land" or (state == "skill" and not oblivion):
 		return false
+	if oblivion:
+		# Its blows are measured against the whole of the target: no form shrugs them off.
+		amount = max_hp * amount / OBLIVION_BASE_HP * OBLIVION_POWER
+		if state == "skill" or rig.is_supreme:
+			hp -= amount
+			rig.flash_hit()
+			Game.shake(0.4)
+			Fx.burst(chest(), Color(1.0, 0.16, 0.22), 18, 6.0)
+			if hp <= 0.0:
+				hp = 0.0
+				Game.powers.stop()
+				rig.stop_action()
+				_die()
+			return true
 	if rig.is_supreme:
 		# Blows land on the aura: no flinch, no knockback, nothing interrupted.
 		hp = maxf(1.0, hp - amount * SUPREME_DAMAGE_TAKEN)
@@ -895,6 +1102,8 @@ func take_damage(amount: float, from: Vector3) -> bool:
 
 
 func _die() -> void:
+	if Game.oblivion_fighting() and Game.cutscene.rescue(Game.boss):
+		return
 	target = null
 	collision_mask = 1 | 4
 	rig.set_energy(0.0)
@@ -923,13 +1132,14 @@ func _process(delta: float) -> void:
 	var anchor := drawn + Vector3(0, _cam_height, 0)
 	_cam_root.global_position = _cam_root.global_position.lerp(anchor, 1.0 - exp(-14.0 * delta))
 	_cam_root.rotation = Vector3(cam_pitch, cam_yaw, 0)
-	var arm_goal := 3.8 if Game.state == "title" else (8.8 if rig.is_supreme else 5.7)
+	var wide: float = Game.powers.wide if Game.powers != null else 0.0
+	var arm_goal := 3.8 if Game.state == "title" else (8.8 if rig.is_supreme else 5.7) + wide * 7.0
 	_arm.spring_length = lerpf(_arm.spring_length, arm_goal, 1.0 - exp(-5.0 * delta))
 	# On the menu the warrior stands right of centre, clear of the buttons.
 	_title_shift = lerpf(_title_shift, 1.0 if Game.state == "title" else 0.0, 1.0 - exp(-5.0 * delta))
 
 	_fov_punch = lerpf(_fov_punch, 0.0, 1.0 - exp(-7.0 * delta))
-	_camera.fov = 58.0 + _fov_punch
+	_camera.fov = 58.0 + _fov_punch + wide * 12.0
 	var shake := Game.take_shake(delta)
 	_camera.h_offset = randf_range(-shake, shake) * 0.5 - _title_shift * 1.25
 	_camera.v_offset = randf_range(-shake, shake) * 0.5

@@ -10,6 +10,13 @@ const RIFT := preload("res://shaders/world_rift.gdshader")
 const NOVA := preload("res://shaders/nova_shell.gdshader")
 const PILLAR := preload("res://shaders/light_pillar.gdshader")
 const STAR := preload("res://shaders/star_spark.gdshader")
+const SHOCK := preload("res://shaders/shock_ring.gdshader")
+const FLAME := preload("res://shaders/soft_flame.gdshader")
+const WAVE := preload("res://shaders/crescent_wave.gdshader")
+const WEB := 0.36 ## Metres per unit of cosmic_warrior.html.
+
+static var _dot: StandardMaterial3D
+static var _wave_cache: ArrayMesh
 
 
 static func _instance(mesh: Mesh, shader: Shader) -> Array:
@@ -73,63 +80,7 @@ static func star_at(pos: Vector3, size: float, tint: Color, seconds: float) -> M
 	return node
 
 
-## INFINITY EDGE: a blazing seam along the ground and a sheet of light standing on it.
-static func world_cut(origin: Vector3, forward: Vector3, length: float, width: float) -> void:
-	var face := Basis.looking_at(-forward, Vector3.UP)
-	var center := origin + forward * length * 0.5
-	var floor_mesh := PlaneMesh.new()
-	floor_mesh.size = Vector2(width * 5.2, length) # Wide enough to read when seen from straight behind.
-	var low := _instance(floor_mesh, RIFT)
-	(low[0] as MeshInstance3D).global_transform = Transform3D(face, _ground(center) + Vector3(0, 0.2, 0))
-	var sheet_mesh := PlaneMesh.new()
-	sheet_mesh.size = Vector2(90.0, length)
-	var sheet := _instance(sheet_mesh, RIFT)
-	var upright := face * Basis(Vector3.BACK, PI * 0.5)
-	(sheet[0] as MeshInstance3D).global_transform = Transform3D(upright, _ground(center) + Vector3(0, 40.0, 0))
-	for made: Array in [low, sheet]:
-		var node: MeshInstance3D = made[0]
-		var tween := node.create_tween()
-		tween.tween_method(_fade(made[1], 0.0, 1.5, 0.08), 0.0, 1.0, 0.08)
-		tween.tween_method(_fade(made[1], 1.5, 0.0, 0.8), 0.0, 1.0, 0.8).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-		tween.tween_callback(node.queue_free)
-	for i in 16:
-		var at := _ground(origin + forward * length * (i + 0.5) / 16.0)
-		Fx.ring(at, 9.0 + (i % 3) * 5.0, PALE if i % 2 == 0 else GOLD, 0.7)
-		Fx.burst(at + Vector3(0, 0.3, 0), GOLD, 24, 30.0, 0.14)
-
-
-## GENESIS: the galaxy that unfolds overhead.
-static func galaxy(pos: Vector3, facing: Vector3, radius: float, seconds: float, tilt := 0.85) -> void:
-	var mesh := PlaneMesh.new()
-	mesh.size = Vector2(2, 2)
-	var made := _instance(mesh, GALAXY)
-	var node: MeshInstance3D = made[0]
-	# Tipped toward the warrior, so the spiral fills the view instead of lying edge-on.
-	var spread := Basis(facing.cross(Vector3.UP).normalized(), tilt)
-	node.global_transform = Transform3D(spread, pos)
-	node.scale = Vector3.ONE * 0.5
-	var tween := node.create_tween().set_parallel(true)
-	tween.tween_property(node, "scale", Vector3.ONE * radius, seconds * 0.62).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	tween.tween_method(_fade(made[1], 0.0, 1.0, 0.3), 0.0, 1.0, 0.35)
-	tween.chain().tween_method(_fade(made[1], 1.0, 0.0, 0.35), 0.0, 1.0, 0.35)
-	tween.tween_callback(node.queue_free)
-
-
-## BIG BANG: light racing inward before the blast.
-static func implode(center: Vector3, seconds: float) -> void:
-	for i in 36:
-		var a := randf() * TAU
-		var e := randf_range(-0.3, 0.6)
-		var c := sqrt(1.0 - e * e)
-		var from := center + Vector3(cos(a) * c, e, sin(a) * c) * randf_range(22.0, 55.0)
-		var star := star_at(from, randf_range(2.0, 5.0), HUES[i % HUES.size()], -1.0)
-		var tween := star.create_tween()
-		tween.tween_interval(randf() * seconds * 0.55)
-		tween.tween_property(star, "global_position", center, seconds * 0.42).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-		tween.tween_callback(star.queue_free)
-
-
-## BIG BANG: the shell of light.
+## The shell of light.
 static func nova(center: Vector3, radius: float, seconds: float, tint := Color(1.0, 0.66, 0.26)) -> void:
 	var mesh := SphereMesh.new()
 	mesh.radius = 1.0
@@ -171,10 +122,213 @@ static func shatter(seconds: float) -> void:
 	tween.tween_callback(rect.hide)
 
 
+## An expanding soft ring: facing the camera, or lying on the ground when `flat`.
+static func shock(pos: Vector3, size: float, strength: float, life: float, tint: Color, flat := false) -> void:
+	var made := _instance(QuadMesh.new(), SHOCK)
+	var node: MeshInstance3D = made[0]
+	var material: ShaderMaterial = made[1]
+	material.set_shader_parameter("color", tint)
+	material.set_shader_parameter("billboard", not flat)
+	var at := _ground(pos) + Vector3(0, 0.15, 0) if flat else pos
+	var face := Basis(Vector3.RIGHT, -PI * 0.5) if flat else Basis.IDENTITY
+	node.global_transform = Transform3D(face.scaled_local(Vector3(size * 2.0, size * 2.0, 1.0)), at)
+	node.extra_cull_margin = size * 2.0 + 10.0
+	var grow := func(v: float) -> void:
+		material.set_shader_parameter("r", (1.0 - (1.0 - v) * (1.0 - v)) * 0.9)
+		material.set_shader_parameter("a", (1.0 - v) * strength)
+	var tween := node.create_tween().set_ignore_time_scale(true)
+	tween.tween_method(grow, 0.0, 1.0, life)
+	tween.tween_callback(node.queue_free)
+
+
+static func _dot_material() -> StandardMaterial3D:
+	if _dot == null:
+		var gradient := Gradient.new()
+		gradient.set_color(0, Color.WHITE)
+		gradient.set_color(1, Color(1, 1, 1, 0))
+		gradient.add_point(0.45, Color(1, 1, 1, 0.55))
+		var texture := GradientTexture2D.new()
+		texture.gradient = gradient
+		texture.fill = GradientTexture2D.FILL_RADIAL
+		texture.fill_from = Vector2(0.5, 0.5)
+		texture.fill_to = Vector2(1.0, 0.5)
+		texture.width = 32
+		texture.height = 32
+		_dot = StandardMaterial3D.new()
+		_dot.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		_dot.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+		_dot.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		_dot.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
+		_dot.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+		_dot.vertex_color_use_as_albedo = true
+		_dot.albedo_texture = texture
+		_dot.disable_fog = true
+	return _dot
+
+
+## The web page's glowing sparks. `speed` is in web units; the count is capped to keep the frame rate.
+static func sparks(pos: Vector3, count: int, speed: float) -> void:
+	var p := CPUParticles3D.new()
+	var quad := QuadMesh.new()
+	quad.size = Vector2.ONE * 0.5 * WEB
+	quad.material = _dot_material()
+	p.mesh = quad
+	p.amount = clampi(count / 2, 8, 360)
+	p.lifetime = 0.75
+	p.one_shot = true
+	p.explosiveness = 1.0
+	p.direction = Vector3.UP
+	p.spread = 180.0
+	p.initial_velocity_min = speed * WEB * 0.4
+	p.initial_velocity_max = speed * WEB * 1.2
+	p.gravity = Vector3(0, -7.0 * WEB, 0)
+	var ramp := Gradient.new()
+	ramp.set_color(0, Color(0.95, 0.85, 1.0))
+	ramp.set_color(1, Color(0, 0, 0))
+	ramp.add_point(0.5, Color(0.37, 0.29, 0.5))
+	p.color_ramp = ramp
+	p.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	p.finished.connect(p.queue_free)
+	Game.world.add_child(p)
+	p.global_position = pos
+	p.emitting = true
+
+
+## A four-pointed star thrown along `velocity`, which is already in metres.
+static func shoot(pos: Vector3, velocity: Vector3, life: float, size: float) -> void:
+	var made := _instance(QuadMesh.new(), STAR)
+	var node: MeshInstance3D = made[0]
+	var material: ShaderMaterial = made[1]
+	material.set_shader_parameter("tint", Color("fff0c8"))
+	material.set_shader_parameter("spin", randf() * PI)
+	node.global_position = pos
+	node.scale = Vector3(size, size, 1.0)
+	var tween := node.create_tween().set_parallel(true)
+	tween.tween_property(node, "global_position", pos + velocity * life, life)
+	tween.tween_property(node, "scale", Vector3(size * 0.6, size * 0.6, 1.0), life)
+	tween.tween_method(func(v: float) -> void: material.set_shader_parameter("fade", minf(1.0, v * 2.2)), 1.0, 0.0, life)
+	tween.chain().tween_callback(node.queue_free)
+
+
+## Light drawn into a point.
+static func inflow(center: Vector3, amount: int, radius: float, life: float) -> void:
+	for i in amount:
+		var a := randf() * TAU
+		var e := randf_range(-1.0, 1.0)
+		var c := sqrt(1.0 - e * e)
+		var from := center + Vector3(cos(a) * c, e, sin(a) * c) * radius * randf_range(0.6, 1.2)
+		shoot(from, (center - from) / life, life, 0.3)
+
+
+## A soft flame. `length` and `radius` are in web units. Returns [node, material]; the caller places it.
+static func flame(length: float, radius: float, tint: Color, parent: Node3D) -> Array:
+	var quad := QuadMesh.new()
+	quad.size = Vector2(radius * 3.4, length + radius * 3.4)
+	quad.center_offset = Vector3(0, length * 0.5, 0)
+	var material := ShaderMaterial.new()
+	material.shader = FLAME
+	material.set_shader_parameter("len", length)
+	material.set_shader_parameter("rad", radius)
+	material.set_shader_parameter("world_scale", WEB)
+	material.set_shader_parameter("color", tint)
+	var node := MeshInstance3D.new()
+	node.mesh = quad
+	node.material_override = material
+	node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	node.extra_cull_margin = 400.0
+	parent.add_child(node)
+	return [node, material]
+
+
+## NOVA: the column of fire thrown from the fist.
+static func beam(pos: Vector3, ahead: Vector3) -> void:
+	var made := flame(34.0, 3.4, Color("ffc86a"), Game.world)
+	var node: MeshInstance3D = made[0]
+	var material: ShaderMaterial = made[1]
+	node.global_transform = Transform3D(Basis(Quaternion(Vector3.UP, ahead.normalized())), pos)
+	var tween := node.create_tween().set_parallel(true)
+	tween.tween_property(node, "global_position", pos + ahead * 90.0 * WEB * 0.55, 0.55)
+	tween.tween_method(func(v: float) -> void: material.set_shader_parameter("power", v), 2.2, 0.0, 0.55)
+	tween.chain().tween_callback(node.queue_free)
+
+
+static func _wave_mesh() -> ArrayMesh:
+	if _wave_cache != null:
+		return _wave_cache
+	var vertices := PackedVector3Array()
+	var normals := PackedVector3Array()
+	var uvs := PackedVector2Array()
+	var indices := PackedInt32Array()
+	var along := 64
+	var around := 14
+	for i in along + 1:
+		var u := float(i) / along
+		var arc := lerpf(-1.2, 1.2, u)
+		var out := Vector3(0.0, sin(arc), cos(arc))
+		var spine := out * 4.0 - Vector3(0, 0, 4.0)
+		for j in around + 1:
+			var a := float(j) / around * TAU
+			var normal := out * cos(a) + Vector3.RIGHT * sin(a)
+			vertices.append(spine + normal * 0.55)
+			normals.append(normal)
+			uvs.append(Vector2(u, float(j) / around))
+	for i in along:
+		for j in around:
+			var a := i * (around + 1) + j
+			var b := a + around + 1
+			indices.append_array(PackedInt32Array([a, b, a + 1, a + 1, b, b + 1]))
+	var arrays := []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = vertices
+	arrays[Mesh.ARRAY_NORMAL] = normals
+	arrays[Mesh.ARRAY_TEX_UV] = uvs
+	arrays[Mesh.ARRAY_INDEX] = indices
+	_wave_cache = ArrayMesh.new()
+	_wave_cache.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	return _wave_cache
+
+
+## GALAXY: the giant crescent thrown by the blade.
+static func wave(pos: Vector3, ahead: Vector3, tilt: float, size: float) -> void:
+	var material := ShaderMaterial.new()
+	material.shader = WAVE
+	var node := MeshInstance3D.new()
+	node.mesh = _wave_mesh()
+	node.material_override = material
+	node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	node.extra_cull_margin = 40.0
+	Game.world.add_child(node)
+	var face := Basis.looking_at(-ahead, Vector3.UP) * Basis(Vector3.BACK, tilt)
+	node.global_transform = Transform3D(face, pos)
+	node.scale = Vector3.ONE * size * WEB
+	var tween := node.create_tween().set_parallel(true)
+	tween.tween_property(node, "global_position", pos + ahead * 74.0 * WEB * 0.8, 0.8)
+	tween.tween_property(node, "scale", Vector3.ONE * size * WEB * 2.6, 0.8)
+	tween.tween_method(func(v: float) -> void: material.set_shader_parameter("a", 1.0 - v * v), 0.0, 1.0, 0.8)
+	tween.chain().tween_callback(node.queue_free)
+
+
+## COMET's crater, and every hero landing.
+static func crater(pos: Vector3) -> void:
+	var cream := Color("fff2d0")
+	shock(pos, 70.0 * WEB, 2.4, 0.95, Color("ffc86a"), true)
+	shock(pos, 38.0 * WEB, 1.9, 0.62, cream, true)
+	shock(pos, 18.0 * WEB, 1.6, 0.36, Color.WHITE, true)
+	var ground := _ground(pos) + Vector3(0, 0.2, 0)
+	sparks(ground, 480, 36.0)
+	Fx.burst(ground, Color(0.72, 0.62, 0.42), 40, 11.0, 0.12)
+	for i in 36:
+		var a := i / 36.0 * TAU
+		shoot(ground + Vector3(0, 0.4, 0), Vector3(cos(a) * 42.0, randf_range(6.0, 24.0), sin(a) * 42.0) * WEB, 0.8, 3.8 * WEB)
+
+
 ## Draws each effect once behind the loading screen.
 static func warm(at: Vector3) -> void:
+	shock(at, 2.0, 1.0, 0.2, GOLD)
+	sparks(at, 16, 4.0)
+	shoot(at, Vector3.UP, 0.2, 0.5)
+	wave(at, Vector3.FORWARD, 0.0, 0.2)
+	beam(at, Vector3.FORWARD)
 	pillar(at, 4.0, 0.2)
 	star_at(at, 1.0, GOLD, 0.1)
-	world_cut(at, Vector3.FORWARD, 4.0, 1.0)
-	galaxy(at, Vector3.FORWARD, 2.0, 0.2)
 	nova(at, 2.0, 0.2)

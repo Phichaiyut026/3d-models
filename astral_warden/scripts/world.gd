@@ -28,6 +28,15 @@ var _grass_clock := 0.0
 var _grass_near := 1.0
 var _grass_far := 0.16
 var _sun: DirectionalLight3D
+var _env: Environment
+var _corruption := -1.0
+var _fallout: Array[CPUParticles3D] = [] ## Ash and embers, kept around the camera.
+
+const CORRUPT_CENTER := Vector3(22, 0, -136) ## Matches the corrupt_center shader global.
+const SUN_CLEAR := Color(1.0, 0.93, 0.76)
+const SUN_TAKEN := Color(1.0, 0.36, 0.32)
+const FOG_CLEAR := Color(0.82, 0.77, 0.56)
+const FOG_TAKEN := Color(0.32, 0.04, 0.07)
 
 
 func _ready() -> void:
@@ -40,6 +49,10 @@ func _ready() -> void:
 	_bodies.collision_mask = 0
 	add_child(_bodies)
 	_leaf_texture = _make_leaf_texture()
+	# Set from code too: if the project-settings default is not picked up, the centre falls to the
+	# world origin, which is right beside the landing spot.
+	RenderingServer.global_shader_parameter_set("corrupt_center", CORRUPT_CENTER)
+	RenderingServer.global_shader_parameter_set("corruption", 0.0)
 
 	_build_environment()
 	_build_terrain()
@@ -51,7 +64,11 @@ func _ready() -> void:
 	_build_stakes()
 	_build_fallen_star()
 	_build_shrines()
+	_build_corruption()
 	_spawn_actors()
+	var haven := SafeHaven.new()
+	add_child(haven)
+	Game.haven = haven
 	_build_ui()
 
 	Game.apply_settings()
@@ -61,8 +78,72 @@ func _ready() -> void:
 		add_child(driver)
 
 
+## The whole valley belongs to OBLIVION: red space overhead from the landing on, deepest at its tower.
+## Stepped, so the sky's lighting is only redrawn when the change can be seen.
+func _update_corruption() -> void:
+	var at := Game.camera.global_position
+	var near := Vector2(at.x - CORRUPT_CENTER.x, at.z - CORRUPT_CENTER.z).length()
+	var amount := lerpf(1.0, 0.85, smoothstep(70.0, 200.0, near))
+	var in_haven := at.y > SafeHaven.CENTER.y - 60.0
+	if in_haven:
+		amount = 0.0
+	for p: CPUParticles3D in _fallout:
+		p.visible = not in_haven
+		if not in_haven:
+			p.global_position = Vector3(at.x, _ground(Vector3(at.x, 0, at.z)).y + p.get_meta("lift"), at.z)
+	amount = snappedf(amount, 0.05)
+	if is_equal_approx(amount, _corruption):
+		return
+	_corruption = amount
+	RenderingServer.global_shader_parameter_set("corruption", amount)
+	_sun.light_color = SUN_CLEAR.lerp(SUN_TAKEN, amount)
+	_sun.light_energy = lerpf(1.55, 0.95, amount)
+	_env.fog_light_color = FOG_CLEAR.lerp(FOG_TAKEN, amount)
+	_env.fog_density = lerpf(0.003, 0.006, amount)
+	_env.ambient_light_energy = lerpf(0.75, 0.5, amount)
+	_env.adjustment_saturation = lerpf(1.08, 1.2, amount)
+
+
+## Ash coming down and embers going up, everywhere the darkness has taken. They follow the camera.
+func _build_corruption() -> void:
+	var at := _ground(CORRUPT_CENTER)
+	for spec: Array in [[Color(0.32, 0.28, 0.3), 220, Vector3.DOWN, 0.2, 9.0, 30.0], [Color(1.0, 0.18, 0.12), 130, Vector3.UP, 0.08, 6.0, 2.0]]:
+		var quad := QuadMesh.new()
+		quad.size = Vector2.ONE * spec[3]
+		var material := StandardMaterial3D.new()
+		material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		material.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+		material.albedo_color = spec[0]
+		if spec[2] == Vector3.UP:
+			material.emission_enabled = true
+			material.emission = spec[0]
+			material.emission_energy_multiplier = 3.0
+		quad.material = material
+		var p := CPUParticles3D.new()
+		p.mesh = quad
+		p.amount = spec[1]
+		p.lifetime = spec[4]
+		p.preprocess = spec[4]
+		p.local_coords = false
+		p.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+		p.emission_box_extents = Vector3(48, 2, 48)
+		p.direction = spec[2]
+		p.spread = 20.0
+		p.gravity = Vector3.ZERO
+		p.initial_velocity_min = 0.8
+		p.initial_velocity_max = 2.2
+		p.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		p.visibility_aabb = AABB(Vector3(-80, -40, -80), Vector3(160, 80, 160))
+		add_child(p)
+		p.global_position = at + Vector3(0, spec[5], 0)
+		p.set_meta("lift", spec[5])
+		_fallout.append(p)
+
+
 ## Thins grass with distance. The order inside a chunk is random, so any prefix is an even sample.
 func _process(delta: float) -> void:
+	if Game.camera != null:
+		_update_corruption()
 	_grass_clock -= delta
 	if _grass_clock > 0.0 or Game.camera == null:
 		return
@@ -119,6 +200,7 @@ func _build_environment() -> void:
 	var node := WorldEnvironment.new()
 	node.environment = env
 	add_child(node)
+	_env = env
 
 	var sun := DirectionalLight3D.new()
 	_sun = sun
@@ -659,12 +741,12 @@ func _spawn_actors() -> void:
 	player.reset_camera()
 
 	var posts := [
-		Vector3(-2, 0, 44), Vector3(6, 0, 12), Vector3(-9, 0, 2), Vector3(-3, 0, -30), Vector3(13, 0, -40),
-		CAMP + Vector3(3, 0, 3), CAMP + Vector3(-4, 0, -2), CAMP + Vector3(1, 0, -6),
-		ARENA + Vector3(-3, 0, 44), ARENA + Vector3(4, 0, 44),
+		[Vector3(-2, 0, 44), "process"], [Vector3(2, 0, 40), "process"], [Vector3(6, 0, 12), "process"], [Vector3(-9, 0, 2), "process"], [Vector3(-3, 0, -30), "firewall"], [Vector3(13, 0, -40), "daemon"],
+		[CAMP + Vector3(3, 0, 3), "process"], [CAMP + Vector3(-4, 0, -2), "firewall"], [CAMP + Vector3(1, 0, -6), "daemon"],
+		[ARENA + Vector3(-5, 0, 46), "firewall"], [ARENA + Vector3(6, 0, 46), "daemon"], [ARENA + Vector3(0, 0, 38), "rootkit"],
 	]
-	for post: Vector3 in posts:
-		var enemy := Enemy.new().setup(_ground(post, -0.1), false)
+	for post: Array in posts:
+		var enemy := Enemy.new().setup(_ground(post[0], -0.1), false, post[1])
 		add_child(enemy)
 		Game.enemies.append(enemy)
 	var boss := Enemy.new().setup(_ground(ARENA + Vector3(0, 0, -10), -0.1), true)
@@ -687,3 +769,9 @@ func _build_ui() -> void:
 	var menu := GameMenu.new()
 	menu_layer.add_child(menu)
 	Game.menu = menu
+	var scene := Cutscene.new()
+	add_child(scene)
+	Game.cutscene = scene
+	var powers := CosmicShow.new()
+	add_child(powers)
+	Game.powers = powers

@@ -16,7 +16,8 @@ const CONTROLS := [
 	["Q", "ล็อกเป้า"], ["E", "พักที่แท่นดาว"],
 	["U", "เสริมพลังที่แท่นดาว"], ["Esc", "หยุดเกม"],
 	["T", "แปลงร่าง / กลับร่าง"], ["1 - 7", "ใช้สกิล"],
-	["V", "บิน / ลงพื้น (ร่างใหม่)"], ["Space / Ctrl", "บินขึ้น / บินลง"],
+	["V", "บิน / ลงพื้น"], ["Space / Ctrl", "บินขึ้น / บินลง"],
+	["Tab", "ข้ามคัตซีน"], ["คลิก / Space", "บทพูดถัดไป"],
 ]
 
 var start_button: Button
@@ -454,5 +455,5 @@ func _unhandled_input(event: InputEvent) -> void:
 		"pause":
 			Game.set_paused(false)
 		"":
-			if Game.state == "play":
+			if Game.state == "play" or Game.state == "cutscene":
 				Game.set_paused(true)

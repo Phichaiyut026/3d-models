@@ -10,15 +10,21 @@ var player: Player
 var camera: Camera3D
 var hud: Hud
 var menu: GameMenu
+var cutscene: Cutscene
+var powers: CosmicShow
+var haven: SafeHaven
+var haven_seen := false
 var enemies: Array[Enemy] = []
 var shrines: Array[Shrine] = []
 var boss: Enemy
 var boss_active := false
 var boss_defeated := false
 var checkpoint: Shrine
-var state := "title" ## title, play, dead
+var boss_intro_seen := false
+var state := "title" ## title, play, cutscene, dead
 var stardust := 0
 var autotest := false
+var cutscenes_on := true ## The scripted tests turn these off, except the one that tests them.
 var warming := false
 var run_id := 0 ## Bumped on a new run so pending respawn timers can tell they are stale.
 var settings := {"mouse": 1.0, "invert_y": false, "render": 0.8, "quality": 1, "fullscreen": false, "vsync": true, "show_fps": false}
@@ -33,7 +39,16 @@ func _ready() -> void:
 	ThemeDB.fallback_font = font
 	_define_inputs()
 	autotest = "--autotest" in OS.get_cmdline_user_args()
+	cutscenes_on = not autotest
 	_load_settings()
+
+
+func oblivion_fighting() -> bool:
+	return boss_active and boss != null and boss.oblivion
+
+
+func boss_title() -> String:
+	return BOSS_NAME + " · OBLIVION" if boss != null and boss.oblivion else BOSS_NAME
 
 
 func _define_inputs() -> void:
@@ -42,7 +57,7 @@ func _define_inputs() -> void:
 		"run": KEY_SHIFT, "roll": KEY_SPACE, "lock_on": KEY_Q, "interact": KEY_E,
 		"vial": KEY_R, "bolt": KEY_F, "heavy": KEY_C, "upgrade": KEY_U, "weapon": KEY_X,
 		"transform": KEY_T, "skill_1": KEY_1, "skill_2": KEY_2, "skill_3": KEY_3, "skill_4": KEY_4, "skill_5": KEY_5, "skill_6": KEY_6, "skill_7": KEY_7,
-		"fly": KEY_V, "fly_down": KEY_CTRL,
+		"fly": KEY_V, "fly_down": KEY_CTRL, "cutscene_skip": KEY_TAB,
 	}
 	for action: String in keys:
 		InputMap.add_action(action)
@@ -58,7 +73,7 @@ func _define_inputs() -> void:
 
 
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_APPLICATION_FOCUS_OUT and state == "play" and not autotest and not get_tree().paused:
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT and (state == "play" or state == "cutscene") and not autotest and not get_tree().paused:
 		set_paused(true)
 
 
@@ -113,6 +128,7 @@ func warmup() -> void:
 	player.rig.set_armed_instant(true)
 	player.rig.set_form(true, true)
 	CosmicFx.warm(at)
+	powers.warm(at)
 	OverlordSkills.warm(at)
 	player.rig.warm_effects(at)
 	player.warm_trail(at)
@@ -124,6 +140,7 @@ func warmup() -> void:
 	bolt.global_position = at
 	for i in 8:
 		await RenderingServer.frame_post_draw
+	powers.stop()
 	player.rig.set_energy(0.0)
 	player.rig.set_blade_sparks(false)
 	player.rig.set_form(false, true)
@@ -137,12 +154,16 @@ func return_to_title() -> void:
 	run_id += 1
 	get_tree().paused = false
 	Engine.time_scale = 1.0
+	cutscene.abort()
 	state = "title"
 	boss_active = false
 	boss_defeated = false
+	boss_intro_seen = false
+	haven_seen = false
 	stardust = 0
 	checkpoint = shrines[0]
 	player.new_game()
+	boss.restore_first_form()
 	reset_enemies()
 	hud.clear()
 	menu.open_main()
@@ -160,7 +181,8 @@ func start_game() -> void:
 	if not autotest:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	menu.close()
-	hud.banner("หุบเขาอำพัน", "จงไปยังหอดาวทางเหนือ", Color(1.0, 0.85, 0.5))
+	if not cutscene.opening():
+		hud.banner("หุบเขาอำพัน", "จงไปยังหอดาวทางเหนือ", Color(1.0, 0.42, 0.4))
 
 
 func add_stardust(amount: int) -> void:
@@ -204,7 +226,11 @@ func rest_at(shrine: Shrine) -> void:
 
 func reset_enemies() -> void:
 	boss_active = false
-	for enemy in enemies:
+	for enemy in enemies.duplicate():
+		if enemy.summoned:
+			enemies.erase(enemy)
+			enemy.queue_free()
+			continue
 		if enemy.is_boss and boss_defeated:
 			continue
 		enemy.reset()
@@ -221,6 +247,34 @@ func on_player_died() -> void:
 	player.respawn(checkpoint)
 	reset_enemies()
 	state = "play"
+
+
+## Zero Day has carried Gemini out. The run goes on from the last shrine.
+func after_rescue() -> void:
+	haven.prepare()
+	checkpoint = haven.shrine
+	player.respawn(checkpoint)
+	reset_enemies()
+	player.reset_camera()
+	player.lock_input(0.4)
+	if not haven_seen:
+		haven_seen = true
+		cutscene.haven_arrival()
+	else:
+		hud.banner("SAFE MODE", "รอดมาได้หวุดหวิด", Color("b8ff2e"), 3.0)
+
+
+func in_haven() -> bool:
+	return player != null and player.global_position.y > SafeHaven.CENTER.y - 60.0
+
+
+## Through the door, back to the valley near the tower.
+func leave_haven() -> void:
+	cutscene.fade = 1.0
+	player.respawn(shrines[1])
+	player.reset_camera()
+	player.lock_input(0.4)
+	hud.banner("หุบเขาอำพัน", "OBLIVION ยังรออยู่ที่หอดาว", Color(1.0, 0.42, 0.4), 3.0)
 
 
 func on_boss_defeated() -> void:

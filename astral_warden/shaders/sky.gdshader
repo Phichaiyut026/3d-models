@@ -6,6 +6,7 @@ uniform vec3 mid : source_color = vec3(0.62, 0.64, 0.38);
 uniform vec3 zenith : source_color = vec3(0.27, 0.34, 0.3);
 uniform vec3 cloud_light : source_color = vec3(1.0, 0.91, 0.62);
 uniform vec3 cloud_dark : source_color = vec3(0.34, 0.36, 0.24);
+global uniform float corruption; // 0 in the valley, 1 at OBLIVION's tower: the sky turns to red space.
 
 float h(vec2 v) {
 	return fract(sin(dot(v, vec2(127.1, 311.7))) * 43758.5453);
@@ -49,6 +50,20 @@ void sky() {
 	color += vec3(1.0, 0.82, 0.46) * (pow(s, 6.0) * 0.28 + pow(s, 90.0) * 0.6 + pow(s, 900.0) * 3.0);
 	if (d.y < 0.0) {
 		color = mix(color, horizon * 0.55, smoothstep(0.0, -0.1, d.y));
+	}
+	if (corruption > 0.001) {
+		// Red space: a black-red void, torn nebula, cold stars and a sun gone the colour of blood.
+		vec2 p = vec2(atan(d.x, d.z) * 1.6, d.y * 3.2);
+		float neb = fbm(p * 1.4 + fbm(p * 0.9) * 1.8);
+		float rift = pow(1.0 - abs(fbm(p * 0.7 + 4.0) * 2.0 - 1.0), 8.0);
+		vec3 space = mix(vec3(0.02, 0.0, 0.01), vec3(0.16, 0.0, 0.03), smoothstep(0.35, 0.75, neb));
+		space += vec3(0.9, 0.05, 0.08) * rift * 0.55 + vec3(0.35, 0.02, 0.06) * smoothstep(0.55, 0.85, neb);
+		vec3 cell = floor(d * 160.0);
+		float star = step(0.985, h(cell.xy + cell.z * 7.1)) * smoothstep(0.0, 0.2, d.y + 0.1);
+		space += vec3(1.0, 0.85, 0.85) * star * 1.5;
+		space += vec3(1.0, 0.1, 0.12) * (pow(s, 40.0) * 0.6 + pow(s, 600.0) * 4.0);
+		space = mix(space, vec3(0.12, 0.01, 0.02), smoothstep(0.0, -0.15, d.y));
+		color = mix(color, space, corruption);
 	}
 	COLOR = color;
 }

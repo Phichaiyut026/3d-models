@@ -16,6 +16,7 @@ const GOD_RAYS := preload("res://shaders/god_rays.gdshader")
 const MANDALA := preload("res://shaders/mandala.gdshader")
 
 const MODEL_SCALE := 0.36
+const HIP_Y := 2.5 ## Height of the waist in model units, as in cosmic_warrior.html.
 const GRIP_ANGLE := 0.75
 const BLADE_LENGTH := 3.5
 const SUPREME_SCALE := 1.9 ## The same growth as the web model.
@@ -135,6 +136,7 @@ var _flash := 0.0
 
 
 func _init() -> void:
+	extra_actions = CosmicMoves.actions()
 	unit = 2.6
 	pivot = Vector3(0, 2.6, 0)
 	thigh = 1.01
@@ -1020,9 +1022,13 @@ func _update_wings(delta: float) -> void:
 			goal_sweep = 0.5
 			goal_lift = -0.7
 			charge_goal = 0.0
-		"rest":
+		"rest", "hero_land":
 			goal_sweep = 0.9
 			goal_lift = -0.35
+	if extra_actions.has(action):
+		goal_sweep = -0.45
+		goal_lift = 0.34
+		charge_goal = 1.0
 	if _flying and action == "":
 		goal_sweep = 0.1 + _fly_pace * 0.55
 		goal_lift = 0.2 + sin(_flap * 3.2) * (0.16 - _fly_pace * 0.1)
@@ -1136,8 +1142,16 @@ func set_block(amount: float) -> void:
 	m.set_shader_parameter("strength", amount * 1.3)
 
 
+## The torso's joint sits at the feet, so on its own it would swing away from the hips. This makes it turn about the waist.
+func _pin_waist() -> void:
+	var upper: Node3D = joints["upper"]
+	var waist := Vector3(0, HIP_Y, 0)
+	upper.position = waist - Basis.from_euler(upper.rotation, EULER_ORDER_XYZ) * waist
+
+
 func _process(delta: float) -> void:
 	update_pose(delta)
+	_pin_waist()
 	_update_draw(delta)
 	_update_wings(delta)
 	_update_supreme(delta)

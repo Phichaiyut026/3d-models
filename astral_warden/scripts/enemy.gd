@@ -9,13 +9,34 @@ const SOLDIER_ATTACKS := [
 	{"anim": "slash3", "length": 1.55, "from": 0.48, "to": 0.62, "damage": 88.0, "reach": 3.1, "arc": 80.0, "lunge": 5.5},
 ]
 const BOSS_ATTACKS := [
-	{"anim": "slash1", "length": 1.45, "from": 0.42, "to": 0.58, "damage": 104.0, "reach": 6.0, "arc": 170.0, "lunge": 6.5},
-	{"anim": "slash2", "length": 1.15, "from": 0.4, "to": 0.58, "damage": 96.0, "reach": 6.0, "arc": 170.0, "lunge": 6.5},
-	{"anim": "slash3", "length": 1.75, "from": 0.5, "to": 0.62, "damage": 150.0, "reach": 6.6, "arc": 70.0, "lunge": 8.0},
+	{"anim": "o_cleave", "length": 1.9, "from": 0.44, "to": 0.54, "damage": 104.0, "reach": 6.0, "arc": 170.0, "lunge": 6.5},
+	{"anim": "o_reaper", "length": 1.8, "from": 0.38, "to": 0.5, "damage": 96.0, "reach": 6.0, "arc": 170.0, "lunge": 6.5},
+	{"anim": "o_thrust", "length": 1.75, "from": 0.36, "to": 0.48, "damage": 150.0, "reach": 6.6, "arc": 70.0, "lunge": 8.0},
 	{"anim": "slam", "length": 1.9, "from": 0.72, "to": 0.78, "damage": 135.0, "reach": 7.5, "arc": 360.0, "lunge": 0.0},
 ]
 
+## The four soldiers. `body` is the rig's scale, `pace` stretches each swing, `power` scales its damage.
+const SOLDIERS := {
+	"process": {"hp": 150.0, "radius": 0.6, "speed": 5.0, "reach": 2.7, "posture": 55.0, "reward": 110, "body": 1.05, "pace": 0.85, "power": 0.75},
+	"firewall": {"hp": 420.0, "radius": 0.95, "speed": 2.9, "reach": 3.4, "posture": 140.0, "reward": 260, "body": 1.52, "pace": 1.25, "power": 1.1},
+	"daemon": {"hp": 110.0, "radius": 0.55, "speed": 4.4, "reach": 2.5, "posture": 40.0, "reward": 180, "body": 1.2, "pace": 1.0, "power": 1.0},
+	"rootkit": {"hp": 1200.0, "radius": 1.2, "speed": 4.2, "reach": 5.2, "posture": 230.0, "reward": 900, "body": 2.15, "pace": 1.1, "power": 1.6},
+}
+const SHIELD_DOWN_TIME := 5.0
+const SHIELD_BREAK_POISE := 60.0
+
+const FIRST_BOSS_HP := 1500.0
+const OBLIVION_HP := 6000.0
+const OBLIVION_BODY := 2.7
+const OBLIVION_ARMOUR := 0.12 ## Share of each blow that gets through.
+const OBLIVION_MIN_HIT := 15.0 ## Even the first form's weakest cut must count for something.
+const OBLIVION_MAX_HIT := 120.0
+const OBLIVION_MAX_PER_SECOND := 120.0 ## So a storm of small hits cannot erase it either.
+
 var is_boss := false
+var kind := "process"
+var summoned := false
+var oblivion := false
 var max_hp := 150.0
 var hp := max_hp
 var radius := 0.55
@@ -23,7 +44,7 @@ var reward := 140
 var move_speed := 3.9
 var engage_reach := 2.5
 var max_posture := 55.0
-var state := "idle" ## idle, chase, attack, skill, stagger, dead
+var state := "idle" ## idle, chase, attack, skill, stagger, rebirth, dead
 var last_hit_time := -100.0
 
 var rig: PoseRig
@@ -50,9 +71,19 @@ var _skill_cooldown := 0.0
 var _skill_order := 0
 var _world_end_cooldown := 0.0
 var _skill_fired := false
+var _capsule: CapsuleShape3D
+var _shape: CollisionShape3D
+var _rebirth_started := false
+var _taken_this_second := 0.0
+var _second_clock := 0.0
+var _body := 1.0
+var _pace := 1.0
+var _power := 1.0
+var _shield_down := 0.0
+var _call_next := false
 
 
-func setup(pos: Vector3, boss: bool) -> Enemy:
+func setup(pos: Vector3, boss: bool, soldier_kind := "process") -> Enemy:
 	is_boss = boss
 	home = pos
 	position = pos
@@ -63,6 +94,18 @@ func setup(pos: Vector3, boss: bool) -> Enemy:
 		move_speed = 4.9
 		engage_reach = 5.0
 		max_posture = 200.0
+	else:
+		kind = soldier_kind
+		var stats: Dictionary = SOLDIERS[kind]
+		max_hp = stats["hp"]
+		radius = stats["radius"]
+		reward = stats["reward"]
+		move_speed = stats["speed"]
+		engage_reach = stats["reach"]
+		max_posture = stats["posture"]
+		_body = stats["body"]
+		_pace = stats["pace"]
+		_power = stats["power"]
 	hp = max_hp
 	return self
 
@@ -76,16 +119,17 @@ func _ready() -> void:
 
 	var shape := CollisionShape3D.new()
 	var capsule := CapsuleShape3D.new()
-	capsule.radius = 1.05 if is_boss else 0.42
-	capsule.height = 4.0 if is_boss else 2.0
+	capsule.radius = 1.05 if is_boss else 0.42 * _body
+	capsule.height = 4.0 if is_boss else 2.0 * _body
 	shape.shape = capsule
 	shape.position.y = capsule.height * 0.5
 	add_child(shape)
+	_capsule = capsule
+	_shape = shape
 
-	rig = OverlordModel.new() if is_boss else SentinelModel.new(false)
+	rig = OverlordModel.new() if is_boss else SoldierModel.new(kind)
 	rig.run_speed = move_speed
-	if is_boss:
-		rig.scale = Vector3.ONE * 0.62
+	rig.scale = Vector3.ONE * (0.62 if is_boss else _body)
 	rig.rotation.y = randf() * TAU
 	add_child(rig)
 
@@ -98,12 +142,64 @@ func forward() -> Vector3:
 	return Vector3(sin(rig.rotation.y), 0, cos(rig.rotation.y))
 
 
+func body_scale() -> float:
+	return OBLIVION_BODY if oblivion else 1.0
+
+
 func chest_position() -> Vector3:
-	return global_position + Vector3(0, 3.6 if is_boss else 1.3, 0)
+	return global_position + Vector3(0, 3.6 * body_scale() if is_boss else 1.3 * _body + (0.7 if kind == "daemon" else 0.0), 0)
 
 
 func head_position() -> Vector3:
-	return global_position + Vector3(0, 5.8 if is_boss else 2.35, 0)
+	return global_position + Vector3(0, 5.8 * body_scale() if is_boss else 2.35 * _body + (0.7 if kind == "daemon" else 0.0), 0)
+
+
+## Stops mid-swing or mid-power, so a scene starts from a clean stance.
+func halt_for_scene() -> void:
+	state = "idle"
+	rig.position.y = 0.0
+	rig.stop_action()
+
+
+## The first form is gone: from here on the fight is against OBLIVION.
+func become_oblivion() -> void:
+	oblivion = true
+	_enraged = false
+	_posture = 0.0
+	_attack_index = 0
+	max_hp = OBLIVION_HP
+	hp = max_hp
+	radius = 2.8
+	move_speed = 6.4
+	engage_reach = 11.0
+	max_posture = INF
+	_set_body(2.8, 10.8)
+	state = "idle"
+	rig.stop_action()
+	rig.run_speed = move_speed
+	(rig as OverlordModel).awaken()
+
+
+## For a new run.
+func restore_first_form() -> void:
+	if not is_boss:
+		return
+	oblivion = false
+	_rebirth_started = false
+	max_hp = FIRST_BOSS_HP
+	radius = 1.15
+	move_speed = 4.9
+	engage_reach = 5.0
+	max_posture = 200.0
+	_set_body(1.05, 4.0)
+	rig.run_speed = move_speed
+	(rig as OverlordModel).revert_form()
+
+
+func _set_body(capsule_radius: float, height: float) -> void:
+	_capsule.radius = capsule_radius
+	_capsule.height = height
+	_shape.position.y = height * 0.5
 
 
 func is_engaged() -> bool:
@@ -124,6 +220,9 @@ func reset() -> void:
 	collision_layer = 4
 	collision_mask = 1 | 2 | 4
 	last_hit_time = -100.0
+	_shield_down = 0.0
+	if kind == "firewall" and rig is SoldierModel:
+		(rig as SoldierModel).set_shield(true)
 
 
 func _physics_process(delta: float) -> void:
@@ -133,6 +232,17 @@ func _physics_process(delta: float) -> void:
 	_cooldown -= delta
 	_skill_cooldown -= delta
 	_world_end_cooldown -= delta
+	if _shield_down > 0.0:
+		_shield_down -= delta
+		if _shield_down <= 0.0 and state != "dead":
+			(rig as SoldierModel).set_shield(true)
+			Fx.ring(global_position, 3.0, Color(1.0, 0.13, 0.2), 0.3)
+	_second_clock += delta
+	if _second_clock >= 1.0:
+		_second_clock = 0.0
+		_taken_this_second = 0.0
+	if state == "rebirth" and not _rebirth_started and Game.state == "play":
+		_rebirth_started = Game.cutscene.boss_rebirth(self)
 	var horizontal := Vector3.ZERO
 	if Game.state == "play" or state == "attack":
 		match state:
@@ -150,8 +260,11 @@ func _physics_process(delta: float) -> void:
 					_posture = 0.0
 	if state == "dead":
 		_hide_clock += delta
-		if _hide_clock > 3.5 and visible:
-			Fx.burst(chest_position() - Vector3(0, 1, 0), Color(1.0, 0.8, 0.35), 30, 4.0)
+		if _hide_clock > (3.5 if is_boss else 1.0) and visible:
+			if is_boss:
+				Fx.burst(chest_position() - Vector3(0, 1, 0), Color(1.0, 0.8, 0.35), 30, 4.0)
+			else:
+				SoldierSkills.pixels(chest_position() - Vector3(0, 0.4 * _body, 0), int(40 * _body), 0.5 * _body)
 			visible = false
 
 	_knock = _knock.move_toward(Vector3.ZERO, 26.0 * delta)
@@ -192,10 +305,13 @@ func _to_player() -> Vector3:
 
 func _idle(delta: float) -> Vector3:
 	var to := _to_player()
-	if Game.player.is_alive() and Game.state == "play":
+	if Game.player.is_alive() and Game.state == "play" and not Game.in_haven():
 		if is_boss:
 			if Vector2(Game.player.global_position.x - home.x, Game.player.global_position.z - home.z).length() < 27.0:
-				_wake()
+				if _waiting_for_intro():
+					Game.cutscene.boss_intro(self)
+				else:
+					_wake()
 				return Vector3.ZERO
 		elif to.length() < 17.0 and rad_to_deg(forward().angle_to(to)) < 105.0 or to.length() < 6.0:
 			_wake()
@@ -215,6 +331,11 @@ func _idle(delta: float) -> Vector3:
 	return goal.normalized() * 1.3
 
 
+## The boss cannot be touched until it has had its say.
+func _waiting_for_intro() -> bool:
+	return is_boss and state == "idle" and Game.cutscenes_on and (not Game.boss_intro_seen or Game.state == "cutscene")
+
+
 func _wake() -> void:
 	state = "chase"
 	_cooldown = 0.5
@@ -223,6 +344,28 @@ func _wake() -> void:
 		Game.boss_active = true
 		_skill_cooldown = 2.5
 		_world_end_cooldown = 6.0
+	elif kind == "daemon":
+		_skill_cooldown = 1.5
+	elif kind == "rootkit":
+		_skill_cooldown = 3.0
+
+
+## Keeps its distance, shoots, and vanishes if anything gets close.
+func _daemon(delta: float, to: Vector3) -> Vector3:
+	var distance := to.length()
+	_face(to, 8.0, delta)
+	if distance < 7.0 and _cooldown <= 0.0:
+		_cooldown = 2.5
+		SoldierSkills.teleport(self)
+		return Vector3.ZERO
+	if _skill_cooldown <= 0.0 and distance < 40.0:
+		begin_skill("daemon_beam")
+		return Vector3.ZERO
+	if distance > 26.0:
+		return to.normalized() * move_speed
+	if distance < 14.0:
+		return -to.normalized() * move_speed
+	return to.normalized().cross(Vector3.UP) * _strafe * 2.4
 
 
 func _chase(delta: float) -> Vector3:
@@ -231,6 +374,12 @@ func _chase(delta: float) -> Vector3:
 		return Vector3.ZERO
 	var to := _to_player()
 	var distance := to.length()
+	if kind == "daemon" and not is_boss:
+		return _daemon(delta, to)
+	if kind == "rootkit" and _skill_cooldown <= 0.0 and _cooldown <= 0.0:
+		_call_next = not _call_next
+		begin_skill("rootkit_call" if _call_next else "rootkit_wave")
+		return Vector3.ZERO
 	if not is_boss and home.distance_to(global_position) > 60.0:
 		state = "idle"
 		global_position = home
@@ -253,6 +402,12 @@ func _chase(delta: float) -> Vector3:
 
 
 func _next_skill() -> String:
+	if oblivion:
+		if _enraged and _world_end_cooldown <= 0.0:
+			_world_end_cooldown = 40.0
+			return "flick"
+		_skill_order += 1
+		return OverlordSkills.OBLIVION_ROTATION[_skill_order % OverlordSkills.OBLIVION_ROTATION.size()]
 	if _enraged and _world_end_cooldown <= 0.0:
 		_world_end_cooldown = 28.0
 		return "worldend"
@@ -282,7 +437,7 @@ func _using_skill(delta: float) -> void:
 	if t >= 1.0:
 		state = "chase"
 		_cooldown = randf_range(0.5, 1.2)
-		_skill_cooldown = randf_range(4.5, 7.5) * (0.6 if _enraged else 1.0)
+		_skill_cooldown = randf_range(4.5, 7.5) * (0.6 if _enraged else 1.0) * (0.55 if oblivion else 1.0)
 
 
 func _begin_attack() -> void:
@@ -301,10 +456,14 @@ func _begin_slam() -> void:
 	_start_attack()
 
 
+func _reach() -> float:
+	return _attack["reach"] * (2.2 if oblivion else _body)
+
+
 func _start_attack() -> void:
 	state = "attack"
 	_state_time = 0.0
-	var pace := 0.82 if _enraged else 1.0
+	var pace := (0.82 if _enraged else 1.0) * _pace
 	_state_length = _attack["length"] * pace
 	_did_hit = false
 	rig.play(_attack["anim"], _state_length)
@@ -330,7 +489,7 @@ func _attacking(delta: float) -> Vector3:
 		if _attack["anim"] == "slam":
 			_land_slam()
 		elif _player_in_arc():
-			_did_hit = Game.player.take_damage(_attack["damage"], global_position)
+			_did_hit = Game.player.take_damage(_attack["damage"] * _power, global_position)
 		if is_boss and _attack["anim"] != "slam" and _state_time > 0.0:
 			Game.shake(0.05)
 
@@ -351,51 +510,63 @@ func _move_slam(t: float) -> void:
 	var pos := _slam_from.lerp(_slam_to, f)
 	global_position.x = pos.x
 	global_position.z = pos.z
-	rig.position.y = sin(f * PI) * 7.0
+	rig.position.y = sin(f * PI) * 7.0 * body_scale()
 
 
 func _land_slam() -> void:
 	_did_hit = true
 	rig.position.y = 0.0
 	var at := global_position
-	Fx.ring(at, _attack["reach"], Color(1.0, 0.16, 0.22), 0.4)
+	Fx.ring(at, _reach(), Color(1.0, 0.16, 0.22), 0.4)
 	Fx.burst(at + Vector3(0, 0.3, 0), Color(1.0, 0.16, 0.22), 46, 13.0, 0.09)
 	Game.shake(0.65)
-	if _to_player().length() < _attack["reach"]:
+	if _to_player().length() < _reach():
 		Game.player.take_damage(_attack["damage"], at)
 
 
 func _player_in_arc() -> bool:
 	var to := _to_player()
-	if to.length() > _attack["reach"] + 0.4:
+	if to.length() > _reach() + 0.4:
 		return false
 	return to.length() < 0.8 or rad_to_deg(forward().angle_to(to)) <= _attack["arc"] * 0.5
 
 
-func take_hit(damage: float, poise: float, from: Vector3, blockable: bool, tint := Color(0.72, 0.6, 1.0), impact := -1.0) -> void:
-	if state == "dead":
+func take_hit(damage: float, poise: float, from: Vector3, _blockable: bool, tint := Color(0.72, 0.6, 1.0), impact := -1.0) -> void:
+	if state == "dead" or state == "rebirth":
+		return
+	if _waiting_for_intro():
+		if Game.player.is_alive():
+			Game.cutscene.boss_intro(self)
 		return
 	if state == "idle":
 		_wake()
+	if oblivion:
+		damage = clampf(damage * OBLIVION_ARMOUR, OBLIVION_MIN_HIT, OBLIVION_MAX_HIT)
+		damage = minf(damage, maxf(OBLIVION_MAX_PER_SECOND - _taken_this_second, 0.0))
+		_taken_this_second += damage
 	last_hit_time = Time.get_ticks_msec() / 1000.0
 
 	var to := from - global_position
 	to.y = 0.0
 	var at := chest_position()
-	# Soldiers catch frontal swings on the shield unless they are mid-attack.
-	var guarded := blockable and not is_boss and state == "chase" and rad_to_deg(forward().angle_to(to)) < 65.0 and randf() < 0.38
-	if guarded:
-		damage *= 0.25
-		poise *= 0.45
-		Fx.impact(at + to.normalized() * (radius + 0.3), Color(1.0, 0.78, 0.35), 0.15)
-	else:
-		var force := impact if impact >= 0.0 else clampf(poise / 70.0, 0.1, 1.0)
-		Fx.impact(at + to.normalized() * radius, tint, force)
-		# The body takes the blow: shoved back, and flinching unless mid-swing.
-		_knock = -to.normalized() * lerpf(2.5, 9.0, force) * (0.2 if is_boss else 1.0)
-		if state == "chase" and not is_boss:
-			rig.play("hit", 0.3)
-		rig.flash_hit()
+	# A FIREWALL stops everything from the front until something heavy enough breaks the shield.
+	if kind == "firewall" and not is_boss and _shield_down <= 0.0 and rad_to_deg(forward().angle_to(to)) < 75.0:
+		if poise < SHIELD_BREAK_POISE:
+			Fx.impact(at + to.normalized() * (radius + 0.4), Color(1.0, 0.2, 0.25), 0.2)
+			Game.shake(0.08)
+			return
+		_shield_down = SHIELD_DOWN_TIME
+		(rig as SoldierModel).set_shield(false)
+		SoldierSkills.pixels(at + to.normalized() * (radius + 0.4), 50, 0.8)
+		Fx.ring(global_position, 5.0, Color(1.0, 0.13, 0.2), 0.3)
+		Game.shake(0.4)
+	var force := impact if impact >= 0.0 else clampf(poise / 70.0, 0.1, 1.0)
+	Fx.impact(at + to.normalized() * radius, tint, force)
+	# The body takes the blow: shoved back, and flinching unless mid-swing.
+	_knock = -to.normalized() * lerpf(2.5, 9.0, force) * (0.2 if is_boss else 1.0 / _body)
+	if state == "chase" and not is_boss:
+		rig.play("hit", 0.3)
+	rig.flash_hit()
 
 	hp -= damage
 	_posture += poise
@@ -412,13 +583,13 @@ func take_hit(damage: float, poise: float, from: Vector3, blockable: bool, tint 
 
 ## Dragged along by a black hole; ignored mid-leap so a slam still lands where it was aimed.
 func pull(force: Vector3) -> void:
-	if state != "dead":
+	if state != "dead" and state != "rebirth" and not oblivion:
 		_knock = force
 
 
 ## Held in place by the supreme form's ERASURE.
 func freeze(seconds: float) -> void:
-	if state == "dead":
+	if state == "dead" or state == "rebirth" or oblivion or _waiting_for_intro():
 		return
 	_posture = 0.0
 	state = "stagger"
@@ -439,6 +610,16 @@ func _stagger() -> void:
 
 func _die() -> void:
 	hp = 0.0
+	if is_boss and not oblivion and Game.cutscenes_on:
+		# Not dead: this was only the first form.
+		state = "rebirth"
+		_rebirth_started = false
+		Game.boss_active = false
+		rig.position.y = 0.0
+		rig.play("death", 1.1, true)
+		if Game.player.target == self:
+			Game.player.target = null
+		return
 	state = "dead"
 	_hide_clock = 0.0
 	rig.position.y = 0.0

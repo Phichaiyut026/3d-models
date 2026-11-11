@@ -8,11 +8,13 @@ const GOLD := Color(0.96, 0.8, 0.46)
 const LAVENDER := Color(0.7, 0.6, 1.0)
 const SKEW := 0.65
 const ARENA := Vector3(22, 0, -112)
+const LETTERBOX := 110.0
 
 var font: Font
 var show_fps := false
 var screen_flash: ColorRect
 var screen_shatter: ColorRect
+var screen_doom: ColorRect
 var _panel := StyleBoxFlat.new()
 var _panel_lit := StyleBoxFlat.new()
 var _key := StyleBoxFlat.new()
@@ -49,6 +51,10 @@ func _ready() -> void:
 	var shatter_material := ShaderMaterial.new()
 	shatter_material.shader = preload("res://shaders/screen_shatter.gdshader")
 	screen_shatter.material = shatter_material
+	screen_doom = _overlay()
+	var doom_material := ShaderMaterial.new()
+	doom_material.shader = preload("res://shaders/doom_sheet.gdshader")
+	screen_doom.material = doom_material
 
 
 func _overlay() -> ColorRect:
@@ -89,6 +95,11 @@ func _process(delta: float) -> void:
 func _draw() -> void:
 	if Game.player == null or Game.camera == null or modulate.a <= 0.0:
 		return
+	if Game.state == "cutscene":
+		_draw_scene()
+		_draw_banner()
+		_draw_scene_fade()
+		return
 	_draw_vignette()
 	_draw_enemy_bars()
 	_draw_lock_on()
@@ -103,6 +114,34 @@ func _draw() -> void:
 	if Game.state == "dead":
 		draw_rect(Rect2(Vector2.ZERO, size), Color(0.01, 0.0, 0.03, 0.5))
 	_draw_banner()
+	_draw_letterbox()
+	_draw_scene_fade()
+
+
+# ----------------------------------------------------------------- cutscenes
+
+func _draw_letterbox() -> void:
+	var height := Game.cutscene.bars * LETTERBOX
+	if height <= 0.0:
+		return
+	draw_rect(Rect2(Vector2.ZERO, Vector2(size.x, height)), Color.BLACK)
+	draw_rect(Rect2(Vector2(0, size.y - height), Vector2(size.x, height)), Color.BLACK)
+
+
+func _draw_scene_fade() -> void:
+	if Game.cutscene.fade > 0.0:
+		draw_rect(Rect2(Vector2.ZERO, size), Color(0, 0, 0, Game.cutscene.fade))
+
+
+func _draw_scene() -> void:
+	_draw_letterbox()
+	var scene := Game.cutscene
+	var hint := "Tab  ข้าม"
+	if scene.waiting_for_press():
+		hint = "คลิก / Space  ถัดไป     " + hint
+		_centered(size.y - 72.0, scene.speaker, 21, scene.tint)
+		_centered(size.y - 32.0, scene.line.substr(0, int(scene.letters)), 29, WHITE)
+	_text(Vector2(0, 42), hint, 16, Color(MUTED, 0.85), HORIZONTAL_ALIGNMENT_RIGHT, size.x - 30.0)
 
 
 # ----------------------------------------------------------------- primitives
@@ -224,6 +263,9 @@ func _draw_compass() -> void:
 			draw_line(Vector2(x, center.y - (8 if tall else 4)), Vector2(x, center.y + (8 if tall else 4)), Color(MUTED, alpha * 0.8), 1.5 if tall else 1.0)
 	draw_colored_polygon(PackedVector2Array([center + Vector2(-7, -24), center + Vector2(7, -24), center + Vector2(0, -14)]), GOLD)
 	var from := Game.player.global_position
+	if Game.in_haven():
+		_compass_marker(Game.haven.exit_at - from, heading, center, width, Color("b8ff2e"))
+		return
 	if Game.checkpoint != null:
 		_compass_marker(Game.checkpoint.global_position - from, heading, center, width, LAVENDER)
 	if not Game.boss_defeated:
@@ -240,11 +282,14 @@ func _draw_objective() -> void:
 	var title := "เป้าหมาย"
 	var goal := "ไปยังหอดาวทางเหนือ"
 	var detail := "%d ม." % roundi(Game.player.global_position.distance_to(ARENA))
-	if Game.boss_defeated:
+	if Game.in_haven():
+		goal = "พักที่ Safe Mode แล้วกลับผ่านประตู"
+		detail = ""
+	elif Game.boss_defeated:
 		goal = "หุบเขาอำพันกลับคืนสู่ความสงบ"
 		detail = ""
 	elif Game.boss_active:
-		goal = "โค่น " + Game.BOSS_NAME
+		goal = "โค่น " + Game.boss_title()
 		detail = ""
 	var box_width := _text_width(goal, 20) + 36.0
 	var box_height := 86.0 if detail != "" else 66.0
@@ -275,7 +320,7 @@ func _draw_slots() -> void:
 	draw_style_box(_panel_lit if p.state == "transform" else _panel, Rect2(Vector2(30, y - 76), Vector2(_text_width(form, 15) + 50.0, 28)))
 	var form_x := 37.0 + _keycap(Vector2(37, y - 72), "T") + 7.0
 	_text(Vector2(form_x, y - 57), form, 15, (GOLD if not p.rig.is_supreme else WHITE) if ready else Color(MUTED, 0.6))
-	if p.rig.is_supreme:
+	if not Game.in_haven():
 		var flight := "ลงพื้น · Space ขึ้น · Ctrl ลง" if p.flying else "บิน"
 		draw_style_box(_panel_lit if p.flying else _panel, Rect2(Vector2(30, y - 110), Vector2(_text_width(flight, 15) + 50.0, 28)))
 		var flight_x := 37.0 + _keycap(Vector2(37, y - 106), "V") + 7.0
@@ -367,11 +412,11 @@ func _draw_boss() -> void:
 	var width := minf(size.x * 0.46, 760.0)
 	var left := (size.x - width) * 0.5
 	var y := size.y - 58.0
-	_centered(y - 12.0, Game.BOSS_NAME, 22, WHITE)
+	_centered(y - 12.0, Game.boss_title(), 22, WHITE)
 	_bar(Vector2(left, y), width, 15, ratio, Color(1.0, 0.56, 0.3), Color(0.74, 0.12, 0.2), _boss_shown)
 	# Below this mark the warden fights harder.
 	draw_line(Vector2(left + width * 0.5 + 5, y), Vector2(left + width * 0.5, y + 15), GOLD, 2.0)
-	var name_half := _text_width(Game.BOSS_NAME, 22) * 0.5 + 24.0
+	var name_half := _text_width(Game.boss_title(), 22) * 0.5 + 24.0
 	draw_colored_polygon(_star_points(Vector2(size.x * 0.5 - name_half, y - 19.0), 9.0, 0.28), GOLD)
 	draw_colored_polygon(_star_points(Vector2(size.x * 0.5 + name_half, y - 19.0), 9.0, 0.28), GOLD)
 
@@ -390,6 +435,15 @@ func _draw_lock_on() -> void:
 func _draw_prompt() -> void:
 	if Game.state != "play" or Game.player.state != "move":
 		return
+	if Game.in_haven():
+		var at := Game.player.global_position
+		if Game.haven.near_exit(at):
+			_draw_action_prompt("กลับหุบเขาอำพัน")
+			return
+		var npc := Game.haven.nearest_npc(at)
+		if npc != null:
+			_draw_action_prompt("คุยกับ " + npc.display_name)
+			return
 	if Game.nearest_shrine(Game.player.global_position, 3.6) == null:
 		return
 	var cost := Game.player.upgrade_cost()
@@ -405,6 +459,15 @@ func _draw_prompt() -> void:
 	var can_pay := Game.stardust >= cost
 	x += _keycap(Vector2(x, box.position.y + 13), "U") + 8.0
 	_text(Vector2(x, box.position.y + 31), boost, 19, GOLD if can_pay else Color(MUTED, 0.7))
+
+
+func _draw_action_prompt(label: String) -> void:
+	var total := _text_width(label, 19) + 76.0
+	var box := Rect2(Vector2((size.x - total) * 0.5, size.y * 0.74), Vector2(total, 48))
+	draw_style_box(_panel, box)
+	var x := box.position.x + 20.0
+	x += _keycap(Vector2(x, box.position.y + 13), "E") + 8.0
+	_text(Vector2(x, box.position.y + 31), label, 19, WHITE)
 
 
 func _draw_banner() -> void:
