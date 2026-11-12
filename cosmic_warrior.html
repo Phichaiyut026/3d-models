@@ -16,6 +16,12 @@
   .gap{width:10px}
   #flash{position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:2}
   @media (max-width:640px){button{padding:6px 7px;font-size:11px}.gap{width:2px}#bar{gap:4px;bottom:10px}}
+  /* forms */
+  #forms{position:fixed;left:50%;top:14px;transform:translateX(-50%);display:flex;gap:6px;z-index:4}
+  #forms button{padding:7px 11px;font-size:11px}
+  #formFade{position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:5;transition:opacity .28s}
+  @media (max-width:900px){#forms{left:20px;transform:none;top:100px;flex-direction:column;align-items:flex-start}}
+  /* /forms */
 </style>
 <script type="importmap">
 {"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}
@@ -1480,7 +1486,49 @@ function animate() {
   camera.position.sub(off);
   camShake *= Math.exp(-dt * 7);
 }
+// precompile
+// Draw one frame with every effect switched on while the page loads, clipped to a single pixel so nothing
+// shows. That builds every shader and sends every mesh and texture to the GPU now; otherwise each skill
+// does it the first time it is used, and the page freezes for up to a few seconds as the move starts.
+{
+  const hidden = [];
+  scene.traverse(o => { if (!o.visible) { hidden.push(o); o.visible = true; } });
+  renderer.setScissorTest(true); renderer.setScissor(0, 0, 1, 1);
+  renderer.render(scene, camera);
+  renderer.setScissorTest(false);
+  hidden.forEach(o => { o.visible = false; });
+}
+// /precompile
 animate();
 </script>
+<!-- forms -->
+<div id="forms" title="กด T เพื่อเปลี่ยนร่าง">
+  <button data-form="cosmic_warrior_base.html">ร่าง 1 · COSMIC</button>
+  <button data-form="cosmic_warrior.html" class="on">ร่าง 2 · SUPREME</button>
+  <button data-form="gemini_aegis.html">ร่าง 3 · ARGON</button>
+</div>
+<div id="formFade"></div>
+<script>
+// Inside gemini_forms.html every form shares one page, so the switch is handed up to it.
+// Opened on its own, a page can only move to the next file, which works from disk or a server but not from a snapshot.
+(() => {
+  const forms = [...document.querySelectorAll('#forms [data-form]')], fade = document.getElementById('formFade');
+  const here = forms.findIndex(b => b.classList.contains('on'));
+  const hosted = window.parent !== window, canLeave = /^(file|https?):$/.test(location.protocol);
+  if (!hosted && !canLeave) forms.forEach(b => { b.title = 'หน้านี้เปิดแบบสำเนา สลับร่างไม่ได้ · เปิด gemini_forms.html แทน'; });
+  const go = i => {
+    if (i === here) return;
+    if (hosted) return parent.postMessage({ geminiForm: i }, '*');
+    if (!canLeave) return;
+    fade.style.opacity = 1;
+    setTimeout(() => { location.href = forms[i].dataset.form; }, 300);
+    setTimeout(() => { fade.style.opacity = 0; }, 2500); // never strand the page on white if the next one fails to open
+  };
+  forms.forEach((b, i) => b.onclick = () => go(i));
+  addEventListener('keydown', e => { if (e.key === 't' || e.key === 'T') go((here + 1) % forms.length); });
+  addEventListener('pageshow', () => { fade.style.opacity = 0; }); // coming back with the browser's back button
+})();
+</script>
+<!-- /forms -->
 </body>
 </html>
