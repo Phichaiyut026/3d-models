@@ -32,6 +32,10 @@ const OBLIVION_ARMOUR := 0.12 ## Share of each blow that gets through.
 const OBLIVION_MIN_HIT := 15.0 ## Even the first form's weakest cut must count for something.
 const OBLIVION_MAX_HIT := 120.0
 const OBLIVION_MAX_PER_SECOND := 120.0 ## So a storm of small hits cannot erase it either.
+## What the supreme form, earned in Safe Mode, gets through: enough to win the rematch.
+const SUPREME_ARMOUR := 0.6
+const SUPREME_MAX_HIT := 900.0
+const SUPREME_MAX_PER_SECOND := 650.0
 
 var is_boss := false
 var kind := "process"
@@ -276,7 +280,7 @@ func _physics_process(delta: float) -> void:
 		velocity.y -= GRAVITY * delta
 	if state != "dead":
 		move_and_slide()
-		var ground := Game.terrain.get_height(global_position.x, global_position.z)
+		var ground := Game.ground_height(global_position.x, global_position.z)
 		if global_position.y < ground - 0.2:
 			global_position.y = ground + 0.1
 	_tick_from = _tick_to
@@ -452,7 +456,7 @@ func _begin_slam() -> void:
 	_attack = BOSS_ATTACKS[3]
 	_slam_from = global_position
 	_slam_to = Game.player.global_position - _to_player().normalized() * 2.0
-	_slam_to.y = Game.terrain.get_height(_slam_to.x, _slam_to.z)
+	_slam_to.y = Game.ground_height(_slam_to.x, _slam_to.z)
 	_start_attack()
 
 
@@ -541,8 +545,9 @@ func take_hit(damage: float, poise: float, from: Vector3, _blockable: bool, tint
 	if state == "idle":
 		_wake()
 	if oblivion:
-		damage = clampf(damage * OBLIVION_ARMOUR, OBLIVION_MIN_HIT, OBLIVION_MAX_HIT)
-		damage = minf(damage, maxf(OBLIVION_MAX_PER_SECOND - _taken_this_second, 0.0))
+		var strong := Game.player.rig.is_supreme
+		damage = clampf(damage * (SUPREME_ARMOUR if strong else OBLIVION_ARMOUR), OBLIVION_MIN_HIT, SUPREME_MAX_HIT if strong else OBLIVION_MAX_HIT)
+		damage = minf(damage, maxf((SUPREME_MAX_PER_SECOND if strong else OBLIVION_MAX_PER_SECOND) - _taken_this_second, 0.0))
 		_taken_this_second += damage
 	last_hit_time = Time.get_ticks_msec() / 1000.0
 

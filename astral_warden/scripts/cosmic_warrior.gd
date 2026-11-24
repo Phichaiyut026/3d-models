@@ -14,13 +14,20 @@ const WING := preload("res://shaders/cosmic_wing.gdshader")
 const STAR := preload("res://shaders/star_spark.gdshader")
 const GOD_RAYS := preload("res://shaders/god_rays.gdshader")
 const MANDALA := preload("res://shaders/mandala.gdshader")
+const ARGON_RAYS := preload("res://shaders/argon_rays.gdshader")
+const ARGON_SIGIL := preload("res://shaders/argon_sigil.gdshader")
+const ARGON_CODE := preload("res://shaders/argon_code.gdshader")
 
 const MODEL_SCALE := 0.36
 const HIP_Y := 2.5 ## Height of the waist in model units, as in cosmic_warrior.html.
 const GRIP_ANGLE := 0.75
 const BLADE_LENGTH := 3.5
 const SUPREME_SCALE := 1.9 ## The same growth as the web model.
+const ARGON_SCALE := 2.2 ## GOD_SCALE of gemini_aegis.html.
 const GLOW_GOLD := {0x5f8dff: 0xffd98a, 0x8fb8ff: 0xffe3a0, 0x4d6cff: 0xffc24d, 0x7fc8ff: 0xffe6b0}
+const GLOW_ARGON := {0x5f8dff: 0x3fe8ff, 0x8fb8ff: 0x9ffcff, 0x4d6cff: 0x2fd8ff, 0x7fc8ff: 0x7dffc8}
+const CYAN := 0x3fe8ff
+const MINT := 0x7dffc8
 # Upright and loose in the air, and stretched out at speed.
 const FLY_HOVER := {
 	"legL": Vector3(-0.22, 0, 0.04), "shinL": Vector3(0.42, 0, 0), "footL": Vector3(0.6, 0, 0),
@@ -82,10 +89,26 @@ var _blade_power := 0.0
 var _blade_goal := 0.0
 
 var is_armed := false
-var is_supreme := false
+var is_supreme := false ## True in both higher forms: they share the supreme form's powers of body.
+var is_argon := false ## The third form, GEMINI ARGON.
+var form := 0 ## 0 first form, 1 supreme, 2 ARGON.
+## Set by the powers while they play: how far ARGON's sentinels fly out, and how bright its shield burns.
+var argon_orbit := 0.0
+var argon_shield := 0.0
 var _body: Node3D
 var _god_nodes: Array[Node3D] = []
-var _form_swaps: Array = [] ## [material, parameter, first form value, supreme value]
+var _god_only := {} ## Node -> "" (both higher forms), "supreme" or "argon".
+var _form_swaps: Array = [] ## [material, parameter, first form value, supreme value, ARGON value]
+var _halo_outer: Node3D
+var _halo_inner: Node3D
+var _crest: Node3D
+var _sentinels: Array = [] ## [node, phase, tilt]
+var _panels: Array = [] ## [node, index, resting position]
+var _argon_rays: ShaderMaterial
+var _sigil_node: Node3D
+var _shield_field: MeshInstance3D
+var _shield_material: StandardMaterial3D
+var _argon_clock := 0.0
 var _suit: ShaderMaterial
 var _nebula: Texture2D
 var _infinity: Node3D
@@ -145,6 +168,7 @@ func _init() -> void:
 	forge = MeshForge.new(_make_materials())
 	_build()
 	_build_supreme()
+	_build_argon()
 	forge.commit()
 	_clone_wings()
 	forge = null
@@ -197,18 +221,22 @@ func _make_materials() -> Dictionary:
 	}
 	_suit = made["suit"]
 	# The new palette from cosmic_warrior.html: white and gold over the night sky.
-	for pair: Array in [["armor", 0xf0ecff], ["lite", 0xf4c95d], ["deep", 0x1c1450], ["sole", 0xb88a2c], ["handSuit", 0xf0ecff], ["handDeep", 0xf4c95d], ["blade_deep", 0x1c1450], ["blade_lite", 0xf4c95d]]:
-		_remember(made[pair[0]], "albedo", pair[1])
-	for pair: Array in [["ice", 0xfff6d8], ["line", 0xfff2c4], ["neon", 0xffe9a8], ["blade_ice", 0xfff6d8], ["blade_edge", 0xfff6d8]]:
-		_remember(made[pair[0]], "color", pair[1])
-	_remember(rim, "color", 0xf4c95d)
-	_remember(hand_suit, "emissive", 0xffd98a)
-	_remember(hand_deep, "emissive", 0xffd98a)
+	# And ARGON's from gemini_aegis.html: white and cyan, the colours of a clean system.
+	for pair: Array in [["armor", 0xf0ecff, 0xf2f8ff], ["lite", 0xf4c95d, 0x3adcf4], ["deep", 0x1c1450, 0x0b1a3c], ["sole", 0xb88a2c, 0x1590b0], ["handSuit", 0xf0ecff, 0xf2f8ff], ["handDeep", 0xf4c95d, 0x3adcf4], ["blade_deep", 0x1c1450, 0x0b1a3c], ["blade_lite", 0xf4c95d, 0x3adcf4]]:
+		_remember(made[pair[0]], "albedo", pair[1], pair[2])
+	for pair: Array in [["ice", 0xfff6d8, 0xdcfffa], ["line", 0xfff2c4, 0xb4fff0], ["neon", 0xffe9a8, 0x7dffd8], ["blade_ice", 0xfff6d8, 0xdcfffa], ["blade_edge", 0xfff6d8, 0xdcfffa]]:
+		_remember(made[pair[0]], "color", pair[1], pair[2])
+	_remember(rim, "color", 0xf4c95d, 0x3adcf4)
+	_remember(hand_suit, "emissive", 0xffd98a, 0x8dfff0)
+	_remember(hand_deep, "emissive", 0xffd98a, 0x8dfff0)
+	var code := ShaderMaterial.new()
+	code.shader = ARGON_CODE
+	made["argon_code"] = code
 	return made
 
 
-func _remember(material: ShaderMaterial, parameter: String, supreme_hex: int) -> void:
-	_form_swaps.append([material, parameter, material.get_shader_parameter(parameter), Color.hex((supreme_hex << 8) | 0xff)])
+func _remember(material: ShaderMaterial, parameter: String, supreme_hex: int, argon_hex: int) -> void:
+	_form_swaps.append([material, parameter, material.get_shader_parameter(parameter), Color.hex((supreme_hex << 8) | 0xff), Color.hex((argon_hex << 8) | 0xff)])
 
 
 func _hull(color: Color, thickness: float) -> ShaderMaterial:
@@ -244,7 +272,7 @@ func _glow(parent: Node3D, xf: Transform3D, size: float, hex: int, strength := 1
 	m.set_shader_parameter("color", Color.hex((hex << 8) | 0xff))
 	m.set_shader_parameter("strength", strength)
 	if GLOW_GOLD.has(hex):
-		_remember(m, "color", GLOW_GOLD[hex])
+		_remember(m, "color", GLOW_GOLD[hex], GLOW_ARGON[hex])
 	quad.material = m
 	var instance := MeshInstance3D.new()
 	instance.mesh = quad
@@ -338,13 +366,15 @@ func _build_helmet(upper: Node3D) -> void:
 
 # ------------------------------------------------------------- the supreme form
 
-func _god_node(parent: Node3D, pos := Vector3.ZERO) -> Node3D:
+## `only` keeps a piece to one of the higher forms: "supreme" or "argon". Empty means both.
+func _god_node(parent: Node3D, pos := Vector3.ZERO, only := "") -> Node3D:
 	var node := Node3D.new()
 	node.position = pos
 	node.visible = false
 	node.rotation_order = EULER_ORDER_XYZ
 	parent.add_child(node)
 	_god_nodes.append(node)
+	_god_only[node] = only
 	return node
 
 
@@ -356,12 +386,13 @@ func _build_supreme() -> void:
 	var dress := _god_node(upper)
 
 	# A star crown over the helmet, and the sign of infinity above it.
-	f.add(dress, MeshForge.xform(Vector3(0, 5.98, -0.05), Vector3(PI * 0.5, 0, 0)), MeshForge.torus_geo(1.0, 0.04, 8, 64), "lite", true)
+	var crown := _god_node(upper, Vector3.ZERO, "supreme")
+	f.add(crown, MeshForge.xform(Vector3(0, 5.98, -0.05), Vector3(PI * 0.5, 0, 0)), MeshForge.torus_geo(1.0, 0.04, 8, 64), "lite", true)
 	for i in 12:
 		var a := i / 12.0 * TAU
 		var tall := 0.42 if i % 2 == 1 else 0.8
-		f.limb(dress, I, Vector3(cos(a), 5.98, sin(a) - 0.05), Vector3(cos(a) * 1.24, 5.98 + tall, sin(a) * 1.24 - 0.05), [[0.0, 0.055], [1.0, 0.006]], "lite", 1.0, 6)
-	_infinity = _god_node(upper, Vector3(0, 7.15, -0.05))
+		f.limb(crown, I, Vector3(cos(a), 5.98, sin(a) - 0.05), Vector3(cos(a) * 1.24, 5.98 + tall, sin(a) * 1.24 - 0.05), [[0.0, 0.055], [1.0, 0.006]], "lite", 1.0, 6)
+	_infinity = _god_node(upper, Vector3(0, 7.15, -0.05), "supreme")
 	var point := func(u: float) -> Vector3:
 		var t := u * TAU
 		var d := 1.0 + pow(sin(t), 2.0)
@@ -397,11 +428,11 @@ func _build_supreme() -> void:
 		f.plate(dress, MeshForge.xform(Vector3(cos(a) * 0.6, 3.48 + sin(a) * 0.6, 0.66), Vector3(0, 0, a - PI * 0.5)), [[-0.045, 0.0], [0.045, 0.0], [0.0, r - 0.6]], 0.02, "neon")
 	for s: float in [-1.0, 1.0]:
 		var suffix := "L" if s > 0.0 else "R"
-		f.add(_god_node(joints["fore" + suffix]), MeshForge.xform(Vector3(s * 0.36, -0.48, 0.07), Vector3(1.25, s * 0.35, 0)), MeshForge.torus_geo(0.31, 0.05, 8, 22), "lite", true)
-		f.add(_god_node(joints["shin" + suffix]), MeshForge.xform(Vector3(s * 0.08, -0.86, 0.02), Vector3(PI * 0.5, 0, 0)), MeshForge.torus_geo(0.36, 0.05, 8, 22), "lite", true)
+		f.add(_god_node(joints["fore" + suffix], Vector3.ZERO, "supreme"), MeshForge.xform(Vector3(s * 0.36, -0.48, 0.07), Vector3(1.25, s * 0.35, 0)), MeshForge.torus_geo(0.31, 0.05, 8, 22), "lite", true)
+		f.add(_god_node(joints["shin" + suffix], Vector3.ZERO, "supreme"), MeshForge.xform(Vector3(s * 0.08, -0.86, 0.02), Vector3(PI * 0.5, 0, 0)), MeshForge.torus_geo(0.36, 0.05, 8, 22), "lite", true)
 
 	# The armillary of the multiverse: tilted orbits, each carrying small universes.
-	_armillary = _god_node(root_joint, Vector3(0, 3.2, 0))
+	_armillary = _god_node(root_joint, Vector3(0, 3.2, 0), "supreme")
 	var n := 0
 	for orbit: Array in [[3.2, Vector3(1.2, 0, 0.3), 0.23], [2.96, Vector3(0.3, 0.5, 1.3), -0.31], [3.08, Vector3(PI * 0.5 + 0.55, 0.9, 0), 0.17]]:
 		var tilt := _god_node(_armillary)
@@ -430,7 +461,7 @@ func _build_supreme() -> void:
 	rays.position = Vector3(0, 3.2, 0)
 	rays.extra_cull_margin = 30.0
 	rays.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	_god_node(root_joint).add_child(rays)
+	_god_node(root_joint, Vector3.ZERO, "supreme").add_child(rays)
 
 	# The mandala of creation under the feet. It stays on the ground when the body rises.
 	var plane := PlaneMesh.new()
@@ -442,7 +473,7 @@ func _build_supreme() -> void:
 	mandala.mesh = plane
 	mandala.position.y = 0.12
 	mandala.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	_mandala_node = _god_node(_body)
+	_mandala_node = _god_node(_body, Vector3.ZERO, "supreme")
 	_mandala_node.add_child(mandala)
 
 
@@ -461,43 +492,53 @@ func _add_orbit_spark(parent: Node3D, at: Vector3, size: float, hex: int) -> voi
 	parent.add_child(spark)
 
 
-## Six wings: the original pair, a greater pair above and a lesser pair below.
+## Six wings: the original pair, a greater pair above and a lesser pair below. ARGON grows an eighth pair, higher still.
 func _clone_wings() -> void:
 	for s: float in [-1.0, 1.0]:
 		var wing: Node3D = _wings[s]
 		var pieces: Array[Node] = []
 		for child in wing.get_children():
-			if not child is CPUParticles3D:
+			if not child is CPUParticles3D and not _god_only.has(child):
 				pieces.append(child)
-		for pair: Array in [[0.62, 1.2], [-0.58, 0.86]]:
-			var group := _god_node(wing)
+		for pair: Array in [[0.62, 1.2, ""], [-0.58, 0.86, ""], [1.12, 0.78, "argon"]]:
+			var group := _god_node(wing, Vector3.ZERO, pair[2])
 			group.rotation.z = s * pair[0]
 			group.scale = Vector3.ONE * pair[1]
 			for piece in pieces:
 				group.add_child(piece.duplicate())
 
 
-## Swaps the whole body between its two forms. `snap` skips the change of size.
+## Swaps the whole body between the first and the supreme form. `snap` skips the change of size.
 func set_form(supreme: bool, snap := false) -> void:
+	set_form_level(1 if supreme else 0, snap)
+
+
+## Swaps the whole body between its three forms: 0 first, 1 supreme, 2 ARGON.
+func set_form_level(level: int, snap := false) -> void:
+	form = level
+	var supreme := level >= 1
 	is_supreme = supreme
+	is_argon = level == 2
 	for swap: Array in _form_swaps:
-		swap[0].set_shader_parameter(swap[1], swap[3] if supreme else swap[2])
+		swap[0].set_shader_parameter(swap[1], swap[2 + level])
 	# Beneath the armour the supreme body is the universe itself.
 	_suit.shader = COSMIC if supreme else TOON
 	if supreme:
 		_suit.set_shader_parameter("nebula", _nebula)
 		_suit.set_shader_parameter("u_scale", MeshForge.TILE)
 	for node in _god_nodes:
-		node.visible = supreme
+		var only: String = _god_only.get(node, "")
+		node.visible = supreme if only == "" else (level == 1 if only == "supreme" else is_argon)
 	for m in _flames:
-		m.set_shader_parameter("gold", 1.0 if supreme else 0.0)
+		m.set_shader_parameter("gold", 1.0 if level == 1 else 0.0)
 	var warm := Color(1.0, 0.82, 0.5)
 	var cool := Color(0.62, 0.5, 1.0)
-	_blade_light.light_color = warm if supreme else cool
+	var clean := Color(0.45, 1.0, 0.95)
+	_blade_light.light_color = clean if is_argon else (warm if supreme else cool)
 	for light in _hand_lights:
-		light.light_color = Color.hex(0xffd98aff) if supreme else Color.hex(0xb49cffff)
-	_aura.set_shader_parameter("tint", Color(1.0, 0.72, 0.3) if supreme else Color(0.6, 0.48, 1.0))
-	_scale_goal = SUPREME_SCALE if supreme else 1.0
+		light.light_color = Color.hex(0x8dfff0ff) if is_argon else (Color.hex(0xffd98aff) if supreme else Color.hex(0xb49cffff))
+	_aura.set_shader_parameter("tint", Color(0.3, 0.9, 1.0) if is_argon else (Color(1.0, 0.72, 0.3) if supreme else Color(0.6, 0.48, 1.0)))
+	_scale_goal = ARGON_SCALE if is_argon else (SUPREME_SCALE if supreme else 1.0)
 	if snap:
 		scale = Vector3.ONE * _scale_goal
 		_hover = 0.0
@@ -537,7 +578,8 @@ func _update_flight(delta: float) -> void:
 	var waist := Vector3(0, pivot.y * MODEL_SCALE, 0)
 	_body.transform.basis = Basis(Vector3.RIGHT, _tilt) * Basis.from_scale(Vector3.ONE * MODEL_SCALE)
 	_body.position = waist - Basis(Vector3.RIGHT, _tilt) * waist
-	_mandala_node.visible = is_supreme and not _flying
+	_mandala_node.visible = form == 1 and not _flying
+	_sigil_node.visible = is_argon and not _flying
 
 
 func _update_supreme(delta: float) -> void:
@@ -556,7 +598,180 @@ func _update_supreme(delta: float) -> void:
 		for orbit: Array in _orbits:
 			orbit[0].rotation.z = _flap * orbit[1]
 		_rays.set_shader_parameter("power", 0.5 + _charge * 0.25 + sin(_flap * 2.2) * 0.03)
+		if is_argon:
+			_update_argon(delta)
 	root_joint.position.y += _hover / MODEL_SCALE
+
+
+static func _hex(r: float) -> Array:
+	var out := []
+	for i in 6:
+		var a := i / 6.0 * TAU + PI / 6.0
+		out.append([cos(a) * r, sin(a) * r])
+	return out
+
+
+## Everything GEMINI ARGON wears over the supreme body, ported from gemini_aegis.html.
+func _build_argon() -> void:
+	var f := forge
+	var I := Transform3D.IDENTITY
+	var upper: Node3D = joints["upper"]
+	var dress := _god_node(upper, Vector3.ZERO, "argon")
+
+	# Firewall panels fanned out behind the wings.
+	for s: float in [-1.0, 1.0]:
+		for i in 5:
+			var fa := 1.2 - i * 0.5
+			var g := _god_node(_wings[s], Vector3(s * cos(fa) * 3.3, sin(fa) * 3.0 + 0.3, -1.15 - i * 0.08), "argon")
+			g.basis = MeshForge.orient(Vector3(s * 0.25, 0, 1))
+			f.plate(g, I, _hex(0.42), 0.08, "lite", 0.02)
+			f.plate(g, MeshForge.xform(Vector3(0, 0, 0.05)), _hex(0.32), 0.02, "cosmic")
+			_glow(g, MeshForge.xform(Vector3(0, 0, 0.08)), 1.1, CYAN, 0.7)
+			_panels.append([g, i, g.position])
+
+	# The scan halo behind the head: an outer ring that turns one way, a hexagon that turns the other.
+	var halo := _god_node(upper, Vector3(0, 5.0, -1.05), "argon")
+	_halo_outer = Node3D.new()
+	_halo_inner = Node3D.new()
+	halo.add_child(_halo_outer)
+	halo.add_child(_halo_inner)
+	f.add(_halo_outer, I, MeshForge.torus_geo(1.55, 0.045, 6, 96), "lite", true)
+	for i in 24:
+		var a := i / 24.0 * TAU
+		f.add(_halo_outer, MeshForge.xform(Vector3(cos(a) * 1.74, sin(a) * 1.74, 0), Vector3(0, 0, a - PI * 0.5)), MeshForge.box_geo(0.05, 0.14 if i % 3 != 0 else 0.32, 0.03), "ice")
+	f.add(_halo_inner, I, MeshForge.torus_geo(1.3, 0.05, 6, 6), "ice", true)
+	for pt: Array in _hex(1.3):
+		f.plate(_halo_inner, MeshForge.xform(Vector3(pt[1], pt[0], 0)), _hex(0.13), 0.05, "lite")
+	_glow(halo, MeshForge.xform(Vector3(0, 0, -0.05)), 4.4, CYAN, 0.5)
+
+	# A shield crest with the mark of a clean scan, floating over the star helmet.
+	_crest = _god_node(upper, Vector3(0, 6.4, -0.1), "argon")
+	var shield := func(k: float) -> Array:
+		return [[0.0, 0.62 * k], [0.5 * k, 0.45 * k], [0.46 * k, -0.05 * k], [0.0, -0.62 * k], [-0.46 * k, -0.05 * k], [-0.5 * k, 0.45 * k]]
+	f.plate(_crest, I, shield.call(1.0), 0.1, "lite", 0.02)
+	f.plate(_crest, MeshForge.xform(Vector3(0, 0, 0.06)), shield.call(0.78), 0.02, "cosmic")
+	_neon(_crest, I, [[-0.22, 0.02], [-0.06, -0.16], [0.24, 0.22]], 0.08, 0.07, "ice")
+	_glow(_crest, MeshForge.xform(Vector3(0, 0, 0.1)), 1.7, MINT, 0.9)
+
+	# The visor's scan line and a hexagonal frame around the star on the breast.
+	f.add(dress, MeshForge.xform(Vector3(0, 4.69, 0.655)), MeshForge.box_geo(0.98, 0.04, 0.02), "ice")
+	_glow(dress, MeshForge.xform(Vector3(0, 4.69, 0.67)), 1.2, CYAN, 0.6)
+	f.add(dress, MeshForge.xform(Vector3(0, 3.48, 0.6)), MeshForge.torus_geo(0.64, 0.035, 6, 6), "ice", true)
+
+	# Hexagonal bracers and greaves.
+	for s: float in [-1.0, 1.0]:
+		var suffix := "L" if s > 0.0 else "R"
+		f.add(_god_node(joints["fore" + suffix], Vector3.ZERO, "argon"), MeshForge.xform(Vector3(s * 0.36, -0.48, 0.07), Vector3(1.25, s * 0.35, 0)), MeshForge.torus_geo(0.31, 0.05, 6, 6), "lite", true)
+		f.add(_god_node(joints["shin" + suffix], Vector3.ZERO, "argon"), MeshForge.xform(Vector3(s * 0.08, -0.86, 0.02), Vector3(PI * 0.5, 0, 0)), MeshForge.torus_geo(0.36, 0.05, 6, 6), "lite", true)
+
+	# The AEGIS: a hexagonal shield on the left forearm.
+	var to_w := Vector3(0.46, -0.63, 0.08)
+	var d := to_w.normalized()
+	var n := Vector3(1, 0.1, -0.05)
+	n = (n - d * n.dot(d)).normalized()
+	var aegis := _god_node(joints["foreL"], to_w * 0.5 + n * 0.44, "argon")
+	aegis.basis = Basis(d.cross(n).normalized(), d, n)
+	f.plate(aegis, I, _hex(0.95), 0.14, "lite", 0.03)
+	f.plate(aegis, MeshForge.xform(Vector3(0, 0, 0.09)), _hex(0.8), 0.03, "cosmic")
+	f.plate(aegis, MeshForge.xform(Vector3(0, 0, 0.12)), _hex(0.46), 0.03, "armor", 0.01)
+	f.plate(aegis, MeshForge.xform(Vector3(0, 0, 0.15)), MeshForge.star4(0.34, 0.08, 0.38), 0.02, "ice")
+	for pt: Array in _hex(1.0):
+		_neon(aegis, I, [[pt[0] * 0.52, pt[1] * 0.52], [pt[0] * 0.78, pt[1] * 0.78]], 0.115, 0.035, "neon")
+	_glow(aegis, MeshForge.xform(Vector3(0, 0, 0.17)), 2.4, CYAN, 0.9)
+	var field := CylinderMesh.new()
+	field.top_radius = 2.6
+	field.bottom_radius = 2.6
+	field.height = 0.01
+	field.radial_segments = 6
+	field.rings = 1
+	_shield_material = StandardMaterial3D.new()
+	_shield_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_shield_material.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	_shield_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	_shield_material.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
+	_shield_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	_shield_material.albedo_color = Color(0.25, 0.9, 1.0, 0.0)
+	field.material = _shield_material
+	_shield_field = MeshInstance3D.new()
+	_shield_field.mesh = field
+	_shield_field.position = Vector3(0, 0, 0.4)
+	_shield_field.rotation = Vector3(PI * 0.5, PI / 6.0, 0)
+	_shield_field.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_shield_field.visible = false
+	aegis.add_child(_shield_field)
+
+	# The code of the antivirus running down the back of the mantle.
+	var mantle := [[-0.55 * 0.95, 3.95], [0.55 * 0.95, 3.95], [1.08 * 0.95, 0.38], [0.52 * 0.95, 0.2], [0.0, 0.05], [-0.52 * 0.95, 0.2], [-1.08 * 0.95, 0.38]]
+	var geo := MeshForge.shape_geo(mantle, 0.01)
+	for i in geo.points.size():
+		var p := geo.points[i]
+		p.z += -0.74 - (3.95 - p.y) * 0.24
+		geo.points[i] = p
+	f.add(_god_node(upper, Vector3.ZERO, "argon"), I, geo, "argon_code")
+
+	# Eight sentinels orbit the body: little shields that become the dome's anchors.
+	var ring := _god_node(root_joint, Vector3(0, 3.2, 0), "argon")
+	for i in 8:
+		var g := Node3D.new()
+		ring.add_child(g)
+		f.plate(g, I, _hex(0.26), 0.08, "lite", 0.015)
+		f.plate(g, MeshForge.xform(Vector3(0, 0, 0.05)), _hex(0.18), 0.02, "cosmic")
+		f.add(g, MeshForge.xform(Vector3(0, 0, 0.08)), MeshForge.sphere_geo(0.08, 4, 2), "ice")
+		_glow(g, MeshForge.xform(Vector3(0, 0, 0.1)), 1.4, CYAN if i % 2 == 1 else MINT, 0.9)
+		_sentinels.append([g, i / 8.0 * TAU, 0.35 if i % 2 == 1 else -0.35])
+
+	# The aura: a shimmer of honeycomb and rays, always behind the body.
+	var quad := QuadMesh.new()
+	quad.size = Vector2(2, 2)
+	_argon_rays = ShaderMaterial.new()
+	_argon_rays.shader = ARGON_RAYS
+	_argon_rays.set_shader_parameter("half_size", 15.0 * MODEL_SCALE * ARGON_SCALE)
+	_argon_rays.set_shader_parameter("depth", 1.5)
+	quad.material = _argon_rays
+	var rays := MeshInstance3D.new()
+	rays.mesh = quad
+	rays.position = Vector3(0, 3.2, 0)
+	rays.extra_cull_margin = 30.0
+	rays.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_god_node(root_joint, Vector3.ZERO, "argon").add_child(rays)
+
+	# A radar sigil under the feet, its sweep always turning.
+	var plane := PlaneMesh.new()
+	plane.size = Vector2(7.4, 7.4)
+	var sigil_material := ShaderMaterial.new()
+	sigil_material.shader = ARGON_SIGIL
+	plane.material = sigil_material
+	var sigil := MeshInstance3D.new()
+	sigil.mesh = plane
+	sigil.position.y = 0.12
+	sigil.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_sigil_node = _god_node(_body, Vector3.ZERO, "argon")
+	_sigil_node.add_child(sigil)
+
+
+func _update_argon(delta: float) -> void:
+	_argon_clock += delta
+	var t := _argon_clock
+	_halo_outer.rotation.z = t * 0.25
+	_halo_inner.rotation.z = -t * 0.4
+	_crest.rotation.y = sin(t * 0.8) * 0.3
+	var orb := argon_orbit
+	for entry: Array in _sentinels:
+		var node: Node3D = entry[0]
+		var phase: float = entry[1]
+		var tilt: float = entry[2]
+		var a := phase + t * (0.45 + orb * 0.6)
+		var r := 3.4 + orb * 5.0
+		node.position = Vector3(cos(a) * r, sin(t * 1.3 + phase * 2.0) * 0.4 + tilt * r * 0.25 * sin(a), sin(a) * r)
+		node.rotation = Vector3(0, atan2(cos(a), sin(a)), 0)
+		node.scale = Vector3.ONE * (1.0 + orb * 0.8)
+	for entry: Array in _panels:
+		var node: Node3D = entry[0]
+		var home: Vector3 = entry[2]
+		node.position = home * (1.0 + orb * 0.1) + Vector3(0, sin(t * 1.6 + entry[1]) * 0.05, 0)
+	_shield_field.visible = argon_shield > 0.01
+	_shield_material.albedo_color.a = argon_shield * 0.38
+	_argon_rays.set_shader_parameter("power", 0.9 + _charge * 0.3 + sin(t * 2.2) * 0.04)
 
 
 func _neon(joint: Node3D, xf: Transform3D, pts: Array, z: float, width: float, mat: String) -> void:

@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Model Gallery</title>
+<style>
+  :root{--bg:#07060f;--card:#121022;--line:#ffffff14;--text:#eef0f8;--dim:#9a98b8}
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(1200px 600px at 50% -10%,#2a1660 0,var(--bg) 60%) fixed,var(--bg);color:var(--text);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Tahoma,sans-serif;min-height:100vh}
+  header{max-width:1180px;margin:0 auto;padding:40px 16px 8px;display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;justify-content:space-between}
+  h1{margin:0;font-size:30px;letter-spacing:.06em}
+  h1 small{display:block;font-size:13px;color:var(--dim);letter-spacing:0;font-weight:400}
+  input{background:#ffffff0d;border:1px solid var(--line);color:var(--text);border-radius:10px;padding:10px 14px;font:inherit;width:260px;max-width:100%}
+  input:focus{outline:2px solid #8b5cf6;border-color:transparent}
+  main{max-width:1180px;margin:0 auto;padding:8px 16px 60px}
+  h2{font-size:13px;letter-spacing:.18em;text-transform:uppercase;color:var(--dim);margin:32px 0 12px;font-weight:600}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px}
+  a.card{display:flex;flex-direction:column;text-decoration:none;color:inherit;background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;transition:transform .15s,border-color .15s,box-shadow .15s}
+  a.card:hover{transform:translateY(-3px);border-color:var(--c);box-shadow:0 10px 30px -10px var(--c)}
+  .art{aspect-ratio:1/1;position:relative;display:grid;place-items:center;background:radial-gradient(circle at 50% 120%,var(--c) 0,transparent 70%),linear-gradient(160deg,#ffffff08,#0000)}
+  .art b{font-size:42px;font-weight:800;letter-spacing:.04em;color:#fff;text-shadow:0 0 24px var(--c),0 0 4px var(--c);opacity:.92}
+  .art img{width:100%;height:100%;object-fit:cover;transition:transform .3s}
+  a.card:hover .art img{transform:scale(1.05)}
+  .art img+b{display:none}
+  .tag{position:absolute;top:8px;right:8px;font-size:11px;padding:2px 8px;border-radius:99px;background:#0008;border:1px solid var(--line);color:var(--dim)}
+  .meta{padding:10px 12px 12px}
+  .meta strong{display:block;font-size:15px}
+  .meta span{font-size:12.5px;color:var(--dim)}
+  .empty{color:var(--dim);display:none;padding:20px 0}
+</style>
+</head>
+<body>
+<header>
+  <h1>MODEL GALLERY<small>กดการ์ดเพื่อเปิดดูโมเดลแต่ละตัว</small></h1>
+  <input id="q" type="search" placeholder="ค้นหาโมเดล…" autocomplete="off">
+</header>
+<main id="list"></main>
+<p class="empty" id="empty" style="max-width:1180px;margin:0 auto;padding:0 16px">ไม่พบโมเดลที่ค้นหา</p>
+<script>
+const GROUPS = [
+  ['ฮีโร่', [
+    ['claude_fable.html', 'Claude Fable', 'ร่าง Fable · ร่างดวงดาว', '#f47a42', 'CF'],
+    ['clawd.html', 'Clawd', 'ผู้พิทักษ์ร่างดั้งเดิม', '#e05a2a', 'CL'],
+    ['chatgpt_mecha.html', 'ChatGPT Mecha', 'หุ่นรบ', '#10a37f', 'GPT'],
+    ['grok_fighter.html', 'Grok', 'God of Destruction · Ultra Instinct', '#a855f7', 'GK'],
+    ['gemini_aegis.html', 'Gemini Argon', 'ร่างที่ 3', '#4f8bff', 'GA'],
+    ['gemini_forms.html', 'Gemini ทุกร่าง', 'ร่าง 1–3', '#38bdf8', 'GF'],
+    ['aum.html', 'Aum', '', '#f59e0b', 'AU'],
+    ['aum_awakened.html', 'Aum Cosmos', 'ร่างตื่นรู้', '#fbbf24', 'AC'],
+    ['cosmic_warrior.html', 'Cosmic Warrior', '', '#22d3ee', 'CW'],
+    ['cosmic_warrior_base.html', 'Cosmic Warrior · Form 1', 'ร่างพื้นฐาน', '#67e8f9', 'C1'],
+  ]],
+  ['บอส', [
+    ['system_overlord.html', 'System Overlord', '', '#ef4444', 'SO'],
+    ['system_overlord_hollow.html', 'System Overlord Hollow', '', '#f87171', 'SH'],
+    ['zero_day.html', 'Zero Day', '', '#e11d48', 'ZD'],
+    ['worms.html', 'Worms', 'บอสสุดท้าย', '#84cc16', 'WM'],
+  ]],
+  ['ฉากคัตซีน', [
+    ['ep1_clawd_guardian.html', 'ตอนที่ 1: Clawd ผู้พิทักษ์', 'The Guardian of Logic', '#fb923c', 'EP1'],
+    ['scene1_awakening.html', 'The Awakening', 'Corrupted Core', '#c084fc', 'S1'],
+    ['scene2_skyfall.html', 'ฟ้าถล่มสู่ผืนโลก', 'Skyfall of the Void', '#818cf8', 'S2'],
+    ['scene3_vanguard.html', 'ดาวตกลงสู่ผืนดิน', 'The Vanguard Arrival', '#60a5fa', 'S3'],
+    ['cutscene.html', 'Arena Cutscene', '', '#f472b6', 'AR'],
+  ]],
+  ['อื่นๆ', [
+    ['all_models.html', 'All Models', 'รวมทุกตัวในฉากเดียว', '#e2e8f0', 'ALL'],
+    ['overlord_soldiers_concept.svg', 'Overlord Soldiers', 'ภาพคอนเซ็ปต์', '#94a3b8', 'OS', 'overlord_soldiers_concept.svg'],
+    ['zero_day_concept.svg', 'Zero Day Concept', 'ภาพคอนเซ็ปต์', '#fb7185', 'ZC', 'zero_day_concept.svg'],
+  ]],
+];
+const list = document.getElementById('list');
+const esc = s => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+list.innerHTML = GROUPS.map(([title, items]) => `
+  <section><h2>${title}</h2><div class="grid">${items.map(([href, name, sub, color, mark, img]) => `
+    <a class="card" href="${href}" style="--c:${color}" data-k="${esc((name + ' ' + sub + ' ' + href).toLowerCase())}">
+      <div class="art">${`<img src="${img || 'thumbs/' + href.replace(/\.html$/, '.jpg')}" alt="" loading="lazy" onerror="this.remove()"><b>${mark}</b>`}<span class="tag">${href.endsWith('.html') ? '3D' : 'ภาพ'}</span></div>
+      <div class="meta"><strong>${esc(name)}</strong><span>${esc(sub || href)}</span></div>
+    </a>`).join('')}</div></section>`).join('');
+document.getElementById('q').addEventListener('input', e => {
+  const q = e.target.value.trim().toLowerCase();
+  let any = false;
+  list.querySelectorAll('section').forEach(sec => {
+    let shown = 0;
+    sec.querySelectorAll('.card').forEach(c => { const ok = !q || c.dataset.k.includes(q); c.style.display = ok ? '' : 'none'; shown += ok; });
+    sec.style.display = shown ? '' : 'none'; any ||= shown > 0;
+  });
+  document.getElementById('empty').style.display = any ? 'none' : 'block';
+});
+</script>
+</body>
+</html>

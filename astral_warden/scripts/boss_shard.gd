@@ -31,7 +31,7 @@ func _physics_process(delta: float) -> void:
 	_age += delta
 	var pos := global_position + direction * SPEED * delta
 	global_position = pos
-	if _age > LIFE or pos.y < Game.terrain.get_height(pos.x, pos.z):
+	if _age > LIFE or pos.y < Game.ground_height(pos.x, pos.z):
 		Fx.burst(pos, Color(1.0, 0.16, 0.22), 10, 6.0)
 		queue_free()
 		return

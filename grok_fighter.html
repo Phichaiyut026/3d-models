@@ -13,6 +13,7 @@
   button{font:600 12px ui-monospace,Menlo,monospace;padding:9px 12px;background:#101a2a;color:#eef3f8;border:1px solid #38e2ff40;border-radius:4px;cursor:pointer}
   button:hover{background:#1d2d44}
   button.on{background:#0f8fb0;border-color:#38e2ff;color:#fff}
+  #ui.on{background:linear-gradient(180deg,#e9f0ff,#8fb0ff);border-color:#fff;color:#0a1030;box-shadow:0 0 14px #b8ccff}
   .gap{width:10px}
   @media (max-width:640px){button{padding:6px 7px;font-size:11px}.gap{width:2px}#bar{gap:4px;bottom:10px}}
 </style>
@@ -43,11 +44,15 @@
   <button data-act="kick">KICK</button>
   <button data-act="baton">BATON</button>
   <span class="gap"></span>
-  <button data-act="dAscend">ASCEND</button>
-  <button data-act="dRush">GOD RUSH</button>
-  <button data-act="dCut">VOID CUT</button>
-  <button data-act="dOrb">ANNIHILATE</button>
-  <button data-act="dObliterate">OBLITERATE</button>
+  <button data-act="gSing">SINGULARITY</button>
+  <button data-act="gMeteor">METEOR FALL</button>
+  <button data-act="gX">X-TERMINATE</button>
+  <button data-act="gHand">GOD HAND</button>
+  <button data-act="gCrunch">BIG CRUNCH</button>
+  <button data-act="gBomb">WORLD SPHERE</button>
+  <span class="gap"></span>
+  <button id="ui">ULTRA INSTINCT</button>
+  <button data-act="uiFlash">SILENT FLASH</button>
   <span class="gap"></span>
   <button id="download">DOWNLOAD GLB</button>
 </div>
@@ -650,6 +655,7 @@ function makeRibbon(colorA, colorB, width = 1) { // a strip through recent posit
   mesh.frustumCulled = false; scene.add(mesh);
   let head = 0;
   return {
+    mat: mesh.material,
     push(pa, pb, strength, time) { head = (head + 1) % N; const k = samples[head]; k.a.copy(pa); k.b.copy(pb); k.s = strength; k.t = time; },
     draw(time) {
       for (let i = 0; i < N; i++) {
@@ -711,7 +717,7 @@ function ring(pool, q, size, strength, life, color) {
   const o = pool.find(x => !x.mesh.visible) || pool[0], u = o.mesh.material.uniforms;
   o.mesh.position.set(q.x, pool === floorRings ? .05 : q.y, q.z);
   if (o.billboard) u.size.value = size * 2; else o.mesh.scale.setScalar(size * 2);
-  u.color.value.set(color); o.age = 0; o.life = life; o.strength = strength; o.mesh.visible = true;
+  u.color.value.set(color); if (typeof uiW === 'number' && uiW > 0) u.color.value.lerp(new THREE.Color(0xe8efff), uiW * .9); o.age = 0; o.life = life; o.strength = strength; o.mesh.visible = true;
 }
 const beamPower = { value: 0 };
 const beam = softFlame(scene, [0, 0, 0], [0, 0, 1], { len: 4.5, rad: .8, color: 0xc45cff, power: beamPower });
@@ -884,7 +890,7 @@ const modeButtons = document.querySelectorAll('[data-mode]'), actButtons = docum
 const setMode = m => { mode = m; modeButtons.forEach(o => o.classList.toggle('on', o.dataset.mode === m)); };
 modeButtons.forEach(b => b.onclick = () => { if (!act) setMode(b.dataset.mode); });
 const showAct = () => actButtons.forEach(o => o.classList.toggle('on', o.dataset.act === act));
-actButtons.forEach(b => b.onclick = () => { if (act) return; setMode('fight'); act = b.dataset.act; actT = 0; showAct(); }); // a move always finishes first
+actButtons.forEach(b => b.onclick = () => { if (act) return; setMode('fight'); act = b.dataset.act; if (act === 'uiFlash' && !uiOn) uiAwaken(); actT = 0; showAct(); }); // a move always finishes first
 
 /* ---------- moves ----------
    Every channel is an offset from the idle-or-guard pose, so each starts and ends at 0.
@@ -979,7 +985,7 @@ const FX = {
   hit(s, power) {
     const q = fistWorld(s);
     q.z += .22;
-    ring(airRings, q, .55 + power * .45, .9, .28, 0xc45cff); burst(q, 8 + power * 7 | 0, 4.5);
+    ring(airRings, q, .55 + power * .45, .9, .28, uiOn ? 0xdfe8ff : 0xc45cff); burst(q, 8 + power * 7 | 0, 4.5);
     camShake = Math.max(camShake, .03 + power * .05); flash = Math.max(flash, 6 + power * 9);
   },
   blast() {
@@ -1119,6 +1125,589 @@ Object.assign(FX, {
   dObliterate() { ring(floorRings, V(0, .1, 0), 120, 2.8, 1.2, 0xecd2ff); ring(floorRings, V(0, .1, 0), 62, 2.2, .8, 0xc45cff); burst(V(0, 1, 0), 900, 50); for (let i = 0; i < 32; i++) { const a = i / 32 * Math.PI * 2; fireRay(V(0, .5, 0), V(Math.cos(a) * 150, 40 + (i % 3) * 22, Math.sin(a) * 150), .7, 2.8); } camShake = 3.6; flash = 620; },
 });
 
+/* ---------- the new god-moves of destruction ---------- */
+// SINGULARITY: a disc of light swirling round the black hole
+const diskMat = new THREE.ShaderMaterial({
+  transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, uniforms: { time: fxTime, a: { value: 0 } },
+  vertexShader: `varying vec2 vP; void main(){ vP = position.xy; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }`,
+  fragmentShader: `uniform float time, a; varying vec2 vP;
+    void main(){
+      float d = length(vP), ang = atan(vP.y, vP.x);
+      float swirl = .55 + .45 * sin(ang * 3. - d * 5. + time * 7.) * sin(ang * 7. + d * 2. - time * 4.);
+      float band = smoothstep(1.05, 1.35, d) * smoothstep(4., 1.6, d);
+      vec3 col = mix(vec3(1., .85, 1.), vec3(.55, .12, 1.), smoothstep(1.3, 3.6, d));
+      gl_FragColor = vec4(col * band * swirl * a * 1.8, 1.);
+    }`,
+});
+const accretion = new THREE.Mesh(new THREE.RingGeometry(1, 4, 96, 4), diskMat);
+accretion.visible = false; accretion.frustumCulled = false; scene.add(accretion);
+
+// METEOR FALL: violet stones of fire raining on the field
+const meteors = Array.from({ length: 24 }, () => {
+  const power = { value: 0 }, mesh = softFlame(scene, [0, 0, 0], [0, 1, 0], { len: 16, rad: 1.3, color: 0xc45cff, power });
+  const core = new THREE.Mesh(new THREE.IcosahedronGeometry(.9, 0), new THREE.MeshBasicMaterial({ color: 0x1a0630, toneMapped: false }));
+  scene.add(core); mesh.visible = core.visible = false;
+  return { mesh, core, power, from: V(0, 0, 0), to: V(0, 0, 0), age: 9, life: .55 };
+});
+function dropMeteor() {
+  const o = meteors.find(x => x.age >= x.life) || meteors[0];
+  o.to.set((Math.random() - .5) * 52, 0, -26 + Math.random() * 34);
+  o.from.copy(o.to).add(V(26 + Math.random() * 12, 70, -30));
+  o.age = 0; o.life = .5 + Math.random() * .15; o.mesh.visible = o.core.visible = true;
+}
+function updateMeteors(dt) {
+  for (const o of meteors) {
+    if (o.age >= o.life) continue;
+    o.age += dt;
+    const k = Math.min(1, o.age / o.life), at = o.from.clone().lerp(o.to, k), dir = o.from.clone().sub(o.to).normalize();
+    o.mesh.position.copy(at); o.mesh.quaternion.setFromUnitVectors(UP_AXIS, dir); o.power.value = 2.4;
+    o.core.position.copy(at); o.core.rotation.set(k * 9, k * 7, 0);
+    if (k >= 1) {
+      o.mesh.visible = o.core.visible = false;
+      ring(floorRings, o.to, 9, 1.9, .6, 0xc45cff); ring(airRings, V(o.to.x, 1.5, o.to.z), 4, 1.4, .3, 0xecd2ff);
+      burst(V(o.to.x, .4, o.to.z), 60, 14); camShake = Math.max(camShake, .7); flash = Math.max(flash, 90);
+    }
+  }
+}
+
+// X-TERMINATE: two giant cuts that cross in an X
+const slashMat = () => new THREE.ShaderMaterial({
+  transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, uniforms: { k: { value: 0 }, a: { value: 0 }, time: fxTime },
+  vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }`,
+  fragmentShader: `uniform float k, a, time; varying vec2 vUv;
+    void main(){
+      float along = vUv.x, y = (vUv.y - .5) * 2.;
+      float shown = smoothstep(k, k - .04, along);
+      float taper = pow(sin(along * 3.14159), .35);
+      float w = .18 * taper + .02, core = exp(-pow(y / w, 2.)), halo = exp(-pow(y / (w * 4.), 2.)) * .45;
+      float flick = .85 + .15 * sin(along * 80. - time * 30.);
+      vec3 col = mix(vec3(.55, .12, 1.), vec3(1., .94, 1.), core);
+      gl_FragColor = vec4(col * (core * 2.4 + halo) * shown * flick * a, 1.);
+    }`,
+});
+const slashes = [1, -1].map(s => {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), slashMat());
+  m.scale.set(46, 5, 1); m.position.set(0, 9, 8); m.rotation.z = s * Math.PI / 4; m.visible = false; m.frustumCulled = false; scene.add(m);
+  return m;
+});
+
+// GOD HAND: a giant fist of aura thrown forward
+const ghostMat = new THREE.ShaderMaterial({
+  transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, uniforms: { a: { value: 0 }, time: fxTime },
+  vertexShader: `varying vec3 vN, vV, vW; void main(){ vec4 w = modelMatrix * vec4(position, 1.); vW = w.xyz; vec4 p = viewMatrix * w; vN = normalize(normalMatrix * normal); vV = normalize(-p.xyz); gl_Position = projectionMatrix * p; }`,
+  fragmentShader: `uniform float a, time; varying vec3 vN, vV, vW;
+    void main(){
+      float rim = pow(1. - abs(dot(normalize(vN), normalize(vV))), 1.8);
+      float scan = .75 + .25 * sin(vW.z * 2.5 - time * 20.);
+      vec3 col = mix(vec3(.4, .1, .9), vec3(1., .88, 1.), rim) * (rim * 2. + .25) * scan;
+      gl_FragColor = vec4(col * a, 1.);
+    }`,
+});
+const godFist = new THREE.Group(); godFist.visible = false; scene.add(godFist);
+{
+  const g = (geo, pos, rot = [0, 0, 0]) => { const m = new THREE.Mesh(geo, ghostMat); m.position.set(...pos); m.rotation.set(...rot); m.frustumCulled = false; godFist.add(m); };
+  g(new THREE.BoxGeometry(4.2, 3.6, 3.4), [0, 0, 0]); // the back of the fist
+  for (let i = 0; i < 4; i++) g(new THREE.BoxGeometry(.95, 1.1, 1.6), [-1.55 + i * 1.03, .9 - Math.abs(i - 1.5) * .12, 2.1]); // knuckles
+  for (let i = 0; i < 4; i++) g(new THREE.BoxGeometry(.9, 1.6, 1), [-1.55 + i * 1.03, -.6, 2.3]); // curled fingers
+  g(new THREE.BoxGeometry(1.1, 2.4, 1.2), [-2.4, -.3, 1.3], [0, 0, -.4]); // thumb
+  g(new THREE.CylinderGeometry(1.7, 2.3, 14, 10), [0, 0, -8.6], [Math.PI / 2, 0, 0]); // the forearm trailing behind
+  for (let i = 0; i < 3; i++) g(new THREE.TorusGeometry(2.1 + i * .2, .12, 6, 24), [0, 0, -3 - i * 3.6]); // bracers of light
+}
+
+// BIG CRUNCH: the whole universe drawn back into one point
+const crunchMat = blastMat.clone();
+const crunchShell = new THREE.Mesh(new THREE.SphereGeometry(1, 40, 28), crunchMat);
+crunchShell.position.set(0, 7, 0); crunchShell.visible = false; crunchShell.frustumCulled = false; scene.add(crunchShell);
+
+Object.assign(MOVES, {
+  gSing: build(6, m => { m.wide = 2.3;
+    pk(m, 'Lx', [[0, 0], [.12, -2.6], [.72, -2.6], [.8, -1.2], [1, 0]]); pk(m, 'Ly', [[0, 0], [.12, .5], [.8, .5], [1, 0]]); pk(m, 'Lf', [[0, 0], [.12, .5], [.72, .5], [1, 0]]);
+    pk(m, 'Lp', [[0, 0], [.12, 1.5], [.76, 2.5], [.84, 0]]);
+    pk(m, 'orb', [[.06, 0], [.3, 2.2], [.62, 3], [.72, 3.4], [.76, .25], [.79, 0]]); pk(m, 'orbZ', [[0, 3], [1, 3]]); pk(m, 'orbY', [[0, -4.5], [1, -4.5]]);
+    pk(m, 'disk', [[.1, 0], [.3, 1], [.7, 1.4], [.76, 0]]); pk(m, 'sky', [[.03, 0], [.16, .85], [.94, .85], [1, 0]]);
+    pk(m, 'asc', [[.1, 0], [.4, .8], [.72, 1], [.8, 0]]); pk(m, 'eye', [[0, 0], [.15, 1.2], [.9, 1.2], [1, 0]]); pk(m, 'lean', [[0, 0], [.15, -.15], [.75, -.15], [.8, .1], [1, 0]]);
+    pk(m, 'shell', [[.79, 0], [.98, .55]]);
+    for (let i = 0; i < 28; i++) m.fx.push([.12 + i * .021, 'sPull']);
+    m.fx.push([.3, 'sOpen'], [.76, 'sCollapse'], [.79, 'sBoom']);
+  }),
+  gMeteor: build(5.4, m => { m.wide = 2.7;
+    pk(m, 'baton', [[0, 0], [.08, 1], [.9, 1], [1, 0]]); pk(m, 'Bp', [[0, 0], [.12, 2.4], [.86, 2.4], [1, 0]]);
+    pk(m, 'Rx', [[0, 0], [.14, -2.9], [.86, -2.9], [1, 0]]); pk(m, 'Ry', [[0, 0], [.14, -.4], [.86, -.4], [1, 0]]); pk(m, 'Rf', [[0, 0], [.14, .4], [.86, .4], [1, 0]]);
+    pk(m, 'Lx', [[0, 0], [.2, -.6], [.86, -.6], [1, 0]]); pk(m, 'Lz', [[0, 0], [.2, .9], [.86, .9], [1, 0]]);
+    pk(m, 'sky', [[.03, 0], [.16, 1], [.94, 1], [1, 0]]); pk(m, 'leap', [[.04, 0], [.18, 1.6], [.88, 1.6], [1, 0]]); pk(m, 'eye', [[0, 0], [.14, 1.2], [.9, 1.2], [1, 0]]); pk(m, 'lean', [[0, 0], [.14, -.22], [.86, -.22], [1, 0]]);
+    m.fx.push([.12, 'mCall']);
+    for (let i = 0; i < 22; i++) m.fx.push([.2 + i * .028 + (i % 3) * .006, 'mDrop']);
+    m.fx.push([.86, 'mLast']);
+  }),
+  gX: build(3.6, m => { m.wide = 2.1;
+    pk(m, 'baton', [[0, 0], [.06, 1], [.92, 1], [1, 0]]); pk(m, 'Bp', [[0, 0], [.1, 2], [.9, 2.8], [1, 0]]);
+    pk(m, 'Bt', [[.22, 0], [.24, 1], [.34, 1], [.4, 0], [.46, 0], [.48, 1], [.58, 1], [.64, 0]]);
+    pk(m, 'Rx', [[0, 0], [.2, -2.8], [.34, -.3], [.44, -2.6], [.58, -.4], [.8, -.4], [1, 0]]);
+    pk(m, 'Ry', [[0, 0], [.2, -1.1], [.34, .5], [.44, .6], [.58, -1], [.8, -.6], [1, 0]]); pk(m, 'Rf', [[0, 0], [.2, 1.4], [.34, 2], [.44, 1.4], [.58, 2], [1, 0]]);
+    pk(m, 'twist', [[0, 0], [.2, -.5], [.34, .7], [.44, -.6], [.58, .7], [.8, .3], [1, 0]]); pk(m, 'lean', [[0, 0], [.34, .25], [.44, -.1], [.58, .25], [1, 0]]);
+    pk(m, 'xa', [[.24, 0], [.34, 1.04]]); pk(m, 'xb', [[.48, 0], [.58, 1.04]]); pk(m, 'xA', [[.22, 0], [.26, 1], [.78, 1.3], [.8, 1.8], [.95, 0]]);
+    pk(m, 'sky', [[.03, 0], [.14, .6], [.94, .6], [1, 0]]); pk(m, 'eye', [[0, 0], [.14, 1.2], [.9, 1.2], [1, 0]]);
+    m.fx.push([.3, 'xCut', 1], [.54, 'xCut', -1], [.8, 'xBreak']);
+  }),
+  gHand: build(4.2, m => { m.wide = 2.2;
+    pk(m, 'Rx', [[0, 0], [.3, .55], [.45, .6], [.52, -1.05], [.86, -1.05], [1, 0]]); pk(m, 'Ry', [[0, 0], [.45, .1], [.52, -.7], [.86, -.7], [1, 0]]);
+    pk(m, 'Rf', [[0, 0], [.3, -.5], [.45, -.6], [.52, 2], [.86, 2], [1, 0]]); pk(m, 'Rp', [[0, 0], [.3, 1.5], [.52, 4], [.86, 1.5], [1, 0]]); pk(m, 'Rt', [[.46, 0], [.5, 1], [.58, 1], [.64, 0]]);
+    pk(m, 'Lx', [[0, 0], [.3, -1.2], [.52, -.1], [1, 0]]); pk(m, 'Lf', [[0, 0], [.3, 1.4], [.52, .4], [1, 0]]);
+    pk(m, 'twist', [[0, 0], [.3, .55], [.45, .6], [.52, -.8], [.86, -.7], [1, 0]]); pk(m, 'lean', [[0, 0], [.45, -.18], [.52, .22], [.86, .2], [1, 0]]);
+    pk(m, 'drop', [[0, 0], [.3, .3], [.52, .45], [.86, .45], [1, 0]]); pk(m, 'boost', [[.3, 0], [.5, 3], [.7, 1], [1, 0]]); pk(m, 'eye', [[0, 0], [.2, 1.2], [.9, 1.2], [1, 0]]);
+    pk(m, 'fistA', [[.12, 0], [.4, 1], [.82, 1.2], [.96, 0]]); pk(m, 'fistS', [[.12, .2], [.42, 1], [1, 1]]); pk(m, 'fistZ', [[0, -6], [.45, -6], [.53, 6], [.7, 13], [1, 16]]);
+    pk(m, 'sky', [[.03, 0], [.15, .5], [.94, .5], [1, 0]]);
+    for (let i = 0; i < 6; i++) m.fx.push([.16 + i * .045, 'dGather']);
+    m.fx.push([.52, 'gPunch'], [.68, 'gImpact']);
+  }),
+  gCrunch: build(7.4, m => { m.wide = 2.9;
+    for (const [S, s] of [['L', 1], ['R', -1]]) {
+      pk(m, S + 'x', [[0, 0], [.14, -1.5], [.56, -1.5], [.6, -1.35], [.9, -1.35], [1, 0]]);
+      pk(m, S + 'z', [[0, 0], [.14, 1.4], [.56, 1.5], [.6, -.25], [.9, -.25], [1, 0]]);
+      pk(m, S + 'y', [[0, 0], [.6, 0], [.62, s * .55], [.9, s * .55], [1, 0]]);
+      pk(m, S + 'f', [[0, 0], [.14, .2], [.56, .2], [.6, .9], [.9, .9], [1, 0]]);
+      pk(m, S + 'p', [[0, 0], [.14, 1], [.56, 2], [.6, 4], [.75, 1], [1, 0]]);
+    }
+    pk(m, 'leap', [[.04, 0], [.2, 4.5], [.9, 4.5], [1, 0]]); pk(m, 'lean', [[0, 0], [.14, -.25], [.56, -.3], [.6, .15], [.9, .1], [1, 0]]);
+    pk(m, 'sky', [[.02, 0], [.12, 1], [.96, 1], [1, 0]]); pk(m, 'eye', [[0, 0], [.12, 1.4], [.94, 1.4], [1, 0]]); pk(m, 'asc', [[.1, 0], [.5, 1.2], [.6, 0]]);
+    pk(m, 'crunchK', [[.16, 0], [.6, 1]]); pk(m, 'crunchA', [[.14, 0], [.2, 1], [.58, 1.4], [.6, 0]]);
+    pk(m, 'pillar', [[.56, 0], [.6, 3], [.7, 1.4], [.8, 0]]); pk(m, 'shell', [[.62, 0], [.97, 1]]); pk(m, 'boost', [[.56, 0], [.6, 3], [.8, 1], [1, 0]]);
+    for (let i = 0; i < 36; i++) m.fx.push([.18 + i * .011, 'cPull']);
+    m.fx.push([.6, 'cZero'], [.62, 'cBang'], [.92, 'cDone']);
+  }),
+});
+Object.assign(FX, {
+  sOpen() { const q = deathOrb.position; ring(airRings, q, 22, 2.2, .8, 0xecd2ff); burst(q, 160, 18); camShake = 1; flash = 160; },
+  sPull() {
+    const q = deathOrb.position, a = Math.random() * Math.PI * 2, e = Math.random() * 1.2 - .4;
+    fireRay(V(q.x + Math.cos(a) * Math.cos(e) * 60, q.y + Math.sin(e) * 40, q.z + Math.sin(a) * Math.cos(e) * 60), q.clone(), .3, 2);
+    camShake = Math.max(camShake, .25); flash = Math.max(flash, 18);
+  },
+  sCollapse() { const q = deathOrb.position; ring(airRings, q, 3, 3, .2, 0xffffff); camShake = .6; flash = 120; },
+  sBoom() {
+    const q = deathOrb.position.clone();
+    for (const r of [18, 34, 60]) ring(airRings, q, r, 2.6, 1, 0xecd2ff);
+    ring(floorRings, V(q.x, .1, q.z), 60, 2.4, 1.1, 0xc45cff); burst(q, 700, 40);
+    for (let i = 0; i < 24; i++) { const a = i / 24 * Math.PI * 2; fireRay(q, V(q.x + Math.cos(a) * 120, q.y + Math.sin(a * 2) * 40, q.z + Math.sin(a) * 120), .6, 2.6); }
+    camShake = 3; flash = 480;
+  },
+  mCall() { const q = baton.localToWorld(new THREE.Vector3(...batonPivotLocal[1])); fireRay(q, V(q.x, 200, q.z), .9, 3); ring(airRings, V(q.x, 30, q.z), 30, 2, .9, 0xc45cff); camShake = .9; flash = 150; },
+  mDrop() { dropMeteor(); },
+  mLast() { for (const r of [30, 55]) ring(floorRings, V(0, .1, -4), r, 2.2, 1, 0xc45cff); burst(V(0, 1, -4), 300, 30); camShake = 2; flash = 260; },
+  xCut(s) { const c = V(0, 9, 8); ring(airRings, c, 10, 1.8, .35, 0xecd2ff); burst(c.clone().add(V(s * 6, 6, 0)), 80, 20); camShake = 1.2; flash = 200; },
+  xBreak() {
+    const c = V(0, 9, 8);
+    for (const s of [1, -1]) for (let i = -4; i <= 4; i++) { const q = c.clone().add(V(i * 4.4 * s, i * 4.4, 0)); burst(q, 26, 14); fireRay(q, q.clone().add(V((Math.random() - .5) * 60, (Math.random() - .5) * 60, 60)), .5, 2.4); }
+    for (const r of [14, 28, 46]) ring(airRings, c, r, 2.6, .9, 0xecd2ff);
+    camShake = 2.6; flash = 420;
+  },
+  gPunch() { for (let i = 0; i < 8; i++) ring(airRings, V(-1.6, 6, 4 + i * 2.2), 4 + i * .6, 2, .35 + i * .04, i % 2 ? 0xc45cff : 0xecd2ff); burst(V(-1.6, 6, 6), 160, 18); camShake = 1.6; flash = 260; },
+  gImpact() {
+    const q = V(-1.6, 6, 19);
+    for (const r of [10, 22, 40]) ring(airRings, q, r, 2.6, .8, 0xecd2ff); ring(floorRings, V(q.x, .1, q.z), 40, 2.2, 1, 0xc45cff); burst(q, 500, 36);
+    for (let i = 0; i < 16; i++) { const a = i / 16 * Math.PI * 2; fireRay(q, V(q.x + Math.cos(a) * 80, q.y + Math.sin(a) * 80, q.z + 40), .5, 2.4); }
+    camShake = 2.8; flash = 420;
+  },
+  cPull() {
+    const a = Math.random() * Math.PI * 2, e = Math.random() * Math.PI - Math.PI / 2, r = 160, c = V(0, 7 + root.position.y * .5, 0);
+    fireRay(V(Math.cos(a) * Math.cos(e) * r, c.y + Math.sin(e) * r * .6, Math.sin(a) * Math.cos(e) * r), c, .35, 2.2);
+    camShake = Math.max(camShake, .5); flash = Math.max(flash, 30);
+  },
+  cZero() { const c = V(0, 7 + root.position.y * .5, 0); ring(airRings, c, 2.5, 3, .25, 0xffffff); burst(c, 120, 6); camShake = .4; flash = 60; },
+  cBang() {
+    const c = V(0, 7 + root.position.y * .5, 0);
+    for (const r of [20, 45, 80, 130]) ring(airRings, c, r, 2.8, 1.2, 0xecd2ff);
+    ring(floorRings, V(0, .1, 0), 130, 2.8, 1.4, 0xc45cff); ring(floorRings, V(0, .1, 0), 70, 2.4, 1, 0xecd2ff); burst(c, 1300, 60);
+    for (let i = 0; i < 48; i++) { const a = i * 2.39996, e = i / 48 * 2 - 1, k = Math.sqrt(1 - e * e); fireRay(c, c.clone().add(V(Math.cos(a) * k * 160, e * 160, Math.sin(a) * k * 160)), .8, 2.8); }
+    camShake = 4; flash = 700;
+  },
+  cDone() { ring(floorRings, V(0, .1, 0), 20, 1.6, .8, 0xecd2ff); burst(V(0, 1, 0), 160, 10); camShake = .8; flash = 90; },
+});
+
+/* ---------- the halo ring that floats round the neck ---------- */
+const neckRingMat = new THREE.ShaderMaterial({
+  transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, uniforms: { time: fxTime, power: auraPower },
+  vertexShader: `varying vec2 vP; void main(){ vP = position.xy; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }`,
+  fragmentShader: `uniform float time, power; varying vec2 vP;
+    void main(){
+      float d = length(vP), a = atan(vP.y, vP.x), u = (d - .98) / .4;
+      float band = smoothstep(0., .12, u) * smoothstep(1., .82, u);
+      float lip = exp(-pow((u - .06) / .05, 2.)) + exp(-pow((u - .94) / .05, 2.));
+      float sheen = pow(.5 + .5 * sin(a * 2. - time * 2.4), 6.);
+      vec3 col = vec3(.42, .2, .95) * band * .55 + vec3(.9, .78, 1.) * (lip * 1.1 + sheen * band * .8);
+      gl_FragColor = vec4(col * (.7 + .3 * min(power, 2.)), 1.);
+    }`,
+});
+const neckRing = new THREE.Group(); neckRing.position.set(...rel([0, 6.62, -.04], pivotOf(spine))); neckRing.rotation.x = .12; spine.add(neckRing);
+const neckBand = new THREE.Mesh(new THREE.RingGeometry(.98, 1.38, 96, 1), neckRingMat);
+neckBand.rotation.x = -Math.PI / 2; neckBand.renderOrder = 2; neckBand.frustumCulled = false; neckRing.add(neckBand);
+const neckEdgeMat = new THREE.MeshBasicMaterial({ color: 0xd9b8ff, toneMapped: false });
+for (const r of [1.0, 1.36]) { const e = new THREE.Mesh(new THREE.TorusGeometry(r, .022, 6, 96), neckEdgeMat); e.rotation.x = -Math.PI / 2; neckRing.add(e); }
+
+/* ---------- WORLD SPHERE: ten seconds of energy gathered from everywhere into one ball, then thrown ---------- */
+const bombMat = new THREE.ShaderMaterial({
+  transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, uniforms: { time: fxTime, a: { value: 1 } },
+  vertexShader: `varying vec3 vN, vV, vP; void main(){ vP = position; vN = normalize(normalMatrix * normal); vec4 p = modelViewMatrix * vec4(position, 1.); vV = normalize(-p.xyz); gl_Position = projectionMatrix * p; }`,
+  fragmentShader: `uniform float time, a; varying vec3 vN, vV, vP;
+    void main(){
+      float fr = pow(1. - abs(dot(normalize(vN), normalize(vV))), 1.4);
+      vec3 p = vP * 3.;
+      float sw = .5 + .5 * sin(p.x * 1.7 + time * 3. + sin(p.y * 2.3 - time * 2.)) * sin(p.z * 1.9 - time * 2.6 + sin(p.x * 1.3 + time));
+      float vein = smoothstep(.93, 1., sin(p.y * 3. + sin(p.x * 2. + time * 4.) * 1.6 + time * 5.));
+      vec3 col = mix(vec3(1., .96, 1.), vec3(.5, .28, 1.), fr) * (.45 + .4 * sw) + vec3(.62, .45, 1.) * fr * 1.3 + vec3(1.) * vein * .5;
+      gl_FragColor = vec4(col * a, 1.);
+    }`,
+});
+const kiBomb = new THREE.Group(); kiBomb.visible = false; scene.add(kiBomb);
+kiBomb.add(new THREE.Mesh(new THREE.SphereGeometry(1, 48, 32), bombMat));
+const bombGlowPower = { value: 1 };
+const bombGlow = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.ShaderMaterial({
+  transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, uniforms: { time: fxTime, power: bombGlowPower },
+  vertexShader: `varying vec2 vP; void main(){ vP = position.xy * 2.; vec4 c = modelViewMatrix * vec4(0., 0., 0., 1.); float s = length((modelMatrix * vec4(1., 0., 0., 0.)).xyz); gl_Position = projectionMatrix * (c + vec4(position.xy * s * 3.6, 0., 0.)); }`,
+  fragmentShader: `uniform float time, power; varying vec2 vP;
+    void main(){
+      float d = length(vP), a = atan(vP.y, vP.x);
+      float rays = .55 + .45 * sin(a * 13. + time * 2.) * sin(a * 7. - time * 3.1);
+      float halo = smoothstep(.5, .56, d) * pow(max(1. - (d - .55) / .45, 0.), 2.2) * rays;
+      float rim = exp(-pow((d - .555) / .03, 2.));
+      gl_FragColor = vec4((vec3(.55, .32, 1.) * halo * 1.4 + vec3(1., .92, 1.) * rim * 1.2) * power, 1.);
+    }`,
+}));
+bombGlow.frustumCulled = false; bombGlow.renderOrder = 4; kiBomb.add(bombGlow);
+const bombShellMat = blastMat.clone();
+const bombShell = new THREE.Mesh(new THREE.SphereGeometry(1, 40, 28), bombShellMat);
+bombShell.visible = false; bombShell.frustumCulled = false; scene.add(bombShell);
+
+// motes of energy flowing in from the whole world
+const BN = 700, bPos = new Float32Array(BN * 3), bFrom = new Float32Array(BN * 3), bU = new Float32Array(BN).fill(1), bSpeed = new Float32Array(BN);
+const bGeo = new THREE.BufferGeometry(); bGeo.setAttribute('position', new THREE.BufferAttribute(bPos, 3));
+const bFlowMat = new THREE.PointsMaterial({ color: 0xd2b8ff, size: .45, map: softDot, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
+const bFlow = new THREE.Points(bGeo, bFlowMat); bFlow.frustumCulled = false; scene.add(bFlow);
+const bFlowBase = bFlowMat.color.clone();
+let bombFeed = 0, bombR = 0;
+function updateBomb(dt) {
+  bFlow.position.copy(kiBomb.position);
+  bFlowMat.opacity = Math.min(1, bombFeed);
+  bFlowMat.color.copy(bFlowBase).lerp(uiWhite, uiW * .9);
+  bFlow.visible = bombFeed > .01;
+  for (let i = 0; i < BN; i++) {
+    const n = i * 3;
+    if (bU[i] >= 1) {
+      if (bombFeed < .3) { bPos.set([0, 0, 0], n); continue; }
+      const a = Math.random() * Math.PI * 2, e = Math.random() * 1.5 - .45, r = 28 + Math.random() * 34;
+      bFrom.set([Math.cos(a) * Math.cos(e) * r, Math.max(-kiBomb.position.y, Math.sin(e) * r), Math.sin(a) * Math.cos(e) * r], n);
+      bU[i] = Math.random() * .3; bSpeed[i] = .35 + Math.random() * .5;
+    }
+    bU[i] = Math.min(1, bU[i] + dt * bSpeed[i] * (1 + bU[i] * 2));
+    const k = 1 - bU[i] * bU[i], swirl = bU[i] * 1.4;
+    const x = bFrom[n] * k, z = bFrom[n + 2] * k, c = Math.cos(swirl), s = Math.sin(swirl);
+    bPos.set([x * c - z * s, bFrom[n + 1] * k, x * s + z * c], n);
+    if (k * 30 < bombR) bU[i] = 1;
+  }
+  bGeo.attributes.position.needsUpdate = true;
+  bombGlowPower.value = .8 + Math.sin(t * 6) * .1 + bombFeed * .3;
+  if (bombFeed > .05) camShake = Math.max(camShake, bombFeed * (.06 + bombR * .03));
+}
+
+MOVES.gBomb = build(14, m => {
+  m.wide = 2.9; m.lift = 8; m.noRush = true;
+  for (const [S, s] of [['L', 1], ['R', -1]]) {
+    pk(m, S + 'x', [[0, 0], [.05, -2.95], [.72, -2.95], [.755, -3.15], [.785, -1.05], [.9, -1.05], [1, 0]]);
+    pk(m, S + 'z', [[0, 0], [.05, .28], [.72, .28], [.785, 0], [1, 0]]);
+    pk(m, S + 'f', [[0, 0], [.05, .15], [.72, .15], [.785, .3], [1, 0]]);
+    pk(m, S + 'p', [[0, 0], [.05, 1.4], [.72, 2.6], [.785, 4], [.9, 1], [1, 0]]);
+  }
+  pk(m, 'lean', [[0, 0], [.05, -.12], [.72, -.18], [.755, -.28], [.785, .3], [.9, .25], [1, 0]]);
+  pk(m, 'leap', [[.02, 0], [.1, 1.2], [.9, 1.2], [1, 0]]);
+  pk(m, 'eye', [[0, 0], [.05, 1], [.72, 1.4], [.95, 1.2], [1, 0]]);
+  pk(m, 'boost', [[0, 0], [.05, .8], [.72, 1.6], [.785, 3], [.9, .6], [1, 0]]);
+  pk(m, 'sky', [[.02, 0], [.12, .7], [.94, .7], [1, 0]]);
+  pk(m, 'asc', [[.05, 0], [.7, 1], [.8, .3], [1, 0]]);
+  pk(m, 'bomb', [[.03, 0], [.1, 1], [.3, 3], [.5, 5], [.7, 7], [.76, 7.3], [.875, 7], [.885, 0]]);
+  pk(m, 'bombY', [[.72, 0], [.76, 1.5], [.88, -16]]);
+  pk(m, 'bombZ', [[.76, 0], [.88, 30]]);
+  pk(m, 'feed', [[.03, 0], [.08, 1], [.7, 1], [.74, 0]]);
+  pk(m, 'bShell', [[.88, 0], [.995, 1]]);
+  for (let i = 0; i < 44; i++) m.fx.push([.06 + i * .0148, 'bFeed']);
+  m.fx.push([.05, 'bStart'], [.785, 'bLaunch'], [.88, 'bBoom']);
+});
+Object.assign(FX, {
+  bStart() { const q = kiBomb.position.clone(); ring(airRings, q, 6, 1.6, .6, 0xecd2ff); burst(q, 60, 8); flash = Math.max(flash, 60); },
+  bFeed() {
+    const q = kiBomb.position.clone(), a = Math.random() * Math.PI * 2, e = Math.random() * 1.1 - .3;
+    fireRay(V(q.x + Math.cos(a) * Math.cos(e) * 70, Math.max(1, q.y + Math.sin(e) * 45), q.z + Math.sin(a) * Math.cos(e) * 70), q, .4, 1.4);
+    ring(airRings, q, bombR * 1.25 + 1, .9, .35, 0xd8c0ff); flash = Math.max(flash, 15);
+  },
+  bLaunch() { const q = kiBomb.position.clone(); for (const r of [12, 22]) ring(airRings, q, r, 2, .6, 0xecd2ff); burst(q, 200, 18); camShake = 1.2; flash = 180; },
+  bBoom() {
+    const q = kiBomb.position.clone(); q.y = Math.max(q.y, 2);
+    bombShell.position.copy(q);
+    for (const r of [20, 40, 70]) ring(airRings, q, r, 2.6, 1.1, 0xecd2ff);
+    ring(floorRings, V(q.x, .1, q.z), 80, 2.6, 1.2, 0xc45cff); ring(floorRings, V(q.x, .1, q.z), 40, 2.2, .9, 0xecd2ff);
+    burst(q, 800, 48);
+    for (let i = 0; i < 30; i++) { const a = i / 30 * Math.PI * 2; fireRay(q, V(q.x + Math.cos(a) * 140, q.y + 20 + (i % 4) * 22, q.z + Math.sin(a) * 140), .8, 2.8); }
+    camShake = 3.4; flash = 560;
+  },
+});
+
+/* ---------- ultra instinct: a silver aura, afterimages, and a body that moves on its own ---------- */
+const uiPower = { value: 0 };
+let uiOn = false, uiW = 0, uiKick = 0, uiMotion = 0;
+const uiAuraMat = front => new THREE.ShaderMaterial({
+  transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, uniforms: { time: fxTime, power: uiPower },
+  vertexShader: `varying vec2 vP; void main(){ vP = position.xy; vec4 c = modelViewMatrix * vec4(0., 0., 0., 1.); c.xyz += vec3(position.xy * vec2(${front ? '3.9, 6.' : '5.4, 7.8'}), ${front ? '1.4' : '-2.3'}); gl_Position = projectionMatrix * c; }`,
+  fragmentShader: `uniform float time, power; varying vec2 vP;
+    float h(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+    float n(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f); return mix(mix(h(i), h(i + vec2(1, 0)), f.x), mix(h(i + vec2(0, 1)), h(i + vec2(1, 1)), f.x), f.y); }
+    float fbm(vec2 p){ float a = .5, s = 0.; for (int i = 0; i < 4; i++) { s += a * n(p); p = p * 2.03 + 11.; a *= .5; } return s; }
+    void main(){
+      float t = time; vec2 p = vP;
+      // a calm flame, wider at the shoulders and drawn to a point above the head
+      float body = 1. - length(vec2(p.x / (.46 + .16 * smoothstep(-.9, .3, p.y) - .2 * smoothstep(.45, 1., p.y)), p.y / .9));
+      float n1 = fbm(vec2(p.x * 4.4, p.y * 2. - t * 2.2)), n2 = fbm(vec2(p.x * 10., p.y * 3.2 - t * 3.9) + 5.);
+      float shape = body + (n1 - .5) * .62 + (n2 - .5) * .26;
+      float edge = smoothstep(-.06, .26, shape) * smoothstep(1., .82, abs(p.y));
+      float shell = edge * (1. - smoothstep(.22, .62, shape)); // a bright skin, a clearer heart
+      float wisps = pow(fbm(vec2(p.x * 24., p.y * 1.3 - t * 4.6)), 4.) * 6. * edge;
+      vec3 col = mix(vec3(.2, .36, 1.), vec3(.55, .4, 1.), smoothstep(-.7, .9, p.y)) * edge * .42;
+      col += vec3(.84, .9, 1.) * (shell * .75 + wisps * .6);
+      col += vec3(.5, .6, 1.) * pow(max(body, 0.), 2.) * .08;
+      // silver motes drifting up through it
+      vec2 g = vec2(p.x * 13., p.y * 7. - t * 1.9), id = floor(g), f = fract(g) - .5;
+      float r = h(id), mote = step(.82, r) * smoothstep(.13, 0., length(f + (vec2(h(id + 3.), h(id + 7.)) - .5) * .6)) * (.55 + .45 * sin(t * 8. + r * 40.));
+      col += vec3(.92, .96, 1.) * mote * smoothstep(-.35, .15, body) * 1.8;
+      gl_FragColor = vec4(col * power * ${front ? '0.' : '.3'}, 1.);
+    }`,
+});
+const uiAura = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), uiAuraMat(false));
+uiAura.frustumCulled = false; uiAura.position.y = 4.5; uiAura.renderOrder = -1; root.add(uiAura);
+const uiAuraFront = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), uiAuraMat(true));
+uiAuraFront.frustumCulled = false; uiAuraFront.position.y = 4.5; uiAuraFront.renderOrder = 3; root.add(uiAuraFront);
+
+// afterimages: copies of the body that replay where it was a moment ago
+const bodyNodes = []; pelvis.traverse(o => bodyNodes.push(o));
+const ghostMatUI = () => new THREE.ShaderMaterial({
+  transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, uniforms: { a: { value: 0 } },
+  vertexShader: `varying vec3 vN, vV; void main(){ vN = normalize(normalMatrix * normal); vec4 p = modelViewMatrix * vec4(position, 1.); vV = normalize(-p.xyz); gl_Position = projectionMatrix * p; }`,
+  fragmentShader: `uniform float a; varying vec3 vN, vV;
+    void main(){ float rim = pow(1. - abs(dot(normalize(vN), normalize(vV))), 1.7); gl_FragColor = vec4(mix(vec3(.3, .48, 1.), vec3(.95, .97, 1.), rim) * (.12 + rim * 1.1) * a, 1.); }`,
+});
+const GHOSTS = 5, ghosts = Array.from({ length: GHOSTS }, () => {
+  const holder = new THREE.Group(), copy = pelvis.clone(true), nodes = [], mat = ghostMatUI();
+  holder.visible = false; holder.add(copy); scene.add(holder);
+  copy.traverse(o => nodes.push(o));
+  for (const o of nodes) {
+    if (o.isMesh && !o.material.isShaderMaterial && o.material.blending !== THREE.AdditiveBlending) { o.material = mat; o.castShadow = o.receiveShadow = false; }
+    else if (o.isMesh || o.isPoints || o.isLine) o.userData.off = true;
+  }
+  return { holder, nodes, mat };
+});
+const SNAP = 40, NN = bodyNodes.length;
+const snaps = Array.from({ length: SNAP }, () => ({ t: -99, root: new THREE.Vector3(), d: new Float32Array(NN * 10), v: new Uint8Array(NN) }));
+let snapHead = 0;
+const lastFist = { 1: new THREE.Vector3(), [-1]: new THREE.Vector3() }, lastRoot = new THREE.Vector3();
+function uiDodge(time) { // every so often the body slips aside by itself, and comes back
+  const P = 1.6, c = Math.floor(time / P), u = time / P - c;
+  const k = u < .07 ? u / .07 : u < .42 ? 1 : u < .52 ? 1 - (u - .42) / .1 : 0;
+  return (c % 2 ? 1 : -1) * (1.1 + (c * 37 % 10) / 20) * k * k * (3 - 2 * k);
+}
+function uiAwaken() {
+  uiOn = true; uiKick = 1;
+  const q = new THREE.Vector3(root.position.x, root.position.y + 5.4, root.position.z);
+  ring(floorRings, q, 10, 1.6, 1.1, 0xcfe0ff); ring(floorRings, q, 6, 1.2, .8, 0x8fb0ff);
+  ring(airRings, q, 6, 1.5, .7, 0xeef3ff); ring(airRings, q, 3.4, 1.2, .5, 0x9fb8ff);
+  burst(q, 110, 8); flash = 70; camShake = .32;
+  document.getElementById('ui').classList.add('on');
+}
+function uiCalm() {
+  uiOn = false;
+  ring(airRings, new THREE.Vector3(root.position.x, root.position.y + 5.4, root.position.z), 2.6, .8, .45, 0xc45cff);
+  document.getElementById('ui').classList.remove('on');
+}
+document.getElementById('ui').onclick = () => { if (!act) (uiOn ? uiCalm : uiAwaken)(); };
+
+const uiNeon = new THREE.Color(0xd6e4ff), uiRim = new THREE.Color(0x9fc0ff), rimBase = rim.color.clone(), kiBase = kiPoints.material.color.clone(), kiSilver = new THREE.Color(0xe6efff);
+const ribbonBase = Object.values(ribbons).map(r => [r.mat.uniforms.a.value.clone(), r.mat.uniforms.b.value.clone()]);
+const ribbonSilver = [new THREE.Color(0x4a6cff), new THREE.Color(0xf2f6ff)];
+function updateUltra(dt) {
+  // how fast the body is moving decides how many afterimages it leaves
+  const fl = fistWorld(1), fr = fistWorld(-1);
+  const speed = (fl.distanceTo(lastFist[1]) + fr.distanceTo(lastFist[-1]) + root.position.distanceTo(lastRoot) * 2.5) / Math.max(dt, 1e-3);
+  lastFist[1].copy(fl); lastFist[-1].copy(fr); lastRoot.copy(root.position);
+  uiMotion += (Math.min(1, Math.max(0, speed / 16 - .2)) - uiMotion) * (1 - Math.exp(-dt * (speed / 16 > uiMotion ? 20 : 3)));
+
+  snapHead = (snapHead + 1) % SNAP;
+  const s = snaps[snapHead]; s.t = t; s.root.copy(root.position);
+  for (let i = 0; i < NN; i++) { const o = bodyNodes[i]; o.position.toArray(s.d, i * 10); o.quaternion.toArray(s.d, i * 10 + 3); o.scale.toArray(s.d, i * 10 + 7); s.v[i] = o.visible ? 1 : 0; }
+  ghosts.forEach((g, k) => {
+    const a = uiW * uiMotion * (1 - k / GHOSTS) * .85, want = t - (k + 1) * .05;
+    let snap = null;
+    for (let j = 0; j < SNAP; j++) { const c = snaps[(snapHead - j + SNAP) % SNAP]; if (c.t <= want) { snap = c; break; } }
+    g.holder.visible = a > .02 && !!snap;
+    if (!g.holder.visible) return;
+    g.mat.uniforms.a.value = a;
+    g.holder.position.copy(snap.root);
+    for (let i = 0; i < NN; i++) {
+      const o = g.nodes[i];
+      o.position.fromArray(snap.d, i * 10); o.quaternion.fromArray(snap.d, i * 10 + 3); o.scale.fromArray(snap.d, i * 10 + 7);
+      o.visible = !!snap.v[i] && !o.userData.off;
+    }
+  });
+
+  // the god's violet gives way to silver
+  uiPower.value = uiW * (1 + uiKick * 1.6 + Math.sin(t * 7.3) * .06 + (act ? .25 : 0));
+  uiAura.visible = uiPower.value > .005; uiAuraFront.visible = false;
+  aura3D.power.value = auraPower.value * .85 + uiW * (.9 + uiKick * 1.5); aura3D.ui.value = uiW;
+  auraPower.value *= 1 - .85 * uiW;
+  flatAuraPower.value = auraPower.value * .32;
+  M.neon.color.lerp(uiNeon, uiW * .9);
+  uiTint.value = uiW;
+  M.red.color.lerp(uiWhite, uiW * .9);
+  for (const f of uiFlats) f.m.color.copy(f.base).lerp(uiWhite, uiW * .9);
+  for (const g of uiLights) g.l.color.copy(g.base).lerp(uiGlow.set(0xcfdcff), uiW);
+  rim.color.copy(rimBase).lerp(uiRim, uiW);
+  kiPoints.material.color.copy(kiBase).lerp(kiSilver, uiW); kiPoints.material.size = .13 + uiW * .05;
+  Object.values(ribbons).forEach((r, i) => { r.mat.uniforms.a.value.copy(ribbonBase[i][0]).lerp(ribbonSilver[0], uiW); r.mat.uniforms.b.value.copy(ribbonBase[i][1]).lerp(ribbonSilver[1], uiW); });
+  eyeFlare.value = Math.min(1, eyeFlare.value + uiW * .45);
+  if (uiKick > .05) flash = Math.max(flash, uiKick * 30);
+}
+
+
+// in Ultra Instinct every power turns silver-white: each energy shader gets a tint folded onto its final colour
+const uiTint = { value: 0 }, uiWhite = new THREE.Color(0xeef3ff);
+{
+  const skip = new Set([uiAura.material, uiAuraFront.material, hullMat, ...ghosts.map(g => g.mat)]);
+  const TAIL = `{ vec3 c_ = gl_FragColor.rgb; float l_ = dot(c_, vec3(.3, .5, .2)) * 1.4 + max(c_.r, max(c_.g, c_.b)) * .25;
+    gl_FragColor.rgb = mix(c_, l_ * vec3(.88, .94, 1.1), uiTint); }`;
+  const seen = new Set();
+  scene.traverse(o => {
+    const m = o.material;
+    if (!m || !m.isShaderMaterial || skip.has(m) || seen.has(m)) return;
+    seen.add(m);
+    m.uniforms.uiTint = uiTint;
+    m.fragmentShader = 'uniform float uiTint;\n' + m.fragmentShader.replace(/\}\s*$/, TAIL + '\n}');
+    m.needsUpdate = true;
+  });
+}
+const uiFlats = [M.gem, orbDisc.material, neckEdgeMat].map(m => ({ m, base: m.color.clone() }));
+const uiLights = [rimRed, impactLight].map(l => ({ l, base: l.color.clone() }));
+const uiGlow = new THREE.Color();
+
+// SILENT FLASH: he is simply somewhere else each time he lands a blow
+MOVES.uiFlash = build(2.6, m => {
+  const SPOTS = [[-2.6, 1.4], [2.7, 2.6], [-1.4, 3.8], [2.2, .6], [-2.2, 3]], kinds = ['straight', 'hook', 'upper', 'straight', 'hook'];
+  m.tx = [[0, 0]]; m.dash = [[0, 0]];
+  let px = 0, pz = 0;
+  SPOTS.forEach(([x, z], i) => {
+    const s0 = .05 + i * .13;
+    m.tx.push([s0 - .012, px], [s0, x]); m.dash.push([s0 - .012, pz], [s0, z]); px = x; pz = z;
+    m.fx.push([s0 + .001, 'uiBlink']);
+    punch(m, i % 2 ? -1 : 1, s0, s0 + .125, kinds[i], 1.2, true);
+  });
+  m.tx.push([.708, px], [.72, 0], [1, 0]); m.dash.push([.708, pz], [.72, 0], [1, 0]);
+  m.fx.push([.721, 'uiBlink']);
+  punch(m, -1, .72, .98, 'upper', 3);
+  m.fx.push([.72 + .26 * .44, 'uiFinal']);
+  pk(m, 'boost', [[0, 0], [.05, 1], [.95, 1], [1, 0]]);
+  for (const k of Object.keys(m)) if (Array.isArray(m[k]) && k !== 'fx') m[k].sort((a, b) => a[0] - b[0]);
+  m.wide = 1.5;
+});
+FX.uiBlink = () => {
+  const q = new THREE.Vector3(root.position.x, root.position.y + 5, root.position.z);
+  ring(airRings, q, 2.4, 1.1, .3, 0xe6eeff); burst(q, 26, 6); flash = Math.max(flash, 20);
+};
+FX.uiFinal = () => {
+  const q = fistWorld(-1);
+  ring(floorRings, q, 14, 1.8, .9, 0xcfe0ff); ring(floorRings, q, 8, 1.3, .6, 0x7f9cff);
+  ring(airRings, q, 5, 1.6, .55, 0xf2f6ff); ring(airRings, { x: q.x, y: q.y + 2, z: q.z }, 3, 1.2, .45, 0x9fb8ff);
+  burst(q, 140, 11); camShake = .5; flash = 90;
+};
+
+/* ---------- a 3D aura: a flame skin over every part of the body, and tongues of fire rising round it ---------- */
+const aura3D = { power: { value: .5 }, ui: { value: 0 } };
+const NOISE3 = `
+  float h3(vec3 p){ return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }
+  float n3(vec3 p){ vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f);
+    return mix(mix(mix(h3(i), h3(i + vec3(1, 0, 0)), f.x), mix(h3(i + vec3(0, 1, 0)), h3(i + vec3(1, 1, 0)), f.x), f.y),
+               mix(mix(h3(i + vec3(0, 0, 1)), h3(i + vec3(1, 0, 1)), f.x), mix(h3(i + vec3(0, 1, 1)), h3(i + vec3(1, 1, 1)), f.x), f.y), f.z); }`;
+const auraSkinMat = smooth => new THREE.ShaderMaterial({
+  transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
+  uniforms: { time: fxTime, power: aura3D.power, ui: aura3D.ui },
+  vertexShader: `${smooth ? 'attribute vec3 smoothNormal;' : ''} uniform float time; varying vec3 vW, vN; varying float vF;
+    ${NOISE3}
+    void main(){
+      vec3 nrm = ${smooth ? 'smoothNormal' : 'normal'};
+      vec3 wp = (modelMatrix * vec4(position, 1.)).xyz, wn = normalize(mat3(modelMatrix) * nrm);
+      float n = n3(wp * 2.4 - vec3(0., time * 2.8, 0.)), lick = n3(wp * 1.3 - vec3(0., time * 3.6, 0.));
+      float puff = .07 + .13 * n;
+      wp += wn * puff + vec3(0., 1., 0.) * pow(lick, 3.) * .45 * smoothstep(-.3, .6, wn.y + .3);
+      vW = wp; vN = wn; vF = n;
+      gl_Position = projectionMatrix * viewMatrix * vec4(wp, 1.);
+    }`,
+  fragmentShader: `uniform float time, power, ui; varying vec3 vW, vN; varying float vF;
+    ${NOISE3}
+    void main(){
+      vec3 v = normalize(cameraPosition - vW);
+      float rim = pow(1. - abs(dot(normalize(vN), v)), 2.4);
+      float fl = n3(vW * vec3(5., 2.2, 5.) - vec3(0., time * 4.5, 0.));
+      float lit = rim * (.35 + 1.6 * smoothstep(.4, .85, fl));
+      vec3 deep = mix(vec3(.42, .12, 1.), vec3(.38, .55, 1.), ui), hot = mix(vec3(.95, .7, 1.), vec3(.95, .97, 1.), ui);
+      gl_FragColor = vec4(mix(deep, hot, smoothstep(.5, .95, fl) * rim) * lit * power, 1.);
+    }`,
+});
+{
+  const skin = [auraSkinMat(true), auraSkinMat(false)], targets = [];
+  pelvis.traverse(o => {
+    if (!o.isMesh || o.material.isShaderMaterial || o.material.blending === THREE.AdditiveBlending || o.material === hullMat) return;
+    if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere();
+    if (o.geometry.boundingSphere.radius < .09) return; // rivets and gems add draw calls, not shape
+    targets.push(o);
+  });
+  for (const o of targets) {
+    const s = new THREE.Mesh(o.geometry, skin[o.geometry.attributes.smoothNormal ? 0 : 1]);
+    s.renderOrder = 2; s.frustumCulled = false; o.add(s);
+  }
+}
+
+// tongues of flame on a cylinder round the body, each turning to face the camera about the vertical
+const wispMat = new THREE.ShaderMaterial({
+  transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
+  uniforms: { time: fxTime, power: aura3D.power, ui: aura3D.ui },
+  vertexShader: `attribute vec4 aWisp; uniform float time; varying vec2 vUv; varying float vSeed, vLife;
+    void main(){
+      vUv = uv; vSeed = aWisp.w;
+      float life = fract(time / (1.1 + aWisp.z * .6) + aWisp.w), ang = aWisp.x + time * .35;
+      vLife = life;
+      vec3 c = vec3(cos(ang) * aWisp.y, 1.1 + fract(aWisp.w * 7.3) * 5.6 + life * 2.6, sin(ang) * aWisp.y);
+      vec4 wc = modelMatrix * vec4(c, 1.);
+      vec3 view = normalize(cameraPosition - wc.xyz), up = vec3(0., 1., 0.), side = normalize(cross(up, view));
+      float hgt = 1.4 + life * 1.6;
+      gl_Position = projectionMatrix * viewMatrix * vec4(wc.xyz + side * position.x * .75 + up * position.y * hgt, 1.);
+    }`,
+  fragmentShader: `uniform float time, power, ui; varying vec2 vUv; varying float vSeed, vLife;
+    ${NOISE3}
+    void main(){
+      float x = (vUv.x - .5) * 2., y = vUv.y;
+      float n = n3(vec3(x * 1.6 + vSeed * 9., y * 3. - time * 3.2, vSeed));
+      float w = mix(.95, .08, y);
+      float shape = smoothstep(w, w * .15, abs(x + (n - .5) * .9 * y)) * smoothstep(0., .18, y) * smoothstep(1., .55, y);
+      float a = sin(vLife * 3.14159);
+      vec3 col = mix(mix(vec3(.45, .15, 1.), vec3(.4, .58, 1.), ui), mix(vec3(1., .8, 1.), vec3(.96, .98, 1.), ui), smoothstep(.45, 1., shape));
+      gl_FragColor = vec4(col * shape * shape * a * (.5 + n) * power * 1.3, 1.);
+    }`,
+});
+const WISPS = 26;
+{
+  const g = new THREE.InstancedBufferGeometry().copy(new THREE.PlaneGeometry(1, 1).translate(0, .5, 0));
+  const data = new Float32Array(WISPS * 4);
+  for (let i = 0; i < WISPS; i++) data.set([i * 2.39996, .75 + (i * 37 % 10) / 10 * .55, (i * 53 % 10) / 10, (i * .61803) % 1], i * 4);
+  g.setAttribute('aWisp', new THREE.InstancedBufferAttribute(data, 4));
+  g.instanceCount = WISPS;
+  var wisps = new THREE.Mesh(g, wispMat);
+  wisps.frustumCulled = false; wisps.renderOrder = 3; root.add(wisps);
+}
+const flatAuraPower = { value: .3 }; aura.material.uniforms.power = flatAuraPower; // the old flat aura stays only as a soft backdrop
+
 /* ---------- pose ---------- */
 const clock = new THREE.Clock();
 let t = 0, ribbonNow = { 1: 0, [-1]: 0, baton: 0 };
@@ -1143,7 +1732,8 @@ function pose(time, fw = fightW, name = act, p = name ? actT / MOVES[name].dur :
 
   const drop = fw * (G.drop + bounce * .035) + ch('drop');
   pelvis.position.set(0, 4.1 - drop, 0);
-  root.position.set(0, ch('leap') + idleW * (.8 + Math.sin(time * 1.3) * .1), ch('dash'));
+  const dodge = uiDodge(time) * uiW * (1 - strike);
+  root.position.set(ch('tx') + dodge, ch('leap') + idleW * (.8 + Math.sin(time * 1.3) * .1), ch('dash'));
   for (const s of [-1, 1]) legIK(legs[s], drop, s * fw * G.stride);
   for (const s of [-1, 1]) { // hovering, the legs hang loose and the toes drop
     legs[s].thigh.rotation.x += idleW * (s > 0 ? -.2 : .05);
@@ -1154,7 +1744,7 @@ function pose(time, fw = fightW, name = act, p = name ? actT / MOVES[name].dur :
   if (kx || ks) { kicker.thigh.rotation.x += kx; kicker.shin.rotation.x = Math.max(.02, kicker.shin.rotation.x * (1 - Math.min(1, Math.abs(kx) * 1.5)) + ks); kicker.foot.rotation.x = .3; }
 
   const twist = fw * G.twist + ch('twist');
-  spine.rotation.set(breathe * .012 + fw * G.lean + ch('lean'), twist, 0);
+  spine.rotation.set(breathe * .012 + fw * G.lean + ch('lean'), twist, -dodge * .09);
   head.rotation.y = Math.sin(time * .55) * .14 * idleW - twist * .75;
   head.rotation.x = Math.sin(time * .8) * .02 * idleW - fw * .1;
 
@@ -1192,8 +1782,20 @@ function pose(time, fw = fightW, name = act, p = name ? actT / MOVES[name].dur :
   glyph.scale.setScalar(1 + ch('asc') * 1.6 + ch('shell') * .6);
   const voidSky = Math.min(1, ch('sky')); destroySky.visible = voidSky > .01; destroySkyMat.uniforms.a.value = voidSky;
   pillarPower.value = ch('pillar') * (.85 + Math.sin(time * 31) * .15);
-  const sphere = ch('orb'); deathOrb.visible = sphere > .02; deathOrb.scale.setScalar(Math.max(.01, sphere)); deathOrb.position.z = 3 + ch('orbZ'); deathOrbPower.value = Math.min(1.2, sphere * .5);
+  const sphere = ch('orb'); deathOrb.visible = sphere > .02; deathOrb.scale.setScalar(Math.max(.01, sphere)); deathOrb.position.set(0, 16 + ch('orbY'), 3 + ch('orbZ')); deathOrbPower.value = Math.min(1.2, sphere * .5);
   const blast = ch('shell'); blastShell.visible = blast > .002 && blast < .995; blastShell.scale.setScalar(blast * 230); blastMat.uniforms.a.value = (1 - blast) * 1.5;
+  const disk = ch('disk'); accretion.visible = disk > .01; diskMat.uniforms.a.value = disk;
+  accretion.position.copy(deathOrb.position); accretion.scale.setScalar(Math.max(.01, Math.max(sphere, .5) * (.9 + disk * .25))); accretion.rotation.set(1.2, .2, time * 1.5);
+  const xA = ch('xA'); slashes[0].material.uniforms.k.value = ch('xa'); slashes[1].material.uniforms.k.value = ch('xb');
+  slashes.forEach((sl, i) => { sl.visible = xA > .01 && sl.material.uniforms.k.value > .001; sl.material.uniforms.a.value = xA; sl.scale.y = 5 * (1 + Math.max(0, xA - 1) * 1.5); });
+  const fistA = ch('fistA'); godFist.visible = fistA > .01; ghostMat.uniforms.a.value = fistA;
+  godFist.position.set(-1.6, 6, root.position.z + ch('fistZ')); godFist.scale.setScalar(Math.max(.01, ch('fistS')));
+  const cA = ch('crunchA'), cK = ch('crunchK'); crunchShell.visible = cA > .01; crunchShell.scale.setScalar(230 * Math.pow(1 - cK, 2) + .4);
+  crunchShell.position.y = 7 + root.position.y * .5; crunchMat.uniforms.a.value = cA * (.35 + cK);
+  const br = ch('bomb'); bombR = br; kiBomb.visible = br > .02; kiBomb.scale.setScalar(Math.max(.01, br)); bombFeed = ch('feed');
+  kiBomb.position.set(root.position.x, 12 + br * .9 + ch('bombY'), ch('bombZ'));
+  const bs = ch('bShell'); bombShell.visible = bs > .002 && bs < .995; bombShell.scale.setScalar(bs * 150); bombShellMat.uniforms.a.value = (1 - bs) * 1.6;
+  neckRing.position.y = rel([0, 6.62, 0], pivotOf(spine))[1] + Math.sin(time * 1.8) * .035; neckRing.rotation.y = time * .25;
   rockBelt.rotation.y = time * .1;
   for (const r of rocks) {
     r.m.position.y = r.y + Math.sin(time * .8 + r.seed) * .22 + ch('asc') * (3 + r.seed * .7);
@@ -1251,15 +1853,19 @@ document.getElementById('download').onclick = async e => {
   button.disabled = false;
 };
 
+let camWide = 1, camLift = 0;
 function animate() {
   requestAnimationFrame(animate);
-  const dt = Math.min(clock.getDelta(), .1);
+  frame(Math.min(clock.getDelta(), .1));
+}
+function frame(dt) {
   const t0 = t, move = act ? MOVES[act] : null, p0 = move ? actT / move.dur : 0;
   t += dt;
   fightW += ((mode === 'fight' ? 1 : 0) - fightW) * (1 - Math.exp(-dt * 11));
+  uiW += ((uiOn ? 1 : 0) - uiW) * (1 - Math.exp(-dt * 2.4)); uiKick *= Math.exp(-dt * 2.2);
   let name = act, p1 = p0, due = [];
   if (move) {
-    actT += dt; p1 = Math.min(1, actT / move.dur);
+    actT += dt * (1 + (move.noRush ? 0 : .4) * uiW); p1 = Math.min(1, actT / move.dur);
     due = move.fx.filter(([at]) => p0 < at && p1 >= at);
     if (p1 >= 1) { act = null; actT = 0; showAct(); name = null; p1 = 0; }
   }
@@ -1277,12 +1883,21 @@ function animate() {
   }
   updateFx(dt);
   updateRays(dt);
+  updateMeteors(dt);
+  updateBomb(dt);
   due.forEach(([, fx, ...args]) => FX[fx](...args));
   for (const r of Object.values(ribbons)) r.draw(t);
+  updateUltra(dt);
   if (goal) {
     camera.position.lerp(goal, 1 - Math.exp(-dt * 7));
     if (camera.position.distanceTo(goal) < .02) goal = null;
   }
+  // the god-moves pull the camera back to show the whole of what they do, then let it come home
+  const dl = ((move && move.lift ? move.lift : 0) - camLift) * (1 - Math.exp(-dt * 2));
+  camLift += dl; controls.target.y += dl; camera.position.y += dl;
+  const wantWide = move && move.wide ? move.wide : 1, wasWide = camWide;
+  camWide += (wantWide - camWide) * (1 - Math.exp(-dt * 2.6));
+  camera.position.sub(controls.target).multiplyScalar(camWide / wasWide).add(controls.target);
   controls.update();
   const off = new THREE.Vector3((Math.random() - .5) * camShake, (Math.random() - .5) * camShake, 0);
   camera.position.add(off);

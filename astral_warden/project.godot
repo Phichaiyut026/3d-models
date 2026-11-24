@@ -27,17 +27,6 @@ window/size/window_height_override=360
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 
-[shader_globals]
-
-corruption={
-"type": "float",
-"value": 0.0
-}
-corrupt_center={
-"type": "vec3",
-"value": Vector3(22, 0, -136)
-}
-
 [physics]
 
 3d/physics_engine="Jolt Physics"
@@ -48,3 +37,14 @@ environment/ssao/quality=1
 scaling_3d/mode=1
 scaling_3d/scale=0.8
 anti_aliasing/quality/screen_space_aa=1
+
+[shader_globals]
+
+corruption={
+"type": "float",
+"value": 0.0
+}
+corrupt_center={
+"type": "vec3",
+"value": Vector3(22, 0, -136)
+}

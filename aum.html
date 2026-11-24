@@ -14,6 +14,18 @@
   button:hover{background:#12488f}
   button.on{background:#12a08f;border-color:#5ff0dc;color:#fff}
   .gap{width:10px}
+  button.busy{background:#12a08f;border-color:#5ff0dc;color:#fff}
+  [data-form=architect].on{background:#12a08f;border-color:#5ff0dc}
+  [data-form=cosmos]{border-color:#c79bff;background:#2a1a6a}
+  [data-form=cosmos].on,[data-of=cosmos].busy{background:#7a4cff;border-color:#e0ccff}
+  [data-of=cosmos]{border-color:#c79bff80;background:#1e1450}
+  [data-form=abyss]{border-color:#c0306a;background:#1a0812}
+  [data-form=abyss].on,[data-of=abyss].busy{background:#6a0a3e;border-color:#ff5aa0}
+  [data-of=abyss]{border-color:#ff3a7a80;background:#140610}
+  #grow{border-color:#ff5a6a;background:#3a0612;font-weight:800}
+  button[hidden]{display:none}
+  #vig{position:fixed;inset:0;pointer-events:none;opacity:0;background:radial-gradient(ellipse at center,rgba(0,0,0,0) 35%,rgba(12,0,24,.75) 75%,rgba(4,0,8,.97) 100%)}
+  #flash{position:fixed;inset:0;pointer-events:none;background:radial-gradient(circle,#fff 0%,#d8f6ff 40%,#8a7cff 100%);opacity:0}
   @media (max-width:640px){button{padding:6px 7px;font-size:11px}.gap{width:2px}#bar{gap:4px;bottom:10px}}
 </style>
 <script type="importmap">
@@ -22,6 +34,8 @@
 </head>
 <body>
 <div id="title">อั้ม · THE ARCHITECT<small>ลากเพื่อหมุน · เลื่อนเพื่อซูม · คลิกขวาลากเพื่อเลื่อน</small></div>
+<div id="vig"></div>
+<div id="flash"></div>
 <div id="bar">
   <button data-view="front">FRONT</button>
   <button data-view="side">SIDE</button>
@@ -32,6 +46,30 @@
   <button data-mode="walk">WALK</button>
   <button data-mode="holo">HOLOGRAM</button>
   <button id="wave">WAVE</button>
+  <span class="gap"></span>
+  <button data-form="architect" title="ร่างที่ 1 · นักสร้าง">Ⅰ ARCHITECT</button>
+  <button data-form="cosmos" title="ร่างที่ 2 · ผู้สร้างจักรวาล">Ⅱ COSMOS</button>
+  <button data-form="abyss" title="ร่างที่ 3 · ความมืด">Ⅲ ABYSS</button>
+  <span class="gap"></span>
+  <button data-of="architect" data-skill="blueprint" title="วาดพิมพ์เขียว">BLUEPRINT</button>
+  <button data-of="architect" data-skill="construct" title="สร้าง">CONSTRUCT</button>
+  <button data-of="architect" data-skill="repair" title="ซ่อม/รักษาของ">REPAIR</button>
+  <button data-of="architect" data-skill="shield" title="พื้นที่ปลอดภัย">SAFE ZONE</button>
+  <button data-of="architect" data-skill="debug" title="ล่าบั๊ก">DEBUG</button>
+  <button data-of="architect" data-skill="rebuild" title="สร้างเมืองใหม่">REBUILD</button>
+  <button data-of="cosmos" data-skill="world" title="สร้างดาวเคราะห์">WORLD</button>
+  <button data-of="cosmos" data-skill="solar" title="สร้างระบบสุริยะ">SOLAR SYSTEM</button>
+  <button data-of="cosmos" data-skill="galaxy" title="สร้างกาแล็กซี">GALAXY</button>
+  <button data-of="cosmos" data-skill="genesis" title="กำเนิดจักรวาล">GENESIS</button>
+  <button data-of="abyss" data-skill="blackhole" title="หลุมดำ">BLACK HOLE</button>
+  <button data-of="abyss" data-skill="spikes" title="หนามแห่งความมืด">ABYSS SPIKES</button>
+  <button data-of="abyss" data-skill="obliterate" title="ลำแสงทำลายล้าง">OBLITERATE</button>
+  <button data-of="abyss" data-skill="legion" title="กองทัพเงา">SHADOW LEGION</button>
+  <button data-of="abyss" data-skill="meteor" title="อุกกาบาตมืด">DARK METEOR</button>
+  <button data-of="abyss" data-skill="gate" title="ประตูนรก">ABYSS GATE</button>
+  <button data-of="abyss" data-skill="chains" title="โซ่แห่งความว่างเปล่า">VOID CHAINS</button>
+  <button data-of="abyss" data-skill="endtime" title="ลบล้างโลก">END OF ALL</button>
+  <button data-of="abyss" id="grow" title="ขยายร่างให้สูงเท่าตึกเบิร์จคาลิฟา">⬆ ขยายร่าง 828 m</button>
   <span class="gap"></span>
   <button id="download">DOWNLOAD GLB</button>
 </div>
@@ -82,7 +120,7 @@ const M = {
   skin: toon(0xe3b692), lip: toon(0xa86a58), hair: toon(0x171a22), white: flat(0xf2f4f6), iris: flat(0x14202a),
   under: toon(0x17191d), jacket: toon(0x565a62), jacketDark: toon(0x303339), sleeve: toon(0x1e2024),
   pants: toon(0x1f2125), plate: toon(0x41454d), lite: toon(0x666b74), strap: toon(0x101114), glove: toon(0x24262b),
-  sole: toon(0x0b0c0e), metal: toon(0x8b929c), teal: flat(0x45f0d8), red: flat(0xff3a4a),
+  sole: toon(0x0b0c0e), metal: toon(0x8b929c), eye: flat(0xf2f4f6), pupil: flat(0x14202a), teal: flat(0x45f0d8), red: flat(0xff3a4a),
   lens: new THREE.MeshBasicMaterial({ color: 0x57f3df, transparent: true, opacity: .5, side: THREE.DoubleSide, depthWrite: false, toneMapped: false }),
 };
 
@@ -273,8 +311,8 @@ bar(head, onHead(7.54, 0, .01), [nose[0], 7.37, nose[2] + .06], .055, .05, M.ski
 bar(head, onHead(7.17, -.24, .012), onHead(7.17, .24, .012), .018, .012, M.lip, false);
 for (const s of [-1, 1]) {
   const e = onHead(7.5, s * .4, -.018);
-  ball(head, e, [.08, .042, .035], M.white);
-  ball(head, [e[0] - s * .012, e[1], e[2] + .022], [.032, .04, .022], M.iris);
+  ball(head, e, [.08, .042, .035], M.eye);
+  ball(head, [e[0] - s * .012, e[1], e[2] + .022], [.032, .04, .022], M.pupil);
   bar(head, onHead(7.66, s * .16, .035), onHead(7.7, s * .68, .03), .05, .04, M.hair, false);
   ball(head, onHead(7.44, s * 1.55, .01), [.05, .13, .085], M.skin);
 }
@@ -533,11 +571,272 @@ const panels = [holoPanel(bigPanels, [.42, 5.95, 2.5], [2.3, 1.5], coreTex, [-.0
 const circle = new THREE.Mesh(new THREE.RingGeometry(1.9, 1.95, 64), new THREE.MeshBasicMaterial({ color: 0x8ff5ff, transparent: true, opacity: .55, side: THREE.DoubleSide, depthWrite: false, toneMapped: false }));
 circle.rotation.x = -Math.PI / 2; circle.position.y = .01; root.add(circle);
 
+/* ---------- the three forms: I Architect (builds), II Half Cosmos (creates), III Abyss (destroys) ---------- */
+// Cosmos: a front of light climbs the body; below it, everything left of a wandering line becomes the universe.
+// Abyss: darkness bleeds out from the heart until the whole body is black, the eyes burn white and an aura smokes off him.
+const fxTime = { value: 0 }, uRise = { value: -1 }, uScan = { value: 0 }, uDarkR = { value: 0 }, uDarkEdge = { value: 0 }, uPx = { value: 600 };
+const DARK_FULL = 6.5;
+let form = 'architect';
+// hair that has stopped obeying gravity, and a torn half cape; both only in the cosmic form
+const floatHair = new THREE.Group(); floatHair.name = 'FloatHair';
+{
+  const n0 = head.children.length;
+  for (const [th, len, side] of [[-.35, 1.3, -.1], [-.8, 1.75, -.36], [-1.25, 1.5, -.55], [-1.7, 1.7, -.42], [-2.15, 1.45, -.32], [-2.6, 1.6, -.16], [-.55, 1.15, .1], [-1.5, 1.2, -.7], [.35, 1.3, .1], [.8, 1.75, .36], [1.25, 1.5, .55], [1.7, 1.7, .42], [2.15, 1.45, .32], [2.6, 1.6, .16], [1.5, 1.2, .7], [Math.PI, 1.55, 0]]) lock(th, 7.92, len, .96, side, .2);
+  const made = head.children.slice(n0);
+  floatHair.userData.pivot = pivotOf(head); head.add(floatHair);
+  made.forEach(m => floatHair.add(m));
+}
+const CAPE_W = 12, CAPE_H = 18, capeGeo = new THREE.PlaneGeometry(1, 1, CAPE_W, CAPE_H), capeRest = [];
+{
+  const p = capeGeo.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    const u = p.getX(i) + .5, v = .5 - p.getY(i), hem = v > .84 ? (Math.abs(Math.sin(i * 7.31)) * .85) * (v - .84) * 6 : 0;
+    const x = (u - .5) * (1.7 + v * 1.6), y = 6.42 - v * 5.5 + hem, z = -1.04 - v * .55 - Math.abs(u - .5) * v * .2;
+    p.setXYZ(i, x, y, z); capeRest.push({ x, z, v });
+  }
+  capeGeo.computeVertexNormals();
+}
+M.cape = new THREE.MeshToonMaterial({ color: 0x20204a, gradientMap: ramp, side: THREE.DoubleSide });
+const cape = add(spine, capeGeo, M.cape, [0, 0, 0], [0, 0, 0], false);
+cape.frustumCulled = false; cape.name = 'Cape';
+floatHair.visible = cape.visible = false;
+
+const NOISE = `
+  float hash31(vec3 p){ p = fract(p * vec3(.1031, .1030, .0973)); p += dot(p, p.yxz + 33.33); return fract((p.x + p.y) * p.z); }
+  float vnoise(vec3 p){ vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f);
+    return mix(mix(mix(hash31(i), hash31(i + vec3(1., 0., 0.)), f.x), mix(hash31(i + vec3(0., 1., 0.)), hash31(i + vec3(1., 1., 0.)), f.x), f.y),
+               mix(mix(hash31(i + vec3(0., 0., 1.)), hash31(i + vec3(1., 0., 1.)), f.x), mix(hash31(i + vec3(0., 1., 1.)), hash31(i + vec3(1., 1., 1.)), f.x), f.y), f.z); }
+  float fbm3(vec3 p){ float f = 0., a = .5; for (int i = 0; i < 3; i++) { f += a * vnoise(p); p = p * 2.05 + 7.1; a *= .5; } return f; }
+`;
+const COSMOS = `
+  uniform float uT, uRise, uScan, uDarkR, uDarkEdge;
+` + NOISE + `
+  float splitAt(vec3 r){ return (vnoise(vec3(r.y * 1.05, r.z * 1.3, 2.)) - .5) * .62 + (vnoise(vec3(r.y * 6., r.z * 6., 5.)) - .5) * .13; }
+  vec3 starLayer(vec3 p, float scale, float size){
+    vec3 id = floor(p * scale), f = fract(p * scale);
+    float h = hash31(id + 71.), d = length(f - (vec3(hash31(id), hash31(id + 17.), hash31(id + 41.)) * .7 + .15));
+    float twinkle = .62 + .38 * sin(uT * (1.5 + h * 4.) + h * 40.);
+    return smoothstep(size, 0., d) * step(.5, h) * twinkle * mix(vec3(.72, .86, 1.), vec3(1., .82, .74), fract(h * 9.)) * 2.2;
+  }
+  vec3 cosmos(vec3 r, vec3 V){
+    vec3 p = r + vec3(V.xy, 0.) * -.9;
+    float t = uT * .05, n = fbm3(p * .42 + vec3(0., -t, t));
+    vec3 c = mix(vec3(.012, .012, .07), vec3(.1, .05, .36), smoothstep(.28, .7, n));
+    c += vec3(.72, .12, .62) * pow(fbm3(p * .7 + vec3(7., t, 2.)), 3.) * 2.6;
+    c += vec3(.04, .55, .78) * pow(fbm3(p * .55 + vec3(13., 3., -t)), 3.) * 2.4;
+    float lane = exp(-pow((p.y - p.x * 1.3 - 4.6) / 1.15, 2.));
+    c += vec3(.95, .78, .95) * lane * smoothstep(.34, .68, n) * .55;
+    vec2 g = p.xy - vec2(0., 5.72); float gr = max(length(g), .001);
+    float arm = pow(.5 + .5 * cos(atan(g.y, g.x) * 2. - log(gr) * 5. + uT * .55), 2.);
+    c += vec3(.72, .78, 1.) * arm * exp(-gr * 1.7) * .9 + vec3(1., .92, .78) * (exp(-gr * gr * 16.) * .9);
+    c += starLayer(r + vec3(V.xy, 0.) * -.4, 6., .16) + starLayer(r + vec3(V.xy, 0.) * -1.1, 13., .2) + starLayer(r + vec3(V.xy, 0.) * -2., 26., .24) * .7;
+    return c;
+  }
+  // 1 where the universe shows: everywhere below the climbing front
+  float cosmicMask(vec3 r){ return smoothstep(.02, -.02, r.y - uRise); }
+  vec3 frontGlow(vec3 r){
+    float d = r.y - uRise;
+    return vec3(.55, 1., .95) * exp(-d * d / .004) * 3. * uScan;
+  }
+  // the abyss spreads out from the heart along a ragged, crawling edge
+  float darkDist(vec3 r){ return length(r - vec3(0., 5.5, .15)) + (vnoise(r * 2.6 + vec3(0., -uT * .4, 0.)) - .5) * .7 - uDarkR; }
+  float darkMask(vec3 r){ return smoothstep(.05, -.05, darkDist(r)); }
+  vec3 abyss(vec3 r, vec3 V, vec3 N){
+    float rim = pow(1. - abs(dot(N, -V)), 2.5);
+    float vein = pow(1. - abs(vnoise(r * 4.2 + vec3(0., -uT * .5, 0.)) * 2. - 1.), 16.);
+    return vec3(.012, .008, .02) + vec3(.3, .07, .55) * rim + vec3(.6, .12, 1.) * vein * (.35 + .25 * sin(uT * 3. + r.y * 2.));
+  }
+`;
+M.eye.defines = { DARK_EYE: '' }; M.pupil.defines = { DARK_EYE: '' };
+function formify(mat, cut = false) {
+  const eye = !!(mat.defines && 'DARK_EYE' in mat.defines);
+  if (cut) mat.defines = { ...(mat.defines || {}), COSMIC_CUT: '' };
+  mat.onBeforeCompile = sh => {
+    Object.assign(sh.uniforms, { uT: fxTime, uRise, uScan, uDarkR, uDarkEdge });
+    sh.vertexShader = 'attribute vec3 aRest; varying vec3 vRest; varying vec3 vV; varying vec3 vNv;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+      vRest = aRest; vV = (modelViewMatrix * vec4(position, 1.)).xyz; vNv = normalize(normalMatrix * normal);`);
+    sh.fragmentShader = 'varying vec3 vRest; varying vec3 vV; varying vec3 vNv;\n' + COSMOS + sh.fragmentShader.replace('#include <dithering_fragment>', `#include <dithering_fragment>
+      if (uRise > -.5) {
+        float _m = cosmicMask(vRest);
+        #ifdef COSMIC_CUT
+          if (_m > .5) discard;
+        #endif
+        if (_m > 0.) {
+          vec3 _V = normalize(vV);
+          float _rim = pow(1. - abs(dot(normalize(vNv), -_V)), 3.);
+          gl_FragColor.rgb = mix(gl_FragColor.rgb, cosmos(vRest, _V) + vec3(.45, .68, 1.) * _rim * .85, _m);
+        }
+        gl_FragColor.rgb += frontGlow(vRest);
+      }
+      if (uDarkR > 0.) {
+        float _dm = darkMask(vRest);
+        vec3 _dk = vec3(0.);
+        #ifdef DARK_EYE
+          _dk = vec3(1.);
+        #endif
+        gl_FragColor.rgb = mix(gl_FragColor.rgb, _dk, _dm);
+        #ifdef COSMIC_CUT
+          gl_FragColor.a *= 1. - _dm * .8;
+        #endif
+        float _de = darkDist(vRest);
+        gl_FragColor.rgb += vec3(.75, .25, 1.) * exp(-_de * _de / .006) * 2.2 * uDarkEdge;
+      }`);
+  };
+  mat.customProgramCacheKey = () => 'form' + cut + eye;
+}
+for (const mat of Object.values(M)) formify(mat, mat === M.lens);
+// outlines: ink on the man, thin blue light on the universe, violet on the abyss
+hullMat.uniforms = { uT: fxTime, uRise, uScan, uDarkR, uDarkEdge };
+hullMat.vertexShader = `attribute vec3 smoothNormal; attribute vec3 aRest; varying vec3 vRest;
+  void main(){ vRest = aRest; gl_Position = projectionMatrix * modelViewMatrix * vec4(position + smoothNormal * .018, 1.); }`;
+hullMat.fragmentShader = 'varying vec3 vRest;\n' + COSMOS + `void main(){
+  float m = uRise > -.5 ? cosmicMask(vRest) : 0.;
+  vec3 c = mix(vec3(.03, .035, .05), vec3(.3, .46, .95), m);
+  if (uDarkR > 0.) c = mix(c, vec3(0.), darkMask(vRest));
+  gl_FragColor = vec4(c, 1.); }`;
+hullMat.needsUpdate = true;
+// every vertex remembers where it stood, so the universe and the dark stay put inside the body as he moves
+{
+  root.updateWorldMatrix(true, true);
+  const inv = root.matrixWorld.clone().invert(), v = new THREE.Vector3(), mtx = new THREE.Matrix4();
+  root.traverse(m => {
+    if (!m.isMesh || m.geometry.attributes.aRest) return;
+    mtx.multiplyMatrices(inv, m.matrixWorld);
+    const p = m.geometry.attributes.position, out = new Float32Array(p.count * 3);
+    for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i).applyMatrix4(mtx); out.set([v.x, v.y, v.z], i * 3); }
+    m.geometry.setAttribute('aRest', new THREE.BufferAttribute(out, 3));
+  });
+}
+
+// white eyes that burn through the goggles
+const glowDot = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'), g = x.createRadialGradient(32, 32, 0, 32, 32, 32); g.addColorStop(0, '#fff'); g.addColorStop(.25, 'rgba(255,255,255,.6)'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(c); })();
+const sprite = (map, color, s, blending = THREE.AdditiveBlending) => { const m = new THREE.Sprite(new THREE.SpriteMaterial({ map, color, transparent: true, blending, depthWrite: false, toneMapped: false })); m.scale.setScalar(s); return m; };
+const eyeGlow = [-1, 1].flatMap(s => [[.3, .17, 1], [.3, .17, 1], [1.1, .6, .55], [1.6, .05, .9], [2.6, .03, .5]].map(([w, h, k]) => {
+  const sp = sprite(glowDot, 0xffffff, 1); sp.scale.set(w, h, 1); sp.userData.k = k; sp.renderOrder = 6;
+  sp.position.set(...rel(onHead(7.5, s * .4, .14), pivotOf(head))); sp.visible = false; head.add(sp); return sp;
+}));
+
+// the dark aura: smoke that rises off every part of him, with violet embers inside it
+const AURA_N = 1100, auraMesh = [], auraIdx = [];
+{
+  const src = [], Mset = new Set(Object.values(M));
+  root.traverse(m => { if (m.isMesh && Mset.has(m.material) && m.material !== M.lens && m !== cape && !floatHair.getObjectById(m.id)) src.push(m); });
+  const total = src.reduce((n, m) => n + m.geometry.attributes.position.count, 0);
+  for (let i = 0; i < AURA_N; i++) {
+    let r = Math.random() * total, k = 0;
+    while (r >= src[k].geometry.attributes.position.count) { r -= src[k].geometry.attributes.position.count; k++; }
+    auraMesh.push(src[k]); auraIdx.push(Math.floor(r));
+  }
+}
+const auraPos = new Float32Array(AURA_N * 3), auraGeo = new THREE.BufferGeometry();
+auraGeo.setAttribute('position', new THREE.BufferAttribute(auraPos, 3));
+auraGeo.setAttribute('aSeed', new THREE.BufferAttribute(Float32Array.from({ length: AURA_N }, Math.random), 1));
+const auraAmt = { value: 0 }, auraScale = { value: 1 };
+const auraMat = smoke => new THREE.ShaderMaterial({
+  uniforms: { uT: fxTime, uAmt: auraAmt, uPx, uScale: auraScale }, defines: smoke ? { SMOKE: '' } : {},
+  transparent: true, depthWrite: false, blending: smoke ? THREE.NormalBlending : THREE.AdditiveBlending,
+  vertexShader: `uniform float uT, uAmt, uPx, uScale; attribute float aSeed; varying float vA; varying float vS;
+    void main(){
+      float life = fract(uT * (.35 + aSeed * .3) + aSeed * 17.31);
+      vec3 p = position, o = normalize(vec3(p.x, 0., p.z) + vec3(.0001, 0., 0.));
+      p += uScale * (o * life * .45 + vec3(sin(aSeed * 40. + uT * 2.) * .2 * life, life * life * 2.4 + life * .5, cos(aSeed * 31. + uT * 1.7) * .2 * life));
+      vec4 mv = modelViewMatrix * vec4(p, 1.);
+      gl_Position = projectionMatrix * mv;
+      #ifdef SMOKE
+        float size = .55 + life * 1.3;
+      #else
+        float size = .3 + life * .7;
+      #endif
+      gl_PointSize = uPx * size * uScale * (.6 + aSeed * .6) / -mv.z;
+      vA = sin(life * 3.1416) * uAmt; vS = aSeed;
+    }`,
+  fragmentShader: `varying float vA; varying float vS;
+    void main(){
+      float d = length(gl_PointCoord - .5); if (d > .5) discard;
+      float a = smoothstep(.5, 0., d);
+      #ifdef SMOKE
+        gl_FragColor = vec4(.03, 0., .05, a * a * vA * .8);
+      #else
+        gl_FragColor = vec4(mix(vec3(.5, .12, .95) * .11, vec3(1., .08, .1) * .2, step(.7, vS)) * a * a * vA, 1.);
+      #endif
+    }`,
+});
+const auraSmoke = new THREE.Points(auraGeo, auraMat(true)), auraGlow = new THREE.Points(auraGeo, auraMat(false));
+auraSmoke.frustumCulled = auraGlow.frustumCulled = false; auraGlow.renderOrder = 1;
+scene.add(auraSmoke, auraGlow);
+// a pool of darkness on the floor under him
+const pool = new THREE.Mesh(new THREE.CircleGeometry(3.2, 64), new THREE.ShaderMaterial({
+  transparent: true, depthWrite: false, uniforms: { uAmt: auraAmt, uT: fxTime },
+  vertexShader: `varying vec2 vU; void main(){ vU = position.xy; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }`,
+  fragmentShader: `uniform float uAmt, uT; varying vec2 vU;
+    void main(){ float d = length(vU) / 3.2, a = smoothstep(1., .2, d) * .85;
+      float rim = exp(-pow((d - .8 - sin(atan(vU.y, vU.x) * 7. + uT * 2.) * .04) / .03, 2.));
+      gl_FragColor = vec4(mix(vec3(.5, .15, .9), vec3(1., .1, .15), .5 + .5 * sin(atan(vU.y, vU.x) * 3. - uT * 3.)) * rim, max(a, rim) * uAmt); }`,
+}));
+pool.rotation.x = -Math.PI / 2; pool.position.y = .015; scene.add(pool);
+const _av = new THREE.Vector3();
+function updateAura() {
+  const amt = Math.max(0, Math.min(1, uDarkR.value / DARK_FULL));
+  auraAmt.value = amt;
+  auraSmoke.visible = auraGlow.visible = pool.visible = amt > .001;
+  const eyes = Math.max(0, Math.min(1, (uDarkR.value - 2.2) / 1.5)) * (.85 + Math.sin(t * 6) * .15);
+  eyeGlow.forEach(s => { s.visible = eyes > .01; s.material.opacity = eyes * s.userData.k; });
+  if (!auraSmoke.visible) return;
+  root.updateMatrixWorld(true);
+  for (let i = 0; i < AURA_N; i++) { _av.fromBufferAttribute(auraMesh[i].geometry.attributes.position, auraIdx[i]).applyMatrix4(auraMesh[i].matrixWorld); auraPos.set([_av.x, _av.y, _av.z], i * 3); }
+  auraGeo.attributes.position.needsUpdate = true;
+}
+
+/* each form has its own sky */
+const gradientBg = (stops, dots) => {
+  const c = document.createElement('canvas'); c.width = 1024; c.height = 512;
+  const x = c.getContext('2d'), g = x.createLinearGradient(0, 0, 0, 512);
+  stops.forEach(([at, col]) => g.addColorStop(at, col));
+  x.fillStyle = g; x.fillRect(0, 0, 1024, 512);
+  dots && dots(x);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+};
+const spaceBg = gradientBg([[0, '#03021a'], [.55, '#120a3a'], [1, '#05041c']], x => {
+  for (const [cx, cy, r, col] of [[300, 200, 260, '#5a1a7a55'], [760, 300, 300, '#0a5a8a44'], [520, 120, 200, '#9a3a8a33']]) {
+    const n = x.createRadialGradient(cx, cy, 0, cx, cy, r); n.addColorStop(0, col); n.addColorStop(1, '#0000'); x.fillStyle = n; x.fillRect(0, 0, 1024, 512);
+  }
+  for (let i = 0; i < 900; i++) { x.globalAlpha = .3 + Math.random() * .7; x.fillStyle = Math.random() < .2 ? '#ffd8c8' : '#d8e8ff'; const s = Math.random() < .06 ? 2 : 1; x.fillRect(Math.random() * 1024, Math.random() * 512, s, s); }
+});
+const abyssBg = gradientBg([[0, '#000000'], [.5, '#0a0310'], [.78, '#24061a'], [1, '#040106']], x => {
+  for (let i = 0; i < 160; i++) { x.globalAlpha = .2 + Math.random() * .5; x.fillStyle = Math.random() < .5 ? '#7a1a4a' : '#4a1a7a'; x.fillRect(Math.random() * 1024, 250 + Math.random() * 262, 2, 2); }
+});
+const BG = { architect: scene.background, cosmos: spaceBg, abyss: abyssBg }, GRID_A = { architect: 1, cosmos: .25, abyss: .08 }, BLACK = new THREE.Color(0);
+grid.material.transparent = true;
+function styleWorld(dim = 0) { scene.background = dim > .5 ? BLACK : BG[form]; grid.material.opacity = GRID_A[form] * (1 - dim); }
+
+let flashT = -1;
+const flashEl = document.getElementById('flash');
+const FLASH = {
+  architect: 'radial-gradient(circle,#fff 0%,#d8fff6 40%,#45f0d8 100%)',
+  cosmos: 'radial-gradient(circle,#fff 0%,#d8f6ff 40%,#8a7cff 100%)',
+  abyss: 'radial-gradient(circle,#000 0%,#12021c 55%,#5a1490 100%)',
+};
+function flash(kind) { flashEl.style.background = FLASH[kind]; flashT = 0; }
+
+const FORM_NAME = { architect: 'อั้ม · THE ARCHITECT', cosmos: 'อั้ม · COSMOS', abyss: 'อั้ม · ABYSS' };
+function setForm(f) {
+  form = f;
+  floatHair.visible = cape.visible = f === 'cosmos';
+  wristPanel.visible = beam.visible = f !== 'abyss';
+  tablet.children[1].material.color.set(f === 'abyss' ? 0x000000 : 0xffffff);
+  styleWorld();
+  document.getElementById('title').firstChild.textContent = FORM_NAME[f];
+  document.querySelectorAll('[data-form]').forEach(b => b.classList.toggle('on', b.dataset.form === f));
+  document.querySelectorAll('[data-of]').forEach(b => { b.hidden = b.dataset.of !== f; });
+}
+setForm('architect');
+
 /* ---------- ui ---------- */
 const VIEWS = { front: [0, 4.25, 24], side: [24, 4.25, 0], back: [0, 4.25, -24], iso: [11, 6.5, 19] };
 let goal = null;
 camera.position.set(...VIEWS.iso);
-document.querySelectorAll('[data-view]').forEach(b => b.onclick = () => { goal = new THREE.Vector3(...VIEWS[b.dataset.view]); });
+document.querySelectorAll('[data-view]').forEach(b => b.onclick = () => { goal = new THREE.Vector3(...VIEWS[b.dataset.view]).sub(new THREE.Vector3(0, 4.25, 0)).multiplyScalar(bigK).add(controls.target); });
 controls.addEventListener('start', () => { goal = null; });
 let mode = 'idle', holoW = 0, walkW = 0, waveT = -1;
 const modeButtons = document.querySelectorAll('[data-mode]');
@@ -617,6 +916,1293 @@ function pose(time, h = holoW, w = walkW, wave = waveT) {
 const clock = new THREE.Clock();
 let t = 0;
 
+/* ---------- skills of the architect: design it, build it, guard it, debug it, rebuild everything ---------- */
+const TEAL = 0x45f0d8, PALE = 0x8ff5ea, BUG = 0xff3a4a;
+const fxRoot = new THREE.Group(); scene.add(fxRoot);
+const glowMat = (color, opacity = 1) => new THREE.MeshBasicMaterial({ color, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false });
+const lineMat = (color, opacity = 1) => new THREE.LineBasicMaterial({ color, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
+const BOX = new THREE.BoxGeometry(1, 1, 1).translate(0, .5, 0), BOX_EDGES = new THREE.EdgesGeometry(BOX);
+// a building or block drawn as glowing edges over a faint fill, growing up from its base
+function wireBlock(parent, w, h, d, color = TEAL) {
+  const g = new THREE.Group(); parent.add(g);
+  const fill = new THREE.Mesh(BOX, glowMat(color, .08)); g.add(fill);
+  const edges = new THREE.LineSegments(BOX_EDGES, lineMat(color, 1)); g.add(edges);
+  g.scale.set(w, h, d); g.userData = { fill, edges };
+  return g;
+}
+
+// sparks: one pool for every skill
+const SP = 2400, spPos = new Float32Array(SP * 3), spCol = new Float32Array(SP * 3), spVel = new Float32Array(SP * 3), spLife = new Float32Array(SP), spMax = new Float32Array(SP), spGrav = new Float32Array(SP);
+let spNext = 0;
+const spGeo = new THREE.BufferGeometry();
+spGeo.setAttribute('position', new THREE.BufferAttribute(spPos, 3)); spGeo.setAttribute('color', new THREE.BufferAttribute(spCol, 3));
+const spDot = (() => { const c = document.createElement('canvas'); c.width = c.height = 32; const x = c.getContext('2d'), g = x.createRadialGradient(16, 16, 0, 16, 16, 16); g.addColorStop(0, '#fff'); g.addColorStop(.4, 'rgba(255,255,255,.5)'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(0, 0, 32, 32); return new THREE.CanvasTexture(c); })();
+const sparks = new THREE.Points(spGeo, new THREE.PointsMaterial({ size: .22, map: spDot, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+sparks.frustumCulled = false; scene.add(sparks);
+const _c = new THREE.Color();
+function burst(at, n, speed, color = TEAL, rise = .3, life = .8) {
+  _c.set(color);
+  for (let i = 0; i < n; i++) {
+    const k = spNext; spNext = (spNext + 1) % SP;
+    const a = Math.random() * Math.PI * 2, e = Math.random() * 2 - 1, f = Math.sqrt(1 - e * e), v = speed * (.3 + Math.random() * .8);
+    spPos.set([at.x, at.y, at.z], k * 3); spVel.set([Math.cos(a) * f * v, e * v + speed * rise, Math.sin(a) * f * v], k * 3);
+    spCol.set([_c.r, _c.g, _c.b], k * 3); spLife[k] = spMax[k] = life * (.5 + Math.random() * .7); spGrav[k] = 1;
+  }
+}
+function updateSparks(dt) {
+  for (let i = 0; i < SP; i++) {
+    if (spLife[i] <= 0) continue;
+    spLife[i] -= dt;
+    const n = i * 3, k = Math.max(0, spLife[i] / spMax[i]);
+    spVel[n + 1] -= 3 * dt * spGrav[i];
+    spPos[n] += spVel[n] * dt; spPos[n + 1] = Math.max(.02, spPos[n + 1] + spVel[n + 1] * dt); spPos[n + 2] += spVel[n + 2] * dt;
+    if (spLife[i] <= 0) spPos.set([0, -99, 0], n);
+    spCol[n] *= .985 + k * .015; spCol[n + 1] *= .985 + k * .015; spCol[n + 2] *= .985 + k * .015;
+  }
+  spGeo.attributes.position.needsUpdate = true; spGeo.attributes.color.needsUpdate = true;
+}
+spPos.fill(-99);
+
+// flat rings that spread across the floor
+const rings = Array.from({ length: 12 }, () => { const m = new THREE.Mesh(new THREE.RingGeometry(.94, 1, 96), glowMat(TEAL, 0)); m.rotation.x = -Math.PI / 2; m.visible = false; fxRoot.add(m); return { m, age: 9, life: 1, size: 1 }; });
+function ring(at, size, life = .9, color = TEAL, y = .03) {
+  const o = rings.find(r => r.age >= r.life) || rings[0];
+  o.m.position.set(at.x, y, at.z); o.m.material.color.set(color); o.age = 0; o.life = life; o.size = size; o.m.visible = true;
+}
+function updateRings(dt) {
+  for (const o of rings) {
+    if (o.age >= o.life) { o.m.visible = false; continue; }
+    o.age += dt; const k = Math.min(1, o.age / o.life);
+    o.m.scale.setScalar(.2 + (1 - (1 - k) * (1 - k)) * o.size); o.m.material.opacity = (1 - k) * .9;
+  }
+}
+const ease = k => k * k * (3 - 2 * k), seg = (p, a, b) => Math.max(0, Math.min(1, (p - a) / (b - a))), env = (p, a, b, c, d) => ease(seg(p, a, b)) * (1 - ease(seg(p, c, d)));
+const handR = () => arms[-1].hand.localToWorld(new THREE.Vector3(...rel([arms[-1].W[0], arms[-1].W[1] - .45, arms[-1].W[2]], arms[-1].W)));
+
+// the floor plan: a disc of grid lines, rings and a sweeping scan
+const planMat = new THREE.ShaderMaterial({
+  transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, uniforms: { time: { value: 0 }, r: { value: 0 }, a: { value: 0 } },
+  vertexShader: `varying vec2 vP; void main(){ vP = position.xy; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }`,
+  fragmentShader: `uniform float time, r, a; varying vec2 vP;
+    float ln(float v, float w){ return smoothstep(w, 0., abs(v)); }
+    void main(){
+      float d = length(vP); if (d > r) discard;
+      vec2 g = abs(fract(vP) - .5);
+      float grid = ln(.5 - max(g.x, g.y), .03) * .35 + ln(.5 - max(abs(fract(vP / 4.) - .5).x, abs(fract(vP / 4.) - .5).y), .015) * .6;
+      float rings = ln(fract(d / 3.) - .5, .02) * .5 + ln(d - r, .12) * 2.;
+      float ang = atan(vP.y, vP.x), sweep = pow(fract((ang - time * 1.4) / 6.2832), 12.) * smoothstep(r, 0., d);
+      gl_FragColor = vec4(vec3(.27, .94, .85) * (grid + rings + sweep * 1.2) * a, 1.);
+    }`,
+});
+const plan = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), planMat); plan.rotation.x = -Math.PI / 2; plan.position.y = .02; plan.visible = false; fxRoot.add(plan);
+
+
+/* ---------- pieces the creating and destroying skills share ---------- */
+const HEAL = 0x5dffb0, IDQ = new THREE.Quaternion(), UP = new THREE.Vector3(0, 1, 0), _hc = new THREE.Color();
+const handL = () => arms[1].hand.localToWorld(new THREE.Vector3(...rel([arms[1].W[0], arms[1].W[1] - .45, arms[1].W[2]], arms[1].W)));
+const handsMid = () => handR().add(handL()).multiplyScalar(.5);
+// sparks that fall inwards onto a point instead of flying out of it
+function implode(at, n, radius, color = TEAL, life = .7) {
+  _c.set(color);
+  for (let i = 0; i < n; i++) {
+    const k = spNext; spNext = (spNext + 1) % SP;
+    const d = new THREE.Vector3().randomDirection().multiplyScalar(radius * (.6 + Math.random() * .4)), L = life * (.6 + Math.random() * .5);
+    spPos.set([at.x + d.x, at.y + d.y, at.z + d.z], k * 3); spVel.set([-d.x / L, -d.y / L, -d.z / L], k * 3);
+    spCol.set([_c.r, _c.g, _c.b], k * 3); spLife[k] = spMax[k] = L; spGrav[k] = 0;
+  }
+}
+const canvasTex = (size, draw) => { const c = document.createElement('canvas'); c.width = c.height = size; draw(c.getContext('2d'), size / 2); return new THREE.CanvasTexture(c); };
+const ringTex = canvasTex(128, (x, h) => { const g = x.createRadialGradient(h, h, 0, h, h, h); g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(.38, 'rgba(255,255,255,0)'); g.addColorStop(.46, '#fff'); g.addColorStop(.56, 'rgba(255,255,255,.3)'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(0, 0, h * 2, h * 2); });
+const eclipseTex = canvasTex(512, (x, h) => {
+  const g = x.createRadialGradient(h, h, 0, h, h, h);
+  g.addColorStop(0, '#000'); g.addColorStop(.34, '#000'); g.addColorStop(.36, '#fff'); g.addColorStop(.42, 'rgba(225,205,255,.75)'); g.addColorStop(.62, 'rgba(140,70,255,.22)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+  x.fillStyle = g; x.fillRect(0, 0, h * 2, h * 2);
+  x.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < 70; i++) { const a = Math.random() * 6.283, l = h * (.45 + Math.random() * .5); x.strokeStyle = `rgba(200,170,255,${.05 + Math.random() * .12})`; x.lineWidth = 1 + Math.random() * 2; x.beginPath(); x.moveTo(h + Math.cos(a) * h * .36, h + Math.sin(a) * h * .36); x.lineTo(h + Math.cos(a) * l, h + Math.sin(a) * l); x.stroke(); }
+  x.globalCompositeOperation = 'source-over'; x.fillStyle = '#000'; x.beginPath(); x.arc(h, h, h * .35, 0, 6.283); x.fill();
+});
+const VIEW_VERT = `varying vec3 vP; varying vec3 vN; varying vec3 vV; varying float vY;
+  void main(){ vP = position; vY = position.y; vN = normalize(normalMatrix * normal); vec4 mv = modelViewMatrix * vec4(position, 1.); vV = mv.xyz; gl_Position = projectionMatrix * mv; }`;
+// a planet that accretes out of dust, glows molten, then cools into sea, land, ice and cloud
+const planetMat = () => new THREE.ShaderMaterial({
+  uniforms: { uT: fxTime, uGrow: { value: 0 }, uCool: { value: 0 } }, vertexShader: VIEW_VERT,
+  fragmentShader: `uniform float uT, uGrow, uCool; varying vec3 vP; varying vec3 vN; varying vec3 vV;` + NOISE + `
+    void main(){
+      vec3 p = normalize(vP);
+      if (vnoise(p * 6.) * .7 + hash31(floor(p * 50.)) * .3 > uGrow * 1.05) discard;
+      float n = fbm3(p * 2.2 + 3.), cl = fbm3(p * 5. + vec3(uT * .04, 0., 0.));
+      vec3 sea = mix(vec3(.02, .08, .3), vec3(.05, .35, .6), smoothstep(.3, .5, n));
+      vec3 land = mix(vec3(.12, .42, .14), vec3(.5, .4, .22), smoothstep(.55, .7, n));
+      vec3 col = mix(sea, land, smoothstep(.5, .52, n));
+      col = mix(col, vec3(.95), smoothstep(.78, .9, abs(p.y)));
+      col = mix(col, vec3(1.), smoothstep(.55, .7, cl) * .8);
+      col *= max(dot(normalize(vN), normalize(vec3(-.4, .5, .75))), 0.) * .9 + .12;
+      vec3 lava = mix(vec3(.25, .02, 0.), vec3(1.4, .5, .08), pow(fbm3(p * 4. + uT * .3), 2.) * 2.);
+      col = mix(lava, col, uCool);
+      col += vec3(.3, .6, 1.) * pow(1. - abs(dot(normalize(vN), normalize(-vV))), 3.) * uCool * .8;
+      gl_FragColor = vec4(col, 1.);
+    }`,
+});
+const sunMat = () => new THREE.ShaderMaterial({
+  uniforms: { uT: fxTime }, vertexShader: VIEW_VERT,
+  fragmentShader: `uniform float uT; varying vec3 vP; varying vec3 vN; varying vec3 vV;` + NOISE + `
+    void main(){ vec3 p = normalize(vP); float n = fbm3(p * 5. + vec3(uT * .3, -uT * .2, 0.)), limb = abs(dot(normalize(vN), normalize(-vV)));
+      gl_FragColor = vec4(mix(vec3(1., .35, .05), vec3(1., .95, .7), n) * (.55 + .6 * limb) + vec3(1., .6, .2) * pow(1. - limb, 2.) * .8, 1.); }`,
+});
+// a planet lit from its sun
+const orbMat = (color, bands = 0) => new THREE.ShaderMaterial({
+  uniforms: { uCol: { value: new THREE.Color(color) }, uSun: { value: new THREE.Vector3() }, uBands: { value: bands } },
+  vertexShader: `varying vec3 vW; varying vec3 vN; varying vec3 vP; void main(){ vec4 w = modelMatrix * vec4(position, 1.); vW = w.xyz; vN = normalize(mat3(modelMatrix) * normal); vP = position; gl_Position = projectionMatrix * viewMatrix * w; }`,
+  fragmentShader: `uniform vec3 uCol, uSun; uniform float uBands; varying vec3 vW; varying vec3 vN; varying vec3 vP;
+    void main(){ vec3 c = uCol * (1. + uBands * .25 * sin(normalize(vP).y * 22.)); float d = max(dot(normalize(vN), normalize(uSun - vW)), 0.); gl_FragColor = vec4(c * (.07 + d * 1.05), 1.); }`,
+});
+const STAR_FRAG = `varying vec3 vC; varying float vA; void main(){ float d = length(gl_PointCoord - .5); float a = smoothstep(.5, 0., d); gl_FragColor = vec4(vC * a * a * vA * 1.4, 1.); }`;
+// a spiral galaxy; uForm brings its stars in from scattered space, uSpin turns it (faster in the middle)
+function makeGalaxy(n, R, arms = 2) {
+  const pos = new Float32Array(n * 3), scat = new Float32Array(n * 3), col = new Float32Array(n * 3), seed = new Float32Array(n), c = new THREE.Color(), d = new THREE.Vector3();
+  for (let i = 0; i < n; i++) {
+    const core = Math.random() < .22, rr = core ? Math.pow(Math.random(), 2) * .18 : .12 + Math.pow(Math.random(), .8) * .88;
+    const arm = Math.floor(Math.random() * arms) / arms * Math.PI * 2, th = core ? Math.random() * 6.283 : arm + rr * 5.2 + (Math.random() - .5) * (.55 + rr * .4);
+    pos.set([rr * R, th, (Math.random() - .5) * R * (core ? .1 : .03) * (1.2 - rr)], i * 3);
+    d.randomDirection().multiplyScalar(R * (1.2 + Math.random())); scat.set([d.x, d.y, d.z], i * 3);
+    if (core) c.setRGB(1, .82 + Math.random() * .1, .6); else if (Math.random() < .08) c.setRGB(1, .4, .75); else c.setRGB(.55 + Math.random() * .3, .7 + Math.random() * .2, 1);
+    col.set([c.r, c.g, c.b], i * 3); seed[i] = Math.random();
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('aScat', new THREE.BufferAttribute(scat, 3));
+  g.setAttribute('aCol', new THREE.BufferAttribute(col, 3)); g.setAttribute('aSeed', new THREE.BufferAttribute(seed, 1));
+  const pts = new THREE.Points(g, new THREE.ShaderMaterial({
+    uniforms: { uT: fxTime, uForm: { value: 0 }, uA: { value: 1 }, uPx, uSpin: { value: 0 }, uRad: { value: R } },
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    vertexShader: `uniform float uT, uForm, uA, uPx, uSpin, uRad; attribute vec3 aScat, aCol; attribute float aSeed; varying vec3 vC; varying float vA;
+      void main(){
+        float r = position.x, th = position.y - uSpin / (.25 + r / uRad);
+        vec3 disk = vec3(cos(th) * r, position.z, sin(th) * r);
+        float k = clamp(uForm * 1.8 - aSeed * .8, 0., 1.); k = k * k * (3. - 2. * k);
+        vec4 mv = modelViewMatrix * vec4(mix(aScat, disk, k), 1.);
+        gl_Position = projectionMatrix * mv;
+        gl_PointSize = max(1.5, uPx * (.05 + aSeed * aSeed * .14) / -mv.z);
+        vC = aCol; vA = uA * (.35 + .65 * k) * (.6 + .4 * sin(uT * (2. + aSeed * 5.) + aSeed * 50.));
+      }`,
+    fragmentShader: STAR_FRAG,
+  }));
+  pts.frustumCulled = false;
+  return pts;
+}
+// the accretion disk of a black hole: a swirl of light, white-hot at the edge of the dark, red at the rim
+const diskMat = () => new THREE.ShaderMaterial({
+  uniforms: { uT: fxTime, uA: { value: 0 } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+  vertexShader: `varying vec2 vP; void main(){ vP = position.xy; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }`,
+  fragmentShader: `uniform float uT, uA; varying vec2 vP;` + NOISE + `
+    void main(){ float r = length(vP), k = (r - 1.2) / 4., a2 = atan(vP.y, vP.x) - uT * 2. / r + r * .7;
+      float n = fbm3(vec3(cos(a2) * 2.5, sin(a2) * 2.5, r * 1.8));
+      vec3 col = mix(vec3(1., .95, 1.), mix(vec3(.75, .2, 1.), vec3(.6, .05, .15), smoothstep(.15, .7, k)), smoothstep(0., .25, k));
+      gl_FragColor = vec4(col * smoothstep(0., .06, k) * smoothstep(1., .5, k) * (.35 + n * 1.1) * uA, 1.); }`,
+});
+// solid dark matter: black, with a violet rim and (optionally) a glow at its base
+const darkSolidMat = (rim = 0x9a40ff, base = false) => new THREE.ShaderMaterial({
+  uniforms: { uRim: { value: new THREE.Color(rim) } }, defines: base ? { BASE_GLOW: '' } : {}, vertexShader: VIEW_VERT,
+  fragmentShader: `uniform vec3 uRim; varying vec3 vN; varying vec3 vV; varying float vY;
+    void main(){
+      float r = pow(1. - abs(dot(normalize(vN), normalize(-vV))), 2.);
+      vec3 c = vec3(.02, .01, .035) + uRim * r * .9;
+      #ifdef BASE_GLOW
+        c += uRim * smoothstep(.35, 0., vY) * .8;
+      #endif
+      gl_FragColor = vec4(c, 1.);
+    }`,
+});
+const darkRock = darkSolidMat(0x8a3aff);
+// the beam of the abyss: black at the core, burning violet at the edges
+const beamMat = () => new THREE.ShaderMaterial({
+  uniforms: { uT: fxTime }, transparent: true, depthWrite: false, side: THREE.DoubleSide,
+  vertexShader: `varying vec2 vU; varying vec3 vN; varying vec3 vV; void main(){ vU = uv; vN = normalize(normalMatrix * normal); vec4 mv = modelViewMatrix * vec4(position, 1.); vV = mv.xyz; gl_Position = projectionMatrix * mv; }`,
+  fragmentShader: `uniform float uT; varying vec2 vU; varying vec3 vN; varying vec3 vV;` + NOISE + `
+    void main(){ float f = abs(dot(normalize(vN), normalize(-vV))), n = vnoise(vec3(vU.x * 6., vU.y * 40. - uT * 30., 0.));
+      vec3 edge = vec3(.65, .15, 1.) * (.7 + n * .9);
+      gl_FragColor = vec4(mix(edge, vec3(0.), pow(f, 3.)), pow(f, .5)); }`,
+});
+// the wave of nothing: black inside, a thin violet skin
+const domeMat = () => new THREE.ShaderMaterial({
+  uniforms: { uA: { value: 0 } }, transparent: true, depthWrite: false, side: THREE.DoubleSide, vertexShader: VIEW_VERT,
+  fragmentShader: `uniform float uA; varying vec3 vN; varying vec3 vV;
+    void main(){ float rim = pow(1. - abs(dot(normalize(vN), normalize(-vV))), 3.); gl_FragColor = vec4(vec3(.55, .15, 1.) * rim * 1.5, (.94 * (1. - rim) + rim) * uA); }`,
+});
+
+/* ---------- what the abyss uses to make its endings felt: quake, lightning, black smoke, broken ground, a closing dark ---------- */
+let shake = 0, vigT = 0, vig = 0;
+const quake = a => { shake = Math.max(shake, a); };
+const vigEl = document.getElementById('vig');
+
+// lightning: a jagged white core in a violet sheath, flickering out in a fraction of a second
+const bolts = [];
+function bolt(a, b, color = 0xb050ff, life = .25, jag = .14, width = 1, coreColor = 0xffffff, sparks = true) {
+  const d = b.clone().sub(a), len = d.length(), n = Math.max(4, Math.min(40, Math.round(len * 1.4)));
+  const s1 = new THREE.Vector3().randomDirection().cross(d).normalize(), s2 = s1.clone().cross(d).normalize();
+  const pts = [a.clone()];
+  for (let i = 1; i < n; i++) {
+    const amp = len * jag * Math.sin(i / n * Math.PI);
+    pts.push(a.clone().addScaledVector(d, i / n).addScaledVector(s1, (Math.random() - .5) * amp).addScaledVector(s2, (Math.random() - .5) * amp));
+  }
+  pts.push(b.clone());
+  const path = new THREE.CurvePath();
+  for (let i = 0; i < pts.length - 1; i++) path.add(new THREE.LineCurve3(pts[i], pts[i + 1]));
+  const core = new THREE.Mesh(new THREE.TubeGeometry(path, n * 2, .045 * width, 5, false), glowMat(coreColor, 1));
+  const glow = new THREE.Mesh(new THREE.TubeGeometry(path, n * 2, .2 * width, 6, false), glowMat(color, .45));
+  fxRoot.add(core, glow);
+  bolts.push({ core, glow, life, max: life });
+  if (sparks) burst(b, 8, 4, color, .3, .4);
+  // a fork off the middle
+  if (len > 4 && Math.random() < .6) {
+    const m = pts[Math.floor(pts.length / 2)], e = m.clone().add(new THREE.Vector3().randomDirection().multiplyScalar(len * .3));
+    if (e.y < .05) e.y = .05;
+    const fork = new THREE.Mesh(new THREE.TubeGeometry(new THREE.LineCurve3(m, e), 4, .03 * width, 4, false), glowMat(color, .9));
+    fxRoot.add(fork); bolts.push({ core: fork, glow: null, life, max: life });
+  }
+}
+function updateBolts(dt) {
+  for (let i = bolts.length - 1; i >= 0; i--) {
+    const o = bolts[i]; o.life -= dt;
+    if (o.life <= 0) { for (const m of [o.core, o.glow]) if (m) { fxRoot.remove(m); m.geometry.dispose(); m.material.dispose(); } bolts.splice(i, 1); continue; }
+    const k = o.life / o.max * (Math.random() < .3 ? .35 : 1);
+    o.core.material.opacity = k; if (o.glow) o.glow.material.opacity = k * .45;
+  }
+}
+
+// black smoke: dark billows with a violet fringe, so they still read against the night
+const SM = 700, smPos = new Float32Array(SM * 3), smVel = new Float32Array(SM * 3), smLife = new Float32Array(SM), smMax = new Float32Array(SM).fill(1), smBase = new Float32Array(SM), smSize = new Float32Array(SM), smA = new Float32Array(SM);
+let smNext = 0;
+const smGeo = new THREE.BufferGeometry();
+smGeo.setAttribute('position', new THREE.BufferAttribute(smPos, 3)); smGeo.setAttribute('aSize', new THREE.BufferAttribute(smSize, 1)); smGeo.setAttribute('aA', new THREE.BufferAttribute(smA, 1));
+const smokePts = new THREE.Points(smGeo, new THREE.ShaderMaterial({
+  uniforms: { uPx }, transparent: true, depthWrite: false,
+  vertexShader: `uniform float uPx; attribute float aSize, aA; varying float vA;
+    void main(){ vec4 mv = modelViewMatrix * vec4(position, 1.); gl_Position = projectionMatrix * mv; gl_PointSize = uPx * aSize / -mv.z; vA = aA; }`,
+  fragmentShader: `varying float vA;
+    void main(){ float d = length(gl_PointCoord - .5); if (d > .5) discard; float a = smoothstep(.5, .05, d);
+      gl_FragColor = vec4(vec3(.025, 0., .045) + vec3(.4, .08, .7) * a * (1. - a) * 1.6, a * vA); }`,
+}));
+smokePts.frustumCulled = false; smokePts.renderOrder = 2; scene.add(smokePts);
+function smoke(at, n, speed, size = 1.6, life = 1.8, rise = 1.2) {
+  for (let i = 0; i < n; i++) {
+    const k = smNext; smNext = (smNext + 1) % SM;
+    const v = new THREE.Vector3().randomDirection().multiplyScalar(speed * (.3 + Math.random() * .8));
+    smPos.set([at.x, at.y, at.z], k * 3); smVel.set([v.x, v.y * .6 + rise, v.z], k * 3);
+    smLife[k] = smMax[k] = life * (.6 + Math.random() * .6); smBase[k] = size * (.6 + Math.random() * .8);
+  }
+}
+function updateSmoke(dt) {
+  const damp = Math.exp(-dt * 1.6);
+  for (let i = 0; i < SM; i++) {
+    if (smLife[i] <= 0) { smA[i] = 0; continue; }
+    smLife[i] -= dt;
+    const n = i * 3, u = 1 - Math.max(0, smLife[i]) / smMax[i];
+    smVel[n] *= damp; smVel[n + 2] *= damp; smVel[n + 1] = smVel[n + 1] * damp + dt * .8;
+    smPos[n] += smVel[n] * dt; smPos[n + 1] = Math.max(.1, smPos[n + 1] + smVel[n + 1] * dt); smPos[n + 2] += smVel[n + 2] * dt;
+    smSize[i] = smBase[i] * (.5 + u * 1.6); smA[i] = Math.min(1, u * 8) * (1 - u) * .85;
+  }
+  smGeo.attributes.position.needsUpdate = smGeo.attributes.aSize.needsUpdate = smGeo.attributes.aA.needsUpdate = true;
+}
+
+// broken ground: a web of glowing fissures that spreads out from a point
+const crackU = { uR: { value: 0 }, uA: { value: 0 }, uC: { value: new THREE.Vector2() }, uT: fxTime };
+const cracks = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), new THREE.ShaderMaterial({
+  uniforms: crackU, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+  vertexShader: `varying vec2 vP; void main(){ vP = vec2(position.x, -position.y); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }`,
+  fragmentShader: `uniform float uR, uA, uT; uniform vec2 uC; varying vec2 vP;
+    vec2 h22(vec2 p){ return fract(sin(vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)))) * 43758.5453); }
+    void main(){
+      float dist = length(vP - uC); if (dist > uR + .5) discard;
+      vec2 p = vP * .42; p += vec2(sin(p.y * 3.1 + sin(p.x * 1.7)), sin(p.x * 2.7 + sin(p.y * 2.3))) * .22; vec2 i = floor(p), f = fract(p); float d1 = 8., d2 = 8.;
+      for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) { vec2 g = vec2(float(x), float(y)), r = g + h22(i + g) - f; float d = dot(r, r); if (d < d1) { d2 = d1; d1 = d; } else if (d < d2) d2 = d; }
+      float e = sqrt(d2) - sqrt(d1), line = smoothstep(.04, .0, e) * step(.25, h22(i * 1.7 + 3.).y + h22(i).x * .5), halo = smoothstep(.25, .0, e) * .15;
+      float reveal = smoothstep(uR, uR - 2., dist), front = exp(-pow((dist - uR) / 1.2, 2.));
+      vec3 col = mix(vec3(1., .2, .55), vec3(.6, .15, 1.), h22(i).x) * (.9 + .4 * sin(uT * 4. - dist * .8));
+      gl_FragColor = vec4(col * (line + halo) * (reveal + front * .8) * uA, 1.);
+    }`,
+}));
+cracks.rotation.x = -Math.PI / 2; cracks.position.y = .025; cracks.visible = false; scene.add(cracks);
+const setCracks = (R, A, cx = 0, cz = 0) => { crackU.uR.value = R; crackU.uA.value = A; crackU.uC.value.set(cx, cz); cracks.visible = A > .001 && R > .01; };
+
+// a shockwave shell: only its glowing skin shows
+const shellMat = (color = 0xa040ff) => new THREE.ShaderMaterial({
+  uniforms: { uA: { value: 0 }, uCol: { value: new THREE.Color(color) } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, vertexShader: VIEW_VERT,
+  fragmentShader: `uniform float uA; uniform vec3 uCol; varying vec3 vN; varying vec3 vV;
+    void main(){ float rim = pow(1. - abs(dot(normalize(vN), normalize(-vV))), 2.5); gl_FragColor = vec4(uCol * rim * 1.6 * uA, 1.); }`,
+});
+// chunks of rock thrown about under gravity
+function throwChunks(list, at, n, speed, size = .5) {
+  for (let i = 0; i < n; i++) {
+    const m = new THREE.Mesh(new THREE.IcosahedronGeometry(size * (.4 + Math.random() * .8), 0), darkRock);
+    m.position.copy(at); fxRoot.add(m);
+    const v = new THREE.Vector3((Math.random() - .5) * 2, .6 + Math.random(), (Math.random() - .5) * 2).normalize().multiplyScalar(speed * (.5 + Math.random() * .7));
+    list.push({ m, v, s: new THREE.Vector3(Math.random() * 6, Math.random() * 6, 0), rest: false });
+  }
+}
+function updateChunks(list, dt) {
+  for (const o of list) {
+    if (o.rest) continue;
+    o.v.y -= 18 * dt; o.m.position.addScaledVector(o.v, dt); o.m.rotation.x += o.s.x * dt; o.m.rotation.y += o.s.y * dt;
+    if (o.m.position.y < .2) { o.m.position.y = .2; if (o.v.y < -3) { o.v.y *= -.3; o.v.x *= .5; o.v.z *= .5; } else o.rest = true; }
+  }
+}
+
+// the shadow of the Abyss: a colossal copy of him, made of night, moving as he moves
+let giant = null, shadows = null;
+const camBack = () => camera.position.clone().sub(controls.target).setY(0).normalize().negate();
+// the rim of a gate into the abyss: a burning ring that turns
+const portalMat = () => new THREE.ShaderMaterial({
+  uniforms: { uT: fxTime, uA: { value: 0 } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+  vertexShader: `varying vec2 vP; void main(){ vP = position.xy; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }`,
+  fragmentShader: `uniform float uT, uA; varying vec2 vP;` + NOISE + `
+    void main(){ float r = length(vP), k = (r - 4.8) / 2.6, a2 = atan(vP.y, vP.x) + uT * .8 + r * .4;
+      float n = fbm3(vec3(cos(a2) * 2.5, sin(a2) * 2.5, r * .8 - uT * .5));
+      vec3 col = mix(vec3(1., .85, 1.), mix(vec3(.7, .15, 1.), vec3(.8, .05, .25), clamp(k, 0., 1.)), smoothstep(0., .3, k));
+      gl_FragColor = vec4(col * smoothstep(-.04, .06, k) * smoothstep(1., .3, k) * (.3 + n * 1.2) * uA, 1.); }`,
+});
+function makeGiant() {
+  const g = root.clone(true), src = [], dst = [], drop = [], Mset = new Set(Object.values(M));
+  root.traverse(o => { if (o.isGroup && o !== root) src.push(o); });
+  g.traverse(o => { if (o.isGroup && o !== g) dst.push(o); });
+  const mat = new THREE.ShaderMaterial({
+    uniforms: { uA: { value: 0 }, uT: fxTime, uFloor: { value: -8 } }, transparent: true,
+    vertexShader: `varying vec3 vN; varying vec3 vV; varying vec3 vW;
+      void main(){ vec4 w = modelMatrix * vec4(position, 1.); vW = w.xyz; vN = normalize(normalMatrix * normal); vec4 mv = viewMatrix * w; vV = mv.xyz; gl_Position = projectionMatrix * mv; }`,
+    fragmentShader: `uniform float uA, uT, uFloor; varying vec3 vN; varying vec3 vV; varying vec3 vW;` + NOISE + `
+      void main(){ float rim = pow(1. - abs(dot(normalize(vN), normalize(-vV))), 2.);
+        float vein = pow(1. - abs(vnoise(vW * .9 + vec3(0., -uT * .6, 0.)) * 2. - 1.), 14.);
+        vec3 c = vec3(.01, 0., .02) + vec3(.45, .1, .85) * rim + vec3(.7, .15, 1.) * vein * .5;
+        gl_FragColor = vec4(c, uA * smoothstep(uFloor, uFloor + 14., vW.y)); }`,
+  });
+  const eyeMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, toneMapped: false });
+  g.traverse(o => {
+    if (o.isSprite) { o.userData.eye = true; return; }
+    if (!o.isMesh) return;
+    if (o.material === hullMat || !Mset.has(o.material) || o.material === M.lens) drop.push(o);
+    else { o.material = o.material === M.eye || o.material === M.pupil ? eyeMat : mat; o.castShadow = o.receiveShadow = false; }
+  });
+  drop.forEach(o => o.parent.remove(o));
+  g.traverse(o => { if (o.name === 'Cape' || o.name === 'FloatHair') o.visible = false; });
+  g.position.set(0, 0, 0); g.name = 'ShadowGiant'; g.visible = false; scene.add(g);
+  const eyes = []; g.traverse(o => { if (o.userData.eye) eyes.push(o); });
+  return { g, mat, eyeMat, eyes, sync() { dst.forEach((j, i) => { j.position.copy(src[i].position); j.quaternion.copy(src[i].quaternion); }); } };
+}
+
+/* ---------- the true size of the Abyss: as tall as the Burj Khalifa ---------- */
+// at rest he is a man of 1.8 m (8.1 units); grown, he stands 828 m, the height of the tallest building on Earth
+const HUMAN_M = 1.8, U = 8.1 / HUMAN_M, BURJ_M = 828, BIG = BURJ_M / HUMAN_M, BURJ_X = 1400;
+let bigK = 1, bigU = 0, bigGoal = 0;
+const city = new THREE.Group(); city.visible = false; scene.add(city);
+const burj = new THREE.Group(); burj.position.set(BURJ_X, 0, -150); burj.scale.setScalar(U); city.add(burj); // built in metres
+{
+  const glass = new THREE.MeshToonMaterial({ color: 0xb4c2d2, gradientMap: ramp }), steel = new THREE.MeshToonMaterial({ color: 0x66748a, gradientMap: ramp });
+  const lit = new THREE.MeshBasicMaterial({ color: 0xffe2a8, toneMapped: false });
+  // a tapering hexagonal core
+  const core = new THREE.Mesh(new THREE.CylinderGeometry(14, 30, 600, 6), glass); core.position.y = 300; burj.add(core);
+  // three wings in a Y, stepping back one after another so the setbacks spiral up the tower
+  for (let w = 0; w < 3; w++) {
+    const a = w / 3 * Math.PI * 2 + Math.PI / 2;
+    for (let tier = 0; tier < 14; tier++) {
+      const L = 80 * (1 - (tier * 3 + w) / 44); if (L < 18) break;
+      const h0 = tier * 42, h = 42, at = new THREE.Vector3(Math.cos(a) * L / 2, h0 + h / 2, Math.sin(a) * L / 2);
+      const box = new THREE.Mesh(new THREE.BoxGeometry(L, h, 34), tier % 2 ? glass : steel); box.position.copy(at); box.rotation.y = -a; burj.add(box);
+      const band = new THREE.Mesh(new THREE.BoxGeometry(L + .8, 1.4, 34.8), lit); band.position.copy(at).setY(h0 + h - 1); band.rotation.y = -a; burj.add(band);
+    }
+  }
+  const crown = new THREE.Mesh(new THREE.CylinderGeometry(6, 14, 70, 6), glass); crown.position.y = 635; burj.add(crown);
+  const spire = new THREE.Mesh(new THREE.CylinderGeometry(.8, 6, 158, 8), steel); spire.position.y = 749; burj.add(spire);
+  const beacon = sprite(glowDot, 0xff4050, 40); beacon.position.y = 828; burj.add(beacon);
+  // the city around it, so the scale reads
+  const tones = [0x47505c, 0x5a6470, 0x3c4450, 0x6a7480];
+  for (let i = 0; i < 70; i++) {
+    const a = Math.random() * 6.28, r = 140 + Math.random() * 1100, x = Math.cos(a) * r, z = Math.sin(a) * r;
+    if (Math.hypot(x + BURJ_X / U, z - 150 / U) < 260) continue; // keep clear of where he stands
+    const h = 30 + Math.pow(Math.random(), 2.2) * 320, wd = 22 + Math.random() * 40;
+    const b = new THREE.Mesh(new THREE.BoxGeometry(wd, h, wd * (.7 + Math.random() * .6)), new THREE.MeshToonMaterial({ color: tones[i % 4], gradientMap: ramp }));
+    b.position.set(x, h / 2, z); b.rotation.y = Math.random() * 3; burj.add(b);
+    for (let y = 12; y < h; y += 24) { const s = new THREE.Mesh(new THREE.BoxGeometry(wd + .6, 1, wd * .5), lit); s.position.set(x, y, z); s.rotation.y = b.rotation.y; if (Math.random() < .6) burj.add(s); }
+  }
+}
+// a text tag that always faces the camera
+function tag(title, sub, color) {
+  const c = document.createElement('canvas'); c.width = 1024; c.height = 256;
+  const x = c.getContext('2d');
+  x.textAlign = 'center'; x.fillStyle = color; x.font = '800 92px system-ui, sans-serif'; x.fillText(title, 512, 110);
+  x.fillStyle = '#ffffff'; x.font = '700 70px system-ui, sans-serif'; x.fillText(sub, 512, 210);
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false, toneMapped: false }));
+  return s;
+}
+const TOP = BURJ_M * U;
+const burjTag = tag('BURJ KHALIFA', '828 m', '#ffd890'); burjTag.position.set(BURJ_X, TOP + 330, -150); burjTag.scale.set(1300, 325, 1); city.add(burjTag);
+const aumTag = tag('อั้ม · ABYSS', '828 m', '#ff6070'); aumTag.position.set(0, TOP + 330, 0); aumTag.scale.set(1300, 325, 1); city.add(aumTag);
+// a ruler with a mark every 100 m, and a dashed line across both at 828 m
+{
+  const RX = -1150, pts = [new THREE.Vector3(RX, 0, 0), new THREE.Vector3(RX, TOP, 0)];
+  for (let m = 0; m <= 800; m += 100) {
+    pts.push(new THREE.Vector3(RX - 70, m * U, 0), new THREE.Vector3(RX + 70, m * U, 0));
+    const t = tag('', m + ' m', '#fff'); t.position.set(RX - 330, m * U, 0); t.scale.set(700, 175, 1); city.add(t);
+  }
+  pts.push(new THREE.Vector3(RX - 110, TOP, 0), new THREE.Vector3(RX + 110, TOP, 0));
+  city.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0xff6070, toneMapped: false })));
+  const top = tag('', '828 m', '#fff'); top.position.set(RX - 330, TOP, 0); top.scale.set(700, 175, 1); city.add(top);
+  const dash = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(RX, TOP, 0), new THREE.Vector3(BURJ_X + 300, TOP, -150)]), new THREE.LineDashedMaterial({ color: 0xff6070, dashSize: 60, gapSize: 40, toneMapped: false }));
+  dash.computeLineDistances(); city.add(dash);
+}
+// growing (and shrinking back): the camera grows with him, so the world seems to fall away beneath his feet
+function updateGiantMode(dt) {
+  const prev = bigK;
+  bigU += (bigGoal - bigU) * (1 - Math.exp(-dt * 1.2));
+  if (Math.abs(bigGoal - bigU) < 2e-4) bigU = bigGoal;
+  bigK = Math.pow(BIG, bigU);
+  if (bigK === prev) return;
+  root.scale.setScalar(bigK); pool.scale.setScalar(bigK); auraScale.value = bigK;
+  const g = Math.max(1, bigK / 2.5); grid.scale.setScalar(g); ground.scale.setScalar(g);
+  key.position.set(-5, 13, 11).multiplyScalar(bigK); rim.position.set(7, 8, -10).multiplyScalar(bigK);
+  Object.assign(key.shadow.camera, { left: -6 * bigK, right: 6 * bigK, top: 11 * bigK, bottom: -2 * bigK, far: 45 * bigK }); key.shadow.camera.updateProjectionMatrix();
+  city.visible = bigK > 3;
+  camera.position.sub(controls.target).multiplyScalar(bigK / prev);
+  controls.target.set(BURJ_X * .45 * bigU, 4.25 * bigK, 0);
+  camera.position.add(controls.target);
+  controls.minDistance = 3 * bigK; controls.maxDistance = 70 * bigK;
+  camera.near = .1 * bigK; camera.far = 300 * bigK; camera.updateProjectionMatrix();
+  if (Math.random() < .5 && bigU > .02 && bigU < .98) quake(.3 * bigK);
+}
+const growBtn = document.getElementById('grow');
+growBtn.onclick = () => {
+  if (skill) return;
+  bigGoal = bigGoal ? 0 : 1;
+  growBtn.textContent = bigGoal ? '⬇ ย่อร่าง' : '⬆ ขยายร่าง 828 m';
+  growBtn.classList.toggle('busy', !!bigGoal);
+  flash('abyss');
+};
+
+const cam = { wide: 1 };
+let skill = null, skillT = 0;
+const SKILLS = {
+  // BLUEPRINT: a plan spreads across the floor and buildings are drawn up out of it in light
+  blueprint: { dur: 4.6, wide: 1.8, start() {
+      plan.visible = true;
+      this.towers = [];
+      for (let i = 0; i < 9; i++) {
+        const a = i / 9 * Math.PI * 2 + .3, r = 6 + (i * 37 % 6);
+        const b = wireBlock(fxRoot, 1.4 + (i % 3) * .7, 1, 1.4 + (i * 7 % 3) * .6);
+        b.position.set(Math.cos(a) * r, 0, Math.sin(a) * r); b.rotation.y = -a; b.userData.h = 2.5 + (i * 53 % 6); b.userData.at = .25 + i * .05;
+        this.towers.push(b);
+      }
+      ring(root.position, 16, 1.2);
+    },
+    update(p) {
+      planMat.uniforms.r.value = 16 * ease(seg(p, 0, .3)); planMat.uniforms.a.value = 1 - seg(p, .85, 1);
+      for (const b of this.towers) {
+        const k = ease(seg(p, b.userData.at, b.userData.at + .2));
+        b.scale.y = Math.max(.01, b.userData.h * k); b.visible = k > 0;
+        b.userData.edges.material.opacity = 1 - seg(p, .85, 1); b.userData.fill.material.opacity = .1 * (1 - seg(p, .85, 1));
+        if (k > 0 && !b.userData.done) { b.userData.done = true; burst(b.position, 14, 3); }
+      }
+      const sweep = Math.sin(seg(p, .1, .8) * Math.PI * 2) * .9;
+      return { lx: -.7, lf: -1.3, lfy: -.6, rx: -1.35, rz: sweep * .6, rf: -.3, twist: sweep * .25, look: .15 };
+    },
+    end() { plan.visible = false; this.towers.forEach(b => fxRoot.remove(b)); } },
+
+  // CONSTRUCT: blocks drop out of the sky and lock together into a gate
+  construct: { dur: 5.2, wide: 1.9, start() {
+      this.blocks = [];
+      const at = [];
+      for (let y = 0; y < 5; y++) at.push([-3.2, y], [3.2, y]);
+      for (let x = -3.2; x <= 3.21; x += 1.6) at.push([x, 5]);
+      at.forEach(([x, y], i) => {
+        const b = wireBlock(fxRoot, 1.5, 1.5, 1.5);
+        b.position.set(0, -99, 0);
+        b.userData.to = new THREE.Vector3(x, y * 1.5, -4.5); b.userData.from = new THREE.Vector3(x + (Math.random() - .5) * 20, 30 + Math.random() * 10, -4.5 - Math.random() * 15);
+        b.userData.at = .08 + i * .038; b.userData.landed = false;
+        this.blocks.push(b);
+      });
+    },
+    update(p) {
+      for (const b of this.blocks) {
+        const k = seg(p, b.userData.at, b.userData.at + .1);
+        if (k <= 0) continue;
+        const e = k * k, arc = Math.sin(k * Math.PI) * 2;
+        b.position.lerpVectors(b.userData.from, b.userData.to, e).add(new THREE.Vector3(0, arc, 0));
+        b.rotation.set((1 - k) * 4, (1 - k) * 3, 0);
+        if (k >= 1 && !b.userData.landed) { b.userData.landed = true; burst(b.position.clone().add(new THREE.Vector3(0, .75, 0)), 22, 4); }
+        const solid = ease(seg(p, .8, .88)), gone = seg(p, .93, 1);
+        b.userData.fill.material.opacity = (.1 + solid * .16) * (1 - gone);
+        b.userData.fill.material.color.set(solid > .5 ? PALE : TEAL);
+        b.userData.edges.material.opacity = 1 - gone;
+      }
+      if (p > .8 && !this.flash) { this.flash = true; ring(new THREE.Vector3(0, 0, -4.5), 14, 1); burst(new THREE.Vector3(0, 4, -4.5), 120, 7); }
+      const beat = Math.sin(p * 30) * .25 * (1 - seg(p, .8, .9));
+      return { rx: -2.0 + beat, rz: -.35, rf: -.25, lx: -2.0 - beat, lz: .35, lf: -.25, look: .3, lean: -.05 };
+    },
+    end() { this.blocks.forEach(b => fxRoot.remove(b)); this.flash = false; } },
+
+  // SAFE ZONE: six walls of grid slide in and lock into a cube round the architect
+  shield: { dur: 4.6, wide: 1.5, start() {
+      const tex = holoTex('SAFE ZONE', 256, 256);
+      const dirs = [[0, 0, 1], [0, 0, -1], [1, 0, 0], [-1, 0, 0], [0, 1, 0]];
+      this.walls = dirs.map(([x, y, z]) => {
+        const m = new THREE.Mesh(new THREE.PlaneGeometry(7, 7), holoMat(tex)); fxRoot.add(m);
+        m.userData.dir = new THREE.Vector3(x, y, z); m.lookAt(x, y, z); m.material.opacity = 0;
+        return m;
+      });
+    },
+    update(p) {
+      const k = ease(seg(p, .08, .4)), out = ease(seg(p, .85, 1));
+      this.walls.forEach((m, i) => {
+        const dist = 3.5 + (1 - k) * 20 + out * 20, d = m.userData.dir;
+        m.position.set(d.x * dist, 3.5 + d.y * dist, d.z * dist);
+        m.material.opacity = Math.min(k, 1 - out) * (.55 + Math.sin(t * 9 + i) * .1);
+      });
+      if (p > .4 && !this.locked) { this.locked = true; ring(root.position, 9, .8); burst(new THREE.Vector3(0, 3.5, 0), 120, 6); }
+      if (p > .4 && p < .85 && Math.random() < .3) burst(new THREE.Vector3((Math.random() - .5) * 7, Math.random() * 7, (Math.random() - .5) * 7), 2, 1);
+      const spread = 1 - k;
+      return { rx: -.4, rz: -1.2 * spread - .2, lx: -.4, lz: 1.2 * spread + .2, rf: -.3 - k * .9, lf: -.3 - k * .9, look: .05 };
+    },
+    end() { this.walls.forEach(m => fxRoot.remove(m)); this.locked = false; } },
+
+  // DEBUG: a scan finds the bugs crawling about, tags them, and a beam deletes them one by one
+  debug: { dur: 5.4, wide: 1.6, start() {
+      plan.visible = true;
+      this.bugs = Array.from({ length: 8 }, (_, i) => {
+        const g = new THREE.Group(); fxRoot.add(g);
+        for (let k = 0; k < 5; k++) { const c = new THREE.Mesh(new THREE.BoxGeometry(.25, .25, .25), glowMat(BUG, .9)); c.position.set((Math.random() - .5) * .6, .15 + Math.random() * .4, (Math.random() - .5) * .6); g.add(c); }
+        const tag = wireBlock(g, 1.3, 1.1, 1.3, BUG); tag.position.y = -.1; tag.visible = false;
+        const a = i / 8 * Math.PI * 2 + .4, r = 5 + (i * 3 % 5);
+        g.position.set(Math.cos(a) * r, 0, Math.sin(a) * r); g.userData = { tag, a, r, alive: true, seed: i * 1.7 };
+        return g;
+      });
+      this.beam = new THREE.Mesh(new THREE.CylinderGeometry(.06, .06, 1, 8, 1, true).translate(0, .5, 0).rotateX(Math.PI / 2), glowMat(PALE, 0)); fxRoot.add(this.beam);
+    },
+    update(p) {
+      planMat.uniforms.r.value = 13 * ease(seg(p, .05, .4)); planMat.uniforms.a.value = .7 * (1 - seg(p, .88, 1));
+      const scanR = planMat.uniforms.r.value;
+      let target = null;
+      this.bugs.forEach((g, i) => {
+        const u = g.userData;
+        if (!u.alive) return;
+        u.a += .006 * Math.sin(t + u.seed); g.position.set(Math.cos(u.a) * u.r, 0, Math.sin(u.a) * u.r);
+        g.children.forEach((c, k) => { if (c.isMesh) c.position.x += Math.sin(t * 20 + k + u.seed) * .01; });
+        if (scanR > u.r && !u.tag.visible) { u.tag.visible = true; ring(g.position, 2, .4, BUG); }
+        const killAt = .5 + i * .045;
+        if (p > killAt - .04 && p < killAt && !target) target = g;
+        if (p >= killAt) { u.alive = false; g.visible = false; burst(g.position.clone().add(new THREE.Vector3(0, .4, 0)), 40, 4, TEAL); ring(g.position, 3, .4); }
+      });
+      if (target) {
+        const from = handR(), to = target.position.clone().add(new THREE.Vector3(0, .4, 0));
+        this.beam.position.copy(from); this.beam.lookAt(to); this.beam.scale.set(1, 1, from.distanceTo(to)); this.beam.material.opacity = 1;
+        this.aim = Math.atan2(to.x, to.z);
+      } else this.beam.material.opacity = 0;
+      const aim = p > .45 && p < .9 ? (this.aim || 0) : 0;
+      return { lx: -.7, lf: -1.3, lfy: -.6, rx: -1.4, rz: -.2, rf: -.1, twist: aim * .3, look: .2 };
+    },
+    end() { plan.visible = false; this.bugs.forEach(g => fxRoot.remove(g)); fxRoot.remove(this.beam); } },
+
+  // REBUILD: a cube of code comes down, breaks open, and a whole city is written up out of the floor
+  rebuild: { dur: 8.5, wide: 2.7, start() {
+      plan.visible = true;
+      this.cube = new THREE.Group(); fxRoot.add(this.cube);
+      for (let i = 0; i < 3; i++) { const b = wireBlock(this.cube, 4 - i, 4 - i, 4 - i, i ? PALE : TEAL); b.position.y = -(4 - i) / 2; }
+      this.city = [];
+      for (let i = 0; i < 46; i++) {
+        const a = Math.random() * Math.PI * 2, r = 8 + Math.random() * 26;
+        const b = wireBlock(fxRoot, 1.5 + Math.random() * 2.5, 1, 1.5 + Math.random() * 2.5);
+        b.position.set(Math.cos(a) * r, 0, Math.sin(a) * r); b.rotation.y = Math.random() * Math.PI;
+        b.userData.h = 3 + Math.random() * 12 * (1 - r / 40); b.userData.r = r; b.visible = false;
+        this.city.push(b);
+      }
+      this.phase = 0;
+    },
+    update(p) {
+      const down = ease(seg(p, .04, .3));
+      this.cube.position.set(0, 40 - 28 * down, 0); this.cube.rotation.set(t * .6, t * .9, 0);
+      this.cube.visible = p < .34; this.cube.scale.setScalar(1 + seg(p, .3, .34) * 2);
+      if (p > .34 && this.phase === 0) { this.phase = 1; for (const s of [20, 34, 50]) ring(root.position, s, 1.4); burst(new THREE.Vector3(0, 12, 0), 400, 14); }
+      const wave = 40 * ease(seg(p, .34, .6));
+      planMat.uniforms.r.value = Math.max(wave, 12 * down); planMat.uniforms.a.value = 1 - seg(p, .9, 1);
+      for (const b of this.city) {
+        const k = ease(Math.min(1, Math.max(0, (wave - b.userData.r) / 6)));
+        b.visible = k > 0; b.scale.y = Math.max(.01, b.userData.h * k);
+        const solid = ease(seg(p, .62, .75)), gone = ease(seg(p, .88, 1));
+        b.userData.fill.material.opacity = (.06 + solid * .12) * (1 - gone); b.userData.fill.material.color.set(solid > .5 ? PALE : TEAL);
+        b.userData.edges.material.opacity = 1 - gone;
+        if (k >= 1 && !b.userData.done) { b.userData.done = true; burst(b.position.clone().add(new THREE.Vector3(0, b.userData.h, 0)), 6, 2); }
+      }
+      if (p > .88 && this.phase === 1) { this.phase = 2; for (const b of this.city) burst(b.position.clone().add(new THREE.Vector3(0, b.userData.h / 2, 0)), 14, 3, PALE, 1.2, 1.4); }
+      const lift = ease(seg(p, .04, .25)) * (1 - ease(seg(p, .9, 1))) * 1.4;
+      const up = 1 - seg(p, .34, .4) * .6;
+      return { lift, rx: -2.6 * up, rz: -.5, lx: -2.6 * up, lz: .5, rf: -.1, lf: -.1, look: .35 * up, lean: -.08 };
+    },
+    end() { plan.visible = false; fxRoot.remove(this.cube); this.city.forEach(b => fxRoot.remove(b)); } },
+
+  // TRANSFORM: rings wrap him, then the new form takes him over (light climbing for the cosmos, dark bleeding from the heart for the abyss)
+  transform: { dur: 4.4, wide: 1.35, start() {
+      this.from = form; this.to = nextForm; this.flashed = false;
+      const col = this.col = { architect: [TEAL, PALE], cosmos: [0xb89bff, TEAL], abyss: [0x9a2bff, 0xff2a6a] }[this.to];
+      this.halos = [0, 1, 2, 3].map(i => {
+        const m = new THREE.Mesh(new THREE.TorusGeometry(1.6 - i * .12, .025, 6, 80), glowMat(col[i % 2], 0));
+        fxRoot.add(m); return m;
+      });
+      this.disc = new THREE.Mesh(new THREE.RingGeometry(.05, 1.5, 64), glowMat(0xc8fff6, 0)); this.disc.rotation.x = -Math.PI / 2; fxRoot.add(this.disc);
+      this.column = new THREE.Mesh(new THREE.CylinderGeometry(1.7, 1.7, 12, 48, 1, true).translate(0, 6, 0), glowMat(col[0], 0)); fxRoot.add(this.column);
+      ring(root.position, 5, .8, col[0]);
+    },
+    update(p) {
+      const { from, to, col } = this, charge = env(p, 0, .2, .72, .82), rise = ease(seg(p, .22, .68));
+      const cosmo = to === 'cosmos' || from === 'cosmos', dark = to === 'abyss' || from === 'abyss';
+      // the cosmos climbs up the body (and falls back down to leave); the abyss spreads from the heart (and shrinks back into it)
+      if (to === 'cosmos') uRise.value = -.2 + rise * 10.2; else if (from === 'cosmos' && p > .22) uRise.value = 10 - rise * 10.2;
+      if (to === 'abyss') uDarkR.value = rise * DARK_FULL; else if (from === 'abyss' && p > .22) uDarkR.value = DARK_FULL - rise * (DARK_FULL + .1);
+      const front = env(p, .2, .26, .64, .7);
+      uScan.value = cosmo ? front : 0; uDarkEdge.value = dark ? front : 0;
+      this.disc.position.y = Math.max(0, Math.min(8.2, uRise.value)); this.disc.material.opacity = uScan.value * .55;
+      this.disc.scale.setScalar(.8 + Math.sin(t * 9) * .05);
+      this.halos.forEach((m, i) => {
+        const y = 1 + i * 2 + Math.sin(t * 2 + i) * .4;
+        m.position.set(0, y, 0); m.rotation.set(Math.PI / 2 + Math.sin(t * 3 + i) * .25, Math.cos(t * 2.5 + i) * .25, t * (i % 2 ? -2 : 2));
+        m.scale.setScalar(1 + (1 - charge) * 1.5); m.material.opacity = charge * .9;
+      });
+      this.column.material.opacity = charge * .12 * (.8 + Math.sin(t * 20) * .2);
+      if (charge > .2 && Math.random() < .5) { const a = Math.random() * 6.3; burst(new THREE.Vector3(Math.cos(a) * 1.7, Math.random() * 8, Math.sin(a) * 1.7), 2, 1.2, col[Math.random() < .5 ? 0 : 1], .8, .6); }
+      if (to === 'abyss' && p > .22 && p < .7 && Math.random() < .6) burst(new THREE.Vector3(0, 5.5, .4), 3, 2.5, col[Math.random() < .7 ? 0 : 1], .3, .7);
+      if (to === 'abyss') {
+        quake(.05 + rise * .15); vigT = .7 * charge;
+        setCracks(14 * rise, 1 - ease(seg(p, .85, 1)));
+        if (p > .2 && p < .7 && Math.random() < .12) { const a = Math.random() * 6.28; bolt(new THREE.Vector3(Math.cos(a) * 6, 26, Math.sin(a) * 6), new THREE.Vector3((Math.random() - .5) * .8, 4 + Math.random() * 4, (Math.random() - .5) * .5), Math.random() < .7 ? 0xb050ff : 0xff3080, .25, .1, 1.4); }
+        if (p > .25 && p < .7 && Math.random() < .3) smoke(new THREE.Vector3((Math.random() - .5) * 3, .3, (Math.random() - .5) * 3), 1, 1, 2.5, 1.8, 1.4);
+      }
+      if (p > .7 && !this.flashed) {
+        this.flashed = true; setForm(to); flash(to);
+        if (to === 'abyss') { quake(1.2); smoke(new THREE.Vector3(0, 1, 0), 50, 10, 3, 2, .4); for (let i = 0; i < 8; i++) { const a = i / 8 * 6.28; bolt(new THREE.Vector3(0, 6, 0), new THREE.Vector3(Math.cos(a) * 12, 0, Math.sin(a) * 12), 0xb050ff, .45, .15, 1.4); } }
+        for (const s of [8, 14, 22]) ring(root.position, s, 1.2, col[0]);
+        burst(new THREE.Vector3(0, 5, 0), 360, 9, col[0], .4, 1.3);
+      }
+      // crouch and fold the arms in, then throw them open
+      const open = ease(seg(p, .7, .8)) * (1 - ease(seg(p, .9, 1)) * .6), fold = env(p, 0, .15, .66, .72);
+      return {
+        rx: -1.2 * fold - .5 * open, rz: .55 * fold - 1.25 * open, rf: -1.3 * fold - .2 * open,
+        lx: -1.2 * fold - .5 * open, lz: -.55 * fold + 1.25 * open, lf: -1.3 * fold - .2 * open,
+        lean: .18 * fold - .12 * open, look: -.25 * fold + .35 * open, lift: rise * .25 * (1 - seg(p, .85, 1)) + open * .4,
+      };
+    },
+    end() {
+      [...this.halos, this.disc, this.column].forEach(m => fxRoot.remove(m));
+      setCracks(0, 0); uScan.value = uDarkEdge.value = 0; uRise.value = this.to === 'cosmos' ? 10 : -1; uDarkR.value = this.to === 'abyss' ? DARK_FULL : 0;
+    } },
+
+  /* ===== form I, the Architect: it mends what is broken ===== */
+  // REPAIR: a tower lies in pieces; a mending beam lifts each one back into place and the whole is sealed whole again
+  repair: { dur: 5.4, wide: 1.5, start() {
+      const at = this.at = new THREE.Vector3(-4.6, 0, 1.8);
+      this.pieces = Array.from({ length: 6 }, (_, i) => {
+        const w = 1.5 - i * .1, b = wireBlock(fxRoot, w, .9, w, BUG);
+        const a = Math.random() * Math.PI * 2, r = 1.3 + Math.random() * 1.8;
+        const fall = new THREE.Vector3(at.x + Math.cos(a) * r, Math.random() * .2, at.z + Math.sin(a) * r);
+        const q0 = new THREE.Quaternion().setFromEuler(new THREE.Euler((Math.random() - .5) * 2.4, Math.random() * 3, (Math.random() - .5) * 2.4));
+        b.position.copy(fall); b.quaternion.copy(q0);
+        Object.assign(b.userData, { home: new THREE.Vector3(at.x, i * .95, at.z), fall, q0, at: .2 + i * .085, done: false });
+        return b;
+      });
+      this.beam = new THREE.Mesh(new THREE.CylinderGeometry(.05, .05, 1, 8, 1, true).translate(0, .5, 0).rotateX(Math.PI / 2), glowMat(HEAL, 0)); fxRoot.add(this.beam);
+      ring(at, 5, .8, BUG); this.sealed = false;
+    },
+    update(p) {
+      let active = null;
+      for (const b of this.pieces) {
+        const u = b.userData, k = ease(seg(p, u.at, u.at + .12));
+        if (k > 0 && k < 1 && !active) active = b;
+        b.position.lerpVectors(u.fall, u.home, k); b.position.y += Math.sin(k * Math.PI) * 1.4;
+        if (k <= 0) { b.position.x += (Math.random() - .5) * .03; if (Math.random() < .02) burst(b.position.clone().setY(.4), 3, 2, BUG, .5, .4); }
+        b.quaternion.slerpQuaternions(u.q0, IDQ, k);
+        u.edges.material.color.set(BUG).lerp(_hc.set(HEAL), k); u.fill.material.color.copy(u.edges.material.color);
+        if (k >= 1 && !u.done) { u.done = true; burst(b.position.clone().add(new THREE.Vector3(0, .45, 0)), 20, 3, HEAL); ring(b.position, 2.2, .4, HEAL, b.position.y + .05); }
+      }
+      const whole = ease(seg(p, .78, .86)), gone = seg(p, .92, 1);
+      if (p > .78 && !this.sealed) { this.sealed = true; ring(this.at, 7, 1, HEAL); for (let y = 0; y < 6; y++) burst(new THREE.Vector3(this.at.x, y * .95 + .45, this.at.z), 14, 2.5, PALE); }
+      if (p > .78 && p < .92 && Math.random() < .3) ring(this.at, 1.6, .5, HEAL, Math.random() * 5.7);
+      for (const b of this.pieces) { b.userData.fill.material.opacity = (.08 + whole * .25) * (1 - gone); b.userData.edges.material.opacity = 1 - gone; }
+      if (active) {
+        const from = handR(), to = active.position.clone().add(new THREE.Vector3(0, .45, 0));
+        this.beam.position.copy(from); this.beam.lookAt(to); this.beam.scale.set(1, 1, from.distanceTo(to)); this.beam.material.opacity = .9;
+        if (Math.random() < .5) burst(to, 2, 1.5, HEAL, .2, .4);
+      } else this.beam.material.opacity = 0;
+      return { lx: -.7, lf: -1.3, lfy: -.6, rx: -1.35, rz: -.55, rf: -.15, twist: -.35, look: .1 };
+    },
+    end() { this.pieces.forEach(b => fxRoot.remove(b)); fxRoot.remove(this.beam); } },
+
+  /* ===== form II, Half Cosmos: it makes worlds ===== */
+  // WORLD: dust pours into a molten ball over his hands, it cools into oceans, land and cloud, and catches a moon
+  world: { dur: 6.4, wide: 2, start() {
+      this.C = new THREE.Vector3(0, 11.8, 0);
+      this.planet = new THREE.Mesh(new THREE.SphereGeometry(2, 64, 48), planetMat()); this.planet.position.copy(this.C); this.planet.scale.setScalar(.01); fxRoot.add(this.planet);
+      this.halo = sprite(glowDot, 0x5a9cff, 6.5); this.halo.position.copy(this.C); this.halo.material.opacity = 0; fxRoot.add(this.halo);
+      this.moon = new THREE.Mesh(new THREE.SphereGeometry(.42, 24, 16), new THREE.MeshToonMaterial({ color: 0xa8a8b8, gradientMap: ramp })); this.moon.visible = false; fxRoot.add(this.moon);
+      this.popped = this.mooned = this.closed = false;
+    },
+    update(p, dt) {
+      const C = this.C, u = this.planet.material.uniforms;
+      if (p < .4) implode(C, 6, 7 + Math.random() * 3, Math.random() < .5 ? 0xffa040 : 0x8ab4ff, .8);
+      const grow = ease(seg(p, .1, .42)), cool = ease(seg(p, .42, .62)), gone = ease(seg(p, .88, 1));
+      this.planet.scale.setScalar(Math.max(.01, (.35 + grow * .65) * (1 - gone)));
+      u.uGrow.value = grow; u.uCool.value = cool;
+      this.planet.rotation.y += dt * .35;
+      this.halo.material.opacity = cool * .7 * (1 - gone); this.halo.scale.setScalar(6.5 * (1 - gone) + .01);
+      if (p > .42 && !this.popped) { this.popped = true; ring(new THREE.Vector3(), 10, 1.2, 0x8ab4ff); burst(C, 160, 6, 0x9ad0ff, 0, 1.2); }
+      if (p > .6) {
+        const a = (p - .6) * 9, k = ease(seg(p, .6, .7)) * (1 - gone);
+        this.moon.visible = k > .01; this.moon.scale.setScalar(Math.max(.01, k));
+        this.moon.position.set(C.x + Math.cos(a) * 3.8, C.y + Math.sin(a) * 1.1, C.z + Math.sin(a) * 3.8);
+        if (!this.mooned) { this.mooned = true; burst(this.moon.position, 30, 2, 0xffffff); }
+      }
+      if (p > .88 && !this.closed) { this.closed = true; burst(C, 120, 5, 0xbfe0ff, 0, 1); }
+      const up = 1 - ease(seg(p, .45, .55)) * .55;
+      return { rx: -2.6 * up, rz: -.35 - (1 - up) * .9, rf: -.1, lx: -2.6 * up, lz: .35 + (1 - up) * .9, lf: -.1, look: .4, lift: .3 + ease(seg(p, .4, .6)) * .3, lean: -.06 };
+    },
+    end() { [this.planet, this.halo, this.moon].forEach(m => fxRoot.remove(m)); } },
+
+  // SOLAR SYSTEM: a spark from his hands climbs and ignites into a sun, then the planets are set on their orbits one by one
+  solar: { dur: 7.4, wide: 2.5, start() {
+      const S = this.S = new THREE.Vector3(0, 11, 0);
+      this.sys = new THREE.Group(); this.sys.position.copy(S); this.sys.rotation.set(.32, 0, .12); fxRoot.add(this.sys);
+      this.sun = new THREE.Mesh(new THREE.SphereGeometry(1.4, 48, 32), sunMat()); this.sun.scale.setScalar(.01); this.sys.add(this.sun);
+      this.corona = sprite(glowDot, 0xffb050, 9); this.corona.material.opacity = 0; this.sys.add(this.corona);
+      const DEF = [[2.7, .16, 0x9a8f88], [3.7, .27, 0xe8c27a], [4.8, .3, 0x3f7fe0], [6, .22, 0xd0582e], [7.8, .72, 0xd8a878, 1], [9.7, .6, 0xe6d4a0, 1, true], [11.4, .42, 0x6fb6e8]];
+      this.planets = DEF.map(([r, size, col, bands, rings], i) => {
+        const m = new THREE.Mesh(new THREE.SphereGeometry(size, 28, 20), orbMat(col, bands || 0)); this.sys.add(m);
+        m.material.uniforms.uSun.value.copy(S);
+        if (rings) { const rg = new THREE.Mesh(new THREE.RingGeometry(size * 1.4, size * 2.3, 48), glowMat(0xe8d8a8, .55)); rg.rotation.x = -Math.PI / 2 + .4; m.add(rg); }
+        const pts = []; for (let k = 0; k <= 128; k++) { const a = k / 128 * Math.PI * 2; pts.push(new THREE.Vector3(Math.cos(a) * r, 0, Math.sin(a) * r)); }
+        const orbit = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), lineMat(0x9ab8ff, .35)); orbit.geometry.setDrawRange(0, 0); this.sys.add(orbit);
+        m.visible = false;
+        return { m, orbit, r, a0: Math.random() * 6.28, w: 2.2 / Math.pow(r, 1.2), at: .28 + i * .065, born: false };
+      });
+      this.lit = this.closed = false;
+    },
+    update(p, dt) {
+      const S = this.S, ign = ease(seg(p, .1, .26)), gone = ease(seg(p, .88, 1));
+      if (p < .14) { const h = handsMid(), up = S.clone().sub(h).multiplyScalar(seg(p, 0, .14)).add(h); burst(up, 4, .8, 0xffd080, 0, .5); }
+      if (p > .04 && p < .2) implode(S, 5, 5, 0xffc060, .6);
+      this.sun.scale.setScalar(Math.max(.01, ign));
+      this.corona.material.opacity = ign * (.75 + Math.sin(t * 3) * .1); this.corona.scale.setScalar(9 * ign + .01);
+      if (p > .26 && !this.lit) { this.lit = true; flash('cosmos'); burst(S, 220, 8, 0xffd27a, 0, 1.2); ring(new THREE.Vector3(), 12, 1.2, 0xffc070); }
+      for (const o of this.planets) {
+        const k = ease(seg(p, o.at, o.at + .08)), a = o.a0 + t * o.w;
+        o.orbit.geometry.setDrawRange(0, Math.floor(seg(p, o.at - .04, o.at + .06) * 129));
+        o.m.position.set(Math.cos(a) * o.r, 0, Math.sin(a) * o.r);
+        o.m.visible = k > 0; o.m.scale.setScalar(Math.max(.01, k));
+        if (k > 0 && !o.born) { o.born = true; burst(o.m.getWorldPosition(new THREE.Vector3()), 24, 2.5, 0xcfe0ff); }
+      }
+      this.sys.scale.setScalar(Math.max(.01, 1 - gone)); this.sys.rotation.y += dt * .05;
+      if (p > .9 && !this.closed) { this.closed = true; burst(S, 120, 6, 0xffe0a0, 0, .9); }
+      const out = ease(seg(p, .24, .34));
+      return { rx: -2.5 * (1 - out) - .7 * out, rz: -.3 - out * 1.1, lx: -2.5 * (1 - out) - .7 * out, lz: .3 + out * 1.1, rf: -.1, lf: -.1, look: .35, lift: .2 + out * .5, lean: -.08 };
+    },
+    end() { fxRoot.remove(this.sys); } },
+
+  // GALAXY: stars come in from every direction and settle into a turning spiral with him at its heart
+  galaxy: { dur: 7.6, wide: 2.9, start() {
+      this.g = makeGalaxy(14000, 26); this.g.position.set(0, 4.6, 0); this.g.rotation.set(.28, 0, .1); fxRoot.add(this.g);
+      this.core = sprite(glowDot, 0xffd8a0, 7); this.core.position.set(0, 4.6, 0); this.core.material.opacity = 0; fxRoot.add(this.core);
+      ring(root.position, 8, 1, 0xb89bff); this.done = false;
+    },
+    update(p, dt) {
+      const u = this.g.material.uniforms, k = ease(seg(p, .05, .6)), gone = ease(seg(p, .86, 1));
+      u.uForm.value = k; u.uA.value = 1 - gone; u.uSpin.value += dt * (.35 + k * .4);
+      this.core.material.opacity = k * .4 * (1 - gone);
+      if (p > .6 && !this.done) { this.done = true; ring(root.position, 26, 1.6, 0xd8c0ff); burst(new THREE.Vector3(0, 4.6, 0), 200, 7, 0xffe0b0, 0, 1.2); }
+      const wide = ease(seg(p, .05, .3));
+      return { rx: -.9 - wide * .3, rz: -1.3 * wide, lx: -.9 - wide * .3, lz: 1.3 * wide, rf: -.2, lf: -.2, lift: .9 * wide * (1 - gone), look: .15, twist: Math.sin(p * 6) * .15 };
+    },
+    end() { fxRoot.remove(this.g); fxRoot.remove(this.core); } },
+
+  // GENESIS: the world goes black, everything pours into one point in his hands, and it bursts into a new universe
+  genesis: { dur: 9.5, wide: 3, start() {
+      this.C = new THREE.Vector3(0, 6, 1.2);
+      this.core = sprite(glowDot, 0xffffff, .1); this.core.material.depthTest = false; this.core.renderOrder = 5; fxRoot.add(this.core);
+      const n = 9000, dir = new Float32Array(n * 3), col = new Float32Array(n * 3), sd = new Float32Array(n), c = new THREE.Color(), v = new THREE.Vector3();
+      for (let i = 0; i < n; i++) {
+        v.randomDirection(); dir.set([v.x, v.y, v.z], i * 3); sd[i] = Math.random();
+        c.setHSL([.62, .8, .92, .08, .55][i % 5] + (Math.random() - .5) * .05, .8, .6 + Math.random() * .3); col.set([c.r, c.g, c.b], i * 3);
+      }
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.BufferAttribute(dir, 3)); g.setAttribute('aCol', new THREE.BufferAttribute(col, 3)); g.setAttribute('aSeed', new THREE.BufferAttribute(sd, 1));
+      this.bang = new THREE.Points(g, new THREE.ShaderMaterial({
+        uniforms: { uR: { value: 0 }, uA: { value: 0 }, uPx, uT: fxTime }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+        vertexShader: `uniform float uR, uA, uPx, uT; attribute vec3 aCol; attribute float aSeed; varying vec3 vC; varying float vA;
+          void main(){ vec3 p = position * uR * (.25 + aSeed * .85); vec4 mv = modelViewMatrix * vec4(p, 1.); gl_Position = projectionMatrix * mv;
+            gl_PointSize = max(1.5, uPx * (.08 + aSeed * .22) / -mv.z); vC = aCol; vA = uA * (.6 + .4 * sin(uT * 3. + aSeed * 60.)); }`,
+        fragmentShader: STAR_FRAG,
+      }));
+      this.bang.frustumCulled = false; fxRoot.add(this.bang);
+      this.clouds = [[0xff4fb0, -14, 6, -10], [0x4fa0ff, 16, 10, -6], [0x9a5bff, -6, 16, 14], [0xff9a40, 10, 2, 16], [0x3fe0d0, -18, 12, 8]].map(([col, x, y, z]) => { const s = sprite(glowDot, col, 1); s.position.set(x, y, z); s.material.opacity = 0; fxRoot.add(s); return s; });
+      this.gals = [[-20, 14, -18], [22, 18, -10], [6, 22, 20], [-16, 6, 18]].map(([x, y, z], i) => { const gx = makeGalaxy(2500, 4 + i); gx.position.set(x, y, z); gx.rotation.set(Math.random() * 2, Math.random() * 2, 0); fxRoot.add(gx); return gx; });
+      this.banged = false;
+    },
+    update(p, dt) {
+      const C = this.C, dark = ease(seg(p, 0, .1)) * (1 - ease(seg(p, .9, 1)));
+      styleWorld(dark);
+      if (p < .32) C.copy(handsMid()).add(new THREE.Vector3(0, 0, .35));
+      if (p < .3) implode(C, 8, 4 + Math.random() * 6, Math.random() < .5 ? 0xffffff : 0xb89bff, .55);
+      const hold = ease(seg(p, .05, .3));
+      this.core.position.copy(C); this.core.scale.setScalar(.1 + hold * 1.6 + Math.sin(t * 30) * .15 * hold); this.core.material.opacity = p < .32 ? hold : 0;
+      if (p > .32 && !this.banged) { this.banged = true; this.bang.position.copy(C); flash('cosmos'); for (const s of [15, 30, 50]) ring(new THREE.Vector3(), s, 1.6, 0xd8c0ff); burst(C, 500, 18, 0xffffff, 0, 1.6); }
+      const bang = seg(p, .32, 1), m = this.bang.material.uniforms, fade = 1 - ease(seg(p, .86, 1));
+      m.uR.value = 55 * (1 - Math.exp(-bang * 7)); m.uA.value = p < .32 ? 0 : fade;
+      this.clouds.forEach((s, i) => { const k = ease(seg(p, .4 + i * .04, .62 + i * .04)); s.scale.setScalar(4 + k * 18); s.material.opacity = k * .35 * fade; });
+      this.gals.forEach((g, i) => { const u = g.material.uniforms; u.uForm.value = ease(seg(p, .5 + i * .05, .8 + i * .03)); u.uA.value = fade; u.uSpin.value += dt * .6; });
+      const cup = 1 - ease(seg(p, .3, .36));
+      return { rx: -1.05 * cup - 2.4 * (1 - cup), rz: .45 * cup - .7 * (1 - cup), rf: -1.3 * cup - .1, lx: -1.05 * cup - 2.4 * (1 - cup), lz: -.45 * cup + .7 * (1 - cup), lf: -1.3 * cup - .1,
+        look: -.1 * cup + .4 * (1 - cup), lift: (1 - cup) * 1.2 * fade + hold * .4 * cup, lean: .12 * cup - .1 * (1 - cup) };
+    },
+    end() { [this.core, this.bang, ...this.clouds, ...this.gals].forEach(o => fxRoot.remove(o)); styleWorld(0); } },
+
+  /* ===== form III, the Abyss: it ends things ===== */
+  // BLACK HOLE: a black sun tears open over him, lightning lashes from its disk, the ground breaks and everything around is dragged in, then it detonates
+  blackhole: { dur: 9, wide: 2.6, start() {
+      const H = this.H = new THREE.Vector3(0, 12, -8);
+      this.core = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 32), new THREE.MeshBasicMaterial({ color: 0x000000 })); this.core.position.copy(H); this.core.scale.setScalar(.01); fxRoot.add(this.core);
+      this.disk = new THREE.Mesh(new THREE.RingGeometry(1.2, 5.2, 160, 4), diskMat()); this.disk.position.copy(H); this.disk.rotation.set(-1.25, 0, .25); fxRoot.add(this.disk);
+      this.disk2 = new THREE.Mesh(new THREE.RingGeometry(1.15, 2.6, 160, 2), diskMat()); this.disk2.position.copy(H); fxRoot.add(this.disk2); // the far side of the disk, bent up over the top by gravity
+      this.halo = sprite(ringTex, 0xd090ff, 1); this.halo.position.copy(H); fxRoot.add(this.halo);
+      this.glow = sprite(glowDot, 0x6a1ab0, 1); this.glow.position.copy(H); fxRoot.add(this.glow);
+      this.jets = [1, -1].map(s => { const j = new THREE.Mesh(new THREE.CylinderGeometry(.05, .5, 1, 16, 1, true).translate(0, .5, 0), glowMat(0xd8b0ff, 0)); j.position.copy(H); j.rotation.set(-1.25, 0, .25); j.rotateX(s * Math.PI / 2); fxRoot.add(j); return j; });
+      this.shock = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 32), shellMat(0xb050ff)); this.shock.position.copy(H); this.shock.visible = false; fxRoot.add(this.shock);
+      this.rocks = Array.from({ length: 90 }, () => {
+        const m = new THREE.Mesh(new THREE.IcosahedronGeometry(.2 + Math.random() * .8, 0), darkRock), a = Math.random() * 6.28, r = 5 + Math.random() * 22;
+        m.position.set(Math.cos(a) * r, .2, Math.sin(a) * r);
+        m.userData = { start: m.position.clone(), lift: .5 + Math.random() * 4, at: .2 + Math.random() * .55, gone: false };
+        fxRoot.add(m); return m;
+      });
+      this.boom = false;
+    },
+    update(p, dt) {
+      const H = this.H, grow = ease(seg(p, .06, .3)), gone = ease(seg(p, .84, .88)), R = Math.max(.01, 2.8 * grow * (1 - gone));
+      this.core.scale.setScalar(R); this.halo.scale.setScalar(R * 4.8 + .01); this.halo.material.opacity = grow * (1 - gone);
+      this.glow.scale.setScalar(R * 10 + .01); this.glow.material.opacity = .5 * grow * (1 - gone);
+      for (const d of [this.disk, this.disk2]) { d.scale.setScalar(Math.max(.01, R / 1.5)); d.material.uniforms.uA.value = grow * (1 - gone); }
+      this.disk2.quaternion.copy(camera.quaternion);
+      const jet = ease(seg(p, .35, .5)) * (1 - gone);
+      this.jets.forEach(j => { j.scale.set(R * .4 + .01, 14 * jet + .01, R * .4 + .01); j.material.opacity = jet * (.22 + Math.random() * .12); });
+      if (p > .08 && p < .86) { implode(H, 10, 8 + Math.random() * 14, Math.random() < .5 ? 0xb050ff : 0xff3070, .8); if (Math.random() < .3) smoke(H.clone().add(new THREE.Vector3().randomDirection().multiplyScalar(R * 2.5)), 1, .5, 2.5, 1, 0); }
+      quake(.03 + grow * .12 * (1 - gone)); vigT = .75 * grow;
+      setCracks(26 * ease(seg(p, .12, .55)), 1 - ease(seg(p, .9, 1)));
+      // lightning lashes out of the disk at the ground and the rock
+      if (p > .2 && p < .84 && Math.random() < .14 * grow) {
+        const a = Math.random() * 6.28, from = H.clone().add(new THREE.Vector3(Math.cos(a) * R * 2.2, (Math.random() - .5) * R, Math.sin(a) * R * 2.2));
+        const live = this.rocks.filter(m => !m.userData.gone), to = live.length && Math.random() < .5 ? live[Math.floor(Math.random() * live.length)].position.clone() : new THREE.Vector3((Math.random() - .5) * 30, 0, (Math.random() - .5) * 30);
+        bolt(from, to, Math.random() < .7 ? 0xb050ff : 0xff3080, .3, .16, 1.4);
+      }
+      for (const m of this.rocks) {
+        const u = m.userData; if (u.gone) continue;
+        m.rotation.x += dt * 2; m.rotation.y += dt * 3;
+        const k = seg(p, u.at, u.at + .25), loose = ease(seg(p, .15, .4));
+        if (k <= 0) { m.position.y = u.start.y + loose * u.lift + Math.sin(t * 3 + u.lift) * .1 * loose; continue; }
+        const e = k * k, off = u.start.clone().setY(u.start.y + u.lift).sub(H);
+        m.position.copy(off).multiplyScalar(1 - e).applyAxisAngle(UP, e * 6).add(H); m.scale.set(1 - e * .8, 1 + e * 1.5, 1 - e * .8);
+        if (k >= 1) { u.gone = true; m.visible = false; burst(H, 12, 3, 0xd080ff, 0, .5); }
+      }
+      if (p > .88 && !this.boom) {
+        this.boom = true; flash('abyss'); quake(1.6); this.shock.visible = true;
+        for (const s of [14, 28, 44]) ring(new THREE.Vector3(), s, 1.6, 0x9a2bff);
+        burst(H, 500, 16, 0xc050ff, 0, 1.4); smoke(H, 70, 12, 4.5, 2.6, .5);
+        for (let i = 0; i < 10; i++) bolt(H, H.clone().add(new THREE.Vector3().randomDirection().multiplyScalar(14 + Math.random() * 10)).setY(Math.max(0, H.y + (Math.random() - .7) * 20)), 0xd080ff, .5, .18, 1.6);
+      }
+      const sk = seg(p, .88, 1); this.shock.scale.setScalar(1 + ease(sk) * 40); this.shock.material.uniforms.uA.value = this.boom ? 1 - sk : 0;
+      const both = ease(seg(p, .3, .4)) * (1 - gone);
+      return { rx: -2.6, rz: -.2, rf: -.15, lx: -.2 - 2.4 * both, lz: .25 - .05 * both, lf: -.5 + .35 * both, look: .5 - (this.boom ? .3 : 0), lean: -.1 - (this.boom ? .12 : 0), lift: grow * 1.1 * (1 - ease(seg(p, .9, 1))) };
+    },
+    end() { [this.core, this.disk, this.disk2, this.halo, this.glow, this.shock, ...this.jets, ...this.rocks].forEach(o => fxRoot.remove(o)); setCracks(0, 0); } },
+
+  // ABYSS SPIKES: he drops out of the air, the floor splits, a crown of giant spikes erupts round him and seven rings of black spikes race outwards
+  spikes: { dur: 6.6, wide: 2.7, start() {
+      const geo = new THREE.ConeGeometry(.42, 1, 6).translate(0, .5, 0), mat = darkSolidMat(0xa040ff, true);
+      this.spikes = [];
+      const add = (x, z, a, lean, wd, h, at, crown) => {
+        const m = new THREE.Mesh(geo, mat); m.position.set(x, -.05, z); m.rotation.set(0, -a, 0); m.rotateZ(-lean);
+        m.userData = { h, at, up: false, crown }; m.scale.set(wd, .01, wd); fxRoot.add(m); this.spikes.push(m);
+      };
+      for (let i = 0; i < 7; i++) { const a = i / 7 * Math.PI * 2 + .2; add(Math.cos(a) * 2.8, Math.sin(a) * 2.8, a, .28, 2.4, 8 + Math.random() * 3.5, .2 + i * .006, true); }
+      [[4.6, 12], [7, 17], [9.6, 23], [12.4, 29], [15.4, 35], [18.6, 41], [22, 47]].forEach(([r, n], w) => {
+        for (let i = 0; i < n; i++) {
+          const a = i / n * Math.PI * 2 + w * .3 + (Math.random() - .5) * .15, rr = r + (Math.random() - .5) * .9;
+          add(Math.cos(a) * rr, Math.sin(a) * rr, a, .15 + Math.random() * .4, .8 + Math.random() * .9, (3 + Math.random() * 3.5) * (1.25 - w * .08), .26 + w * .065 + Math.random() * .02, false);
+        }
+      });
+      this.slam = this.crumble = false; this.wave = -1;
+    },
+    update(p) {
+      if (p > .19 && !this.slam) {
+        this.slam = true; flash('abyss'); quake(1.4);
+        ring(new THREE.Vector3(), 18, 1.2, 0x9a2bff); ring(new THREE.Vector3(), 30, 1.6, 0xff2a6a);
+        burst(new THREE.Vector3(0, .3, 0), 260, 10, 0xc040ff, .2, 1);
+        for (let i = 0; i < 40; i++) { const a = i / 40 * 6.28; smoke(new THREE.Vector3(Math.cos(a) * 1.5, .4, Math.sin(a) * 1.5), 1, 9, 2.4, 1.8, .4); }
+      }
+      setCracks(28 * ease(seg(p, .19, .7)), 1 - ease(seg(p, .88, 1)));
+      const sink = ease(seg(p, .82, .97)), w = Math.floor((p - .26) / .065);
+      if (w > this.wave && w < 7 && p > .26) { this.wave = w; quake(.45); }
+      for (const m of this.spikes) {
+        const u = m.userData, k = seg(p, u.at, u.at + .05), pop = k < 1 ? ease(k) * 1.15 : 1.15 - .15 * ease(seg(p, u.at + .05, u.at + .1));
+        m.scale.y = Math.max(.01, u.h * pop * (1 - sink));
+        if (k > 0 && !u.up) {
+          u.up = true; burst(m.position.clone().setY(.2), u.crown ? 30 : 6, u.crown ? 6 : 3, Math.random() < .5 ? 0x9a2bff : 0xff2a6a, .6, .7);
+          if (u.crown || Math.random() < .25) smoke(m.position.clone().setY(.3), u.crown ? 8 : 2, 2.5, 2, 1.6);
+          if (Math.random() < .2) ring(m.position, 1.8, .4, 0x9a2bff);
+        }
+      }
+      // lightning jumps between the crown and the outer spikes
+      if (p > .3 && p < .82 && Math.random() < .35) {
+        const up = this.spikes.filter(m => m.userData.up), c = up.filter(m => m.userData.crown), o = up.filter(m => !m.userData.crown);
+        if (c.length && o.length) {
+          const a = c[Math.floor(Math.random() * c.length)], b = o[Math.floor(Math.random() * o.length)];
+          bolt(a.localToWorld(new THREE.Vector3(0, .95, 0)), b.localToWorld(new THREE.Vector3(0, .95, 0)), Math.random() < .6 ? 0xb050ff : 0xff3080, .25, .12, 1.2);
+        }
+      }
+      if (p > .82 && !this.crumble) { this.crumble = true; quake(.6); this.spikes.forEach((m, i) => { if (i % 3 === 0 || m.userData.crown) { burst(m.position.clone().setY(m.userData.h * .5), 6, 2.5, 0x7a20d0, .2, .8); smoke(m.position.clone().setY(1), 2, 1.5, 2.2, 1.6); } }); }
+      vigT = .6 * ease(seg(p, .15, .25)) * (1 - sink);
+      const up = ease(seg(p, 0, .15)) * (1 - ease(seg(p, .15, .2))), down = ease(seg(p, .17, .22)) * (1 - ease(seg(p, .85, 1))), call = ease(seg(p, .3, .4)) * (1 - ease(seg(p, .8, .9)));
+      return { rx: -2.6 * up - .3 * down - .6 * call, rz: -.3 * up - .75 * down - .6 * call, lx: -2.6 * up - .3 * down - .6 * call, lz: .3 * up + .75 * down + .6 * call, rf: -.2, lf: -.2, lift: 1.6 * up, lean: .3 * down - .1 * up - .25 * call, look: -.1 * down + .3 * up + .35 * call };
+    },
+    end() { this.spikes.forEach(m => fxRoot.remove(m)); setCracks(0, 0); } },
+
+  // OBLITERATE: dark gathers into a crackling ball between his hands, then a black beam sweeps the city away in a line of explosions
+  obliterate: { dur: 7.2, wide: 2.3, start() {
+      this.towers = Array.from({ length: 13 }, (_, i) => {
+        const a = -1.1 + i / 12 * 2.2, r = 20 + (i * 7 % 3);
+        const b = wireBlock(fxRoot, 1.4 + (i % 3) * .5, 1, 1.4 + (i * 5 % 3) * .4, PALE);
+        b.position.set(Math.sin(a) * r, 0, Math.cos(a) * r); b.rotation.y = a;
+        Object.assign(b.userData, { h: 2 + (i * 37 % 5) * .7, a, hit: -1 });
+        return b;
+      });
+      this.orb = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 16), new THREE.MeshBasicMaterial({ color: 0x000000 })); fxRoot.add(this.orb);
+      this.halo = sprite(ringTex, 0xb050ff, 1); fxRoot.add(this.halo);
+      this.beam = new THREE.Mesh(new THREE.CylinderGeometry(.75, .75, 1, 28, 1, true).translate(0, .5, 0).rotateX(Math.PI / 2), beamMat()); this.beam.visible = false; fxRoot.add(this.beam);
+      this.sheath = new THREE.Mesh(new THREE.CylinderGeometry(1.9, 1.9, 1, 28, 1, true).translate(0, .5, 0).rotateX(Math.PI / 2), glowMat(0x8a2be2, .16)); this.sheath.visible = false; fxRoot.add(this.sheath);
+      this.chunks = []; this.done = false;
+    },
+    update(p, dt) {
+      const charge = ease(seg(p, .02, .26)), fire = p > .3 && p < .8, ang = -1.2 + seg(p, .32, .78) * 2.4;
+      const tgt = new THREE.Vector3(Math.sin(ang) * 21.5, 1, Math.cos(ang) * 21.5), h = handsMid().add(new THREE.Vector3(0, 0, .5));
+      const os = Math.max(.01, charge * .9 * (1 - ease(seg(p, .8, .86))) * (1 + Math.sin(t * 25) * .06));
+      this.orb.position.copy(h); this.orb.scale.setScalar(os);
+      this.halo.position.copy(h); this.halo.scale.setScalar(os * 4.8); this.halo.material.opacity = charge;
+      if (p < .3) { implode(h, 6, 4, Math.random() < .6 ? 0xb050ff : 0xff3070, .45); if (Math.random() < .25) bolt(h.clone().add(new THREE.Vector3().randomDirection().multiplyScalar(os * 1.1)), h.clone().add(new THREE.Vector3().randomDirection().multiplyScalar(2.5 + Math.random() * 2)), 0xb050ff, .15, .3, .7); quake(charge * .08); }
+      this.beam.visible = this.sheath.visible = fire;
+      if (fire) {
+        const j = 1 + Math.sin(t * 40) * .12, L = h.distanceTo(tgt);
+        for (const b of [this.beam, this.sheath]) { b.position.copy(h); b.lookAt(tgt); b.scale.set(j, j, L); }
+        burst(tgt, 8, 6, Math.random() < .5 ? 0xc050ff : 0xff3070, .5, .6);
+        if (Math.random() < .5) smoke(tgt.clone().setY(.6), 1, 3, 2.6, 1.6, 1.6);
+        if (Math.random() < .3) ring(tgt, 3, .3, 0x9a2bff);
+        if (Math.random() < .3) { const along = h.clone().lerp(tgt, Math.random()); bolt(h, along.add(new THREE.Vector3().randomDirection().multiplyScalar(1.5)), 0xc080ff, .12, .25, .8); }
+        quake(.18);
+      }
+      setCracks(24 * ease(seg(p, .3, .7)), 1 - ease(seg(p, .88, 1)));
+      for (const b of this.towers) {
+        const u = b.userData, rise = ease(seg(p, 0, .15));
+        if (u.hit < 0 && fire && Math.abs(u.a - ang) < .08) {
+          u.hit = p; quake(.5);
+          for (let y = 0; y < u.h; y++) burst(new THREE.Vector3(b.position.x, y + .5, b.position.z), 14, 4, 0xb050ff, .4, .9);
+          ring(b.position, 4, .5, 0x9a2bff); smoke(b.position.clone().setY(1), 14, 4, 3, 2.4, 2.2);
+          throwChunks(this.chunks, b.position.clone().setY(u.h * .5), 7, 12, .45);
+          bolt(new THREE.Vector3(b.position.x * .9, 30, b.position.z * .9), b.position.clone().setY(u.h), 0xd080ff, .35, .12, 1.6);
+        }
+        const k = u.hit < 0 ? 0 : seg(p, u.hit, u.hit + .05);
+        b.scale.y = Math.max(.01, u.h * rise * (1 - k)); b.visible = k < 1;
+        if (u.hit >= 0) u.edges.material.color.set(0xb050ff);
+        u.fill.material.opacity = .14 * (1 - k); u.edges.material.opacity = 1 - k;
+      }
+      updateChunks(this.chunks, dt);
+      if (p > .8 && !this.done) { this.done = true; quake(.9); flash('abyss'); ring(new THREE.Vector3(0, 0, 12), 24, 1.4, 0x9a2bff); for (const b of this.towers) smoke(b.position.clone().setY(.8), 6, 3, 3.5, 2.6, 2.5); }
+      vigT = .65 * charge * (1 - ease(seg(p, .88, 1)));
+      const thrust = ease(seg(p, .24, .32)), aimW = ease(seg(p, .28, .34)) * (1 - ease(seg(p, .78, .86)));
+      return { rx: -1 - .55 * thrust, rz: .35, rf: -1.2 * (1 - thrust) - .1, lx: -1 - .55 * thrust, lz: -.35, lf: -1.2 * (1 - thrust) - .1, twist: ang * .55 * aimW, lean: .08 + .1 * aimW };
+    },
+    end() { [...this.towers, this.orb, this.halo, this.beam, this.sheath, ...this.chunks.map(o => o.m)].forEach(o => fxRoot.remove(o)); setCracks(0, 0); } },
+
+  // SHADOW LEGION: six copies of him tear out of his body, race outwards, leap, and come down on the world like lightning
+  legion: { dur: 6.8, wide: 2.3, start() {
+      shadows = shadows || Array.from({ length: 6 }, () => { const o = makeGiant(); o.mat.uniforms.uFloor.value = -100; return o; });
+      this.list = shadows.map((o, i) => ({ o, a: i / 6 * Math.PI * 2 + .3, landed: false }));
+      this.chunks = []; this.out = false;
+    },
+    update(p, dt) {
+      const out = ease(seg(p, .16, .32)), leap = seg(p, .42, .6), fade = ease(seg(p, .78, .94));
+      if (p > .16 && !this.out) { this.out = true; flash('abyss'); quake(.9); smoke(new THREE.Vector3(0, 2, 0), 40, 8, 2.6, 1.6, .5); ring(new THREE.Vector3(), 9, .8, 0x9a2bff); burst(new THREE.Vector3(0, 4, 0), 160, 8, 0xc040ff, .2, .8); }
+      for (const c of this.list) {
+        const { o, a } = c, r = 8 * out, A = Math.min(1, out * 3) * (1 - fade);
+        o.g.visible = p > .16 && fade < 1; o.sync(); o.g.scale.setScalar(1);
+        o.g.position.set(Math.sin(a) * r, root.position.y + Math.sin(leap * Math.PI) * 6, Math.cos(a) * r); o.g.rotation.y = a;
+        o.mat.uniforms.uA.value = A; o.eyeMat.opacity = A; o.eyes.forEach(s => { s.visible = o.g.visible; });
+        if (p > .16 && p < .34 && Math.random() < .5) smoke(o.g.position.clone().setY(1.5), 1, 1, 2, 1.2, .5);
+        if (p >= .6 && !c.landed) {
+          c.landed = true; const at = o.g.position.clone().setY(0);
+          quake(.7); ring(at, 6, .6, 0x9a2bff); burst(at.clone().setY(.5), 60, 7, 0xc040ff, .4, .8); smoke(at.clone().setY(.6), 10, 5, 3, 2, 1.2);
+          bolt(at.clone().setY(30), at.clone().setY(6), 0xd080ff, .35, .1, 1.6); throwChunks(this.chunks, at.clone().setY(.4), 4, 9, .4);
+        }
+        if (fade > 0 && fade < 1 && Math.random() < .3) smoke(o.g.position.clone().add(new THREE.Vector3(0, 2 + Math.random() * 5, 0)), 1, 1, 2.2, 1.4, 1);
+      }
+      updateChunks(this.chunks, dt);
+      setCracks(16 * ease(seg(p, .6, .75)), 1 - ease(seg(p, .88, 1)));
+      vigT = .65 * ease(seg(p, .05, .2)) * (1 - fade);
+      const fold = env(p, 0, .1, .14, .18), open = ease(seg(p, .16, .24)) * (1 - ease(seg(p, .38, .46))), up = env(p, .4, .5, .57, .6), slam = env(p, .58, .61, .75, .9);
+      return { rx: -1.2 * fold - .5 * open - 2.6 * up - .6 * slam, rz: .55 * fold - 1.2 * open - .3 * up - .5 * slam, rf: -1.3 * fold, lx: -1.2 * fold - .5 * open - 2.6 * up - .6 * slam, lz: -.55 * fold + 1.2 * open + .3 * up + .5 * slam, lf: -1.3 * fold,
+        lean: .2 * fold - .1 * open + .3 * slam, look: -.2 * fold + .3 * up, lift: .5 * open + 1.5 * up };
+    },
+    end() { this.list.forEach(c => { c.o.g.visible = false; }); this.chunks.forEach(o => fxRoot.remove(o.m)); setCracks(0, 0); } },
+
+  // DARK METEOR: a rift opens in the sky and black stars fall out of it, ending in one that is the size of a hill
+  meteor: { dur: 7.6, wide: 2.8, start() {
+      const back = camBack(), side = new THREE.Vector3(back.z, 0, -back.x);
+      this.rift = sprite(ringTex, 0xb050ff, 1); this.rift.position.copy(back).multiplyScalar(20).setY(34); fxRoot.add(this.rift);
+      this.riftGlow = sprite(glowDot, 0x5a10a0, 1); this.riftGlow.position.copy(this.rift.position); fxRoot.add(this.riftGlow);
+      this.shock = new THREE.Mesh(new THREE.SphereGeometry(1, 40, 28), shellMat(0xb050ff)); this.shock.visible = false; fxRoot.add(this.shock);
+      this.rocks = Array.from({ length: 30 }, (_, i) => {
+        const big = i === 29, size = big ? 3.4 : .5 + Math.random() * .9;
+        const m = new THREE.Mesh(new THREE.IcosahedronGeometry(size, 1), darkRock); m.visible = false; fxRoot.add(m);
+        const glow = sprite(glowDot, 0xff50c0, size * 5); m.add(glow);
+        const trail = new THREE.Mesh(new THREE.CylinderGeometry(size * 1.1, size * .2, 1, 14, 1, true).translate(0, -.5, 0).rotateX(-Math.PI / 2), glowMat(0xc050ff, .55)); trail.visible = false; fxRoot.add(trail);
+        const a = Math.random() * 6.28, r = 5 + Math.random() * 24;
+        const to = big ? side.clone().multiplyScalar(13).add(back.clone().multiplyScalar(4)) : new THREE.Vector3(Math.cos(a) * r, 0, Math.sin(a) * r);
+        const from = to.clone().add(back.clone().multiplyScalar(10)).add(side.clone().multiplyScalar(-26)).add(new THREE.Vector3((Math.random() - .5) * 6, 44, (Math.random() - .5) * 6));
+        return { m, trail, size, big, from, to, at: big ? .68 : .14 + i / 29 * .5, dur: big ? .12 : .07, hit: false };
+      });
+      this.chunks = []; this.boomAt = null;
+    },
+    update(p, dt) {
+      const dark = ease(seg(p, .02, .14)) * (1 - ease(seg(p, .9, 1)));
+      styleWorld(dark);
+      const rift = ease(seg(p, .04, .16)) * (1 - ease(seg(p, .82, .92)));
+      this.rift.scale.setScalar(26 * rift + .01); this.rift.material.opacity = rift; this.rift.material.rotation = t * .4;
+      this.riftGlow.scale.setScalar(40 * rift + .01); this.riftGlow.material.opacity = rift * .6;
+      if (rift > .2 && Math.random() < .1) { const a = Math.random() * 6.28, c = this.rift.position; bolt(c.clone().add(new THREE.Vector3(Math.cos(a) * 6, Math.sin(a) * 6, 0)), c.clone().add(new THREE.Vector3(Math.cos(a + 2) * 7, Math.sin(a + 2) * 7, 0)), 0xb050ff, .2, .2, 1.2); }
+      for (const o of this.rocks) {
+        if (o.hit) continue;
+        const k = seg(p, o.at, o.at + o.dur);
+        if (k <= 0) continue;
+        o.m.visible = true; o.m.position.lerpVectors(o.from, o.to, k); o.m.rotation.x += dt * 4; o.m.rotation.z += dt * 3;
+        o.trail.visible = true; o.trail.position.copy(o.m.position); o.trail.lookAt(o.from); o.trail.scale.set(1, 1, Math.min(o.big ? 22 : 12, o.from.distanceTo(o.m.position)));
+        if (Math.random() < (o.big ? 1 : .35)) smoke(o.m.position, o.big ? 3 : 1, .4, o.size * 2.6, 1.4, .2);
+        burst(o.m.position, o.big ? 10 : 4, 1.5, Math.random() < .5 ? 0xff50c0 : 0xb050ff, 0, .5);
+        if (k >= 1) {
+          o.hit = true; o.m.visible = false; o.trail.visible = false;
+          const at = o.to.clone().setY(.3), s = o.size;
+          quake(o.big ? 2.2 : .35 + s * .3); ring(at, 3 + s * 4, .7, 0x9a2bff); burst(at, o.big ? 600 : 40, o.big ? 18 : 6, 0xc040ff, .4, o.big ? 1.5 : .8);
+          smoke(at, o.big ? 90 : 8, o.big ? 14 : 4, o.big ? 5 : 2.6, o.big ? 2.6 : 1.8, o.big ? .6 : 1.2); throwChunks(this.chunks, at, o.big ? 18 : 3, o.big ? 16 : 8, o.big ? .9 : .35);
+          if (o.big) {
+            flash('abyss'); this.boomAt = p; this.shock.position.copy(at); this.shock.visible = true;
+            for (const r of [12, 26, 44]) ring(at, r, 1.4, 0x9a2bff);
+            for (let i = 0; i < 12; i++) bolt(at.clone().setY(2), at.clone().add(new THREE.Vector3().randomDirection().multiplyScalar(22)).setY(Math.random() * 14), 0xd080ff, .5, .15, 1.8);
+          }
+        }
+      }
+      if (this.boomAt !== null) { const k = seg(p, this.boomAt, this.boomAt + .2); this.shock.scale.setScalar(1 + ease(k) * 34); this.shock.material.uniforms.uA.value = 1 - k; }
+      updateChunks(this.chunks, dt);
+      setCracks(30 * ease(seg(p, .16, .8)), 1 - ease(seg(p, .9, 1)));
+      vigT = .7 * dark;
+      const call = ease(seg(p, .04, .12)) * (1 - ease(seg(p, .64, .68))), slam = env(p, .66, .7, .85, .95);
+      return { rx: -2.7 * call - 1.0 * slam, rz: -.2 * call - .6 * slam, rf: -.1, lx: -.5 * call - 1.0 * slam, lz: .3 * call + .6 * slam, lf: -.6 * call, look: .5 * call - .1 * slam, lean: -.08 * call + .25 * slam, lift: .8 * call };
+    },
+    end() { [this.rift, this.riftGlow, this.shock, ...this.rocks.flatMap(o => [o.m, o.trail]), ...this.chunks.map(o => o.m)].forEach(o => fxRoot.remove(o)); styleWorld(0); setCracks(0, 0); } },
+
+  // ABYSS GATE: a gate into the dark opens behind him and its tentacles come through, crash down around him and thrash the ground apart
+  gate: { dur: 8.4, wide: 2.6, start() {
+      const back = camBack(), C = this.C = back.clone().multiplyScalar(10).setY(9.5);
+      this.portal = new THREE.Group(); this.portal.position.copy(C); this.portal.lookAt(camera.position.x, 9.5, camera.position.z); fxRoot.add(this.portal);
+      const hole = new THREE.Mesh(new THREE.CircleGeometry(4.9, 64), new THREE.MeshBasicMaterial({ color: 0x000000 })); hole.position.z = -.05; this.portal.add(hole);
+      this.rim = new THREE.Mesh(new THREE.RingGeometry(4.6, 7.4, 128, 2), portalMat()); this.portal.add(this.rim);
+      this.portal.scale.setScalar(.01);
+      const ball = new THREE.SphereGeometry(1, 12, 8), mat = darkSolidMat(0x9a40ff), fwd = back.clone().negate();
+      this.tents = Array.from({ length: 7 }, (_, j) => {
+        const a = j / 7 * Math.PI * 2, base = new THREE.Vector3(Math.cos(a) * 2.6, Math.sin(a) * 2.6, .3);
+        const side = (j / 6 - .5) * 2.6, r = 6 + Math.random() * 7;
+        const T0 = fwd.clone().multiplyScalar(Math.cos(side) * r).add(new THREE.Vector3(fwd.z, 0, -fwd.x).multiplyScalar(Math.sin(side) * r));
+        const segs = Array.from({ length: 34 }, () => { const m = new THREE.Mesh(ball, mat); m.visible = false; fxRoot.add(m); return m; });
+        return { base, T0, segs, at: .18 + j * .03, hit: false, ph: Math.random() * 6 };
+      });
+      this.chunks = [];
+    },
+    update(p, dt) {
+      const open = ease(seg(p, .04, .2)) * (1 - ease(seg(p, .9, 1)));
+      this.portal.scale.setScalar(Math.max(.01, open)); this.rim.material.uniforms.uA.value = open;
+      if (open > .3 && Math.random() < .15) { const a = Math.random() * 6.28; bolt(this.portal.localToWorld(new THREE.Vector3(Math.cos(a) * 5, Math.sin(a) * 5, 0)), this.portal.localToWorld(new THREE.Vector3(Math.cos(a + 1) * 6.5, Math.sin(a + 1) * 6.5, 0)), 0xb050ff, .2, .25, 1.1); }
+      const thrash = ease(seg(p, .48, .55)) * (1 - ease(seg(p, .78, .84))), P1 = new THREE.Vector3(), B = new THREE.Vector3(), Q = new THREE.Vector3();
+      for (const o of this.tents) {
+        const e = ease(seg(p, o.at, o.at + .2)) * (1 - ease(seg(p, .82, .94)));
+        const P0 = this.portal.localToWorld(o.base.clone());
+        const T = o.T0.clone().applyAxisAngle(UP, Math.sin(t * 2.2 + o.ph) * .6 * thrash);
+        P1.copy(P0).lerp(T, .45).setY(P0.y + 6);
+        o.segs.forEach((m, i) => {
+          const s = i / (o.segs.length - 1) * e;
+          m.visible = e > .01;
+          if (!m.visible) return;
+          // a quadratic curve from the gate to the ground, with a travelling wave along it
+          B.copy(P0).multiplyScalar((1 - s) * (1 - s)).addScaledVector(P1, 2 * (1 - s) * s).addScaledVector(T, s * s);
+          const w = Math.sin(s * 9 - t * 5 + o.ph) * 1.1 * s * (1 - s) * 2;
+          Q.set(Math.sin(o.ph) * w, Math.cos(t * 3 + s * 6) * w * .6, Math.cos(o.ph) * w);
+          m.position.copy(B).add(Q).setY(Math.max(.2, B.y + Q.y));
+          m.scale.setScalar(.95 * Math.pow(1 - i / o.segs.length, .6) + .12);
+        });
+        if (e >= .99 && !o.hit) { o.hit = true; const at = T.clone().setY(.3); quake(.8); ring(at, 5, .6, 0x9a2bff); burst(at, 70, 8, 0xc040ff, .4, .8); smoke(at, 12, 5, 3, 2, 1); throwChunks(this.chunks, at, 5, 10, .45); }
+        if (thrash > .2 && Math.random() < .08) { const tip = o.segs[o.segs.length - 1].position; smoke(tip.clone().setY(.4), 2, 3, 2.4, 1.4, .8); burst(tip, 10, 4, 0xc040ff, .3, .5); quake(.25); }
+        if (thrash > .2 && Math.random() < .05) bolt(P0, o.segs[o.segs.length - 1].position.clone(), 0xd080ff, .2, .12, 1.2);
+      }
+      updateChunks(this.chunks, dt);
+      quake(.04 + open * .06); vigT = .7 * open;
+      setCracks(18 * ease(seg(p, .3, .6)), 1 - ease(seg(p, .88, 1)));
+      const wide = ease(seg(p, .04, .18)) * (1 - ease(seg(p, .88, 1))), cmd = env(p, .4, .46, .78, .84);
+      return { rx: -.8 * wide - 1.4 * cmd, rz: -1.3 * wide + .4 * cmd, lx: -.8 * wide - 1.4 * cmd, lz: 1.3 * wide - .4 * cmd, rf: -.2, lf: -.2, lift: 1 * wide, look: .15 * wide, lean: .15 * cmd };
+    },
+    end() { fxRoot.remove(this.portal); this.tents.forEach(o => o.segs.forEach(m => fxRoot.remove(m))); this.chunks.forEach(o => fxRoot.remove(o.m)); setCracks(0, 0); } },
+
+  // VOID CHAINS: a titan of light rises beside him; chains of the abyss shoot out of the floor, bind it, and crush it to nothing
+  chains: { dur: 7.6, wide: 2.4, start() {
+      const back = camBack(), side = new THREE.Vector3(back.z, 0, -back.x);
+      const T = this.T = side.clone().multiplyScalar(8).add(back.clone().multiplyScalar(8)).setY(6.5);
+      this.core = new THREE.Group(); this.core.position.copy(T); fxRoot.add(this.core);
+      const ico = new THREE.IcosahedronGeometry(3, 1);
+      this.coreF = new THREE.Mesh(ico, glowMat(PALE, .1)); this.coreE = new THREE.LineSegments(new THREE.EdgesGeometry(ico), lineMat(PALE, 1)); this.core.add(this.coreF, this.coreE);
+      this.heart = sprite(glowDot, 0xbff8ff, 4); this.core.add(this.heart);
+      this.shock = new THREE.Mesh(new THREE.SphereGeometry(1, 40, 28), shellMat(0xb050ff)); this.shock.position.copy(T); this.shock.visible = false; fxRoot.add(this.shock);
+      const link = new THREE.TorusGeometry(.34, .09, 6, 14), mat = darkSolidMat(0xa040ff);
+      this.chains = Array.from({ length: 6 }, (_, i) => {
+        const a = i / 6 * Math.PI * 2, P = T.clone().setY(.1).add(new THREE.Vector3(Math.cos(a) * 8, 0, Math.sin(a) * 8));
+        const hole = new THREE.Mesh(new THREE.CircleGeometry(1.3, 40), new THREE.MeshBasicMaterial({ color: 0x000000 })); hole.rotation.x = -Math.PI / 2; hole.position.copy(P); fxRoot.add(hole);
+        const rim = new THREE.Mesh(new THREE.RingGeometry(1.3, 1.9, 48), glowMat(0xb050ff, .8)); rim.rotation.x = -Math.PI / 2; rim.position.copy(P).setY(.12); fxRoot.add(rim);
+        const off = new THREE.Vector3(Math.cos(a + .5) * 2.7, (i % 2 ? 1.3 : -1.3), Math.sin(a + .5) * 2.7);
+        const n = Math.ceil(P.distanceTo(T.clone().add(off)) / .52);
+        const links = Array.from({ length: n }, () => { const m = new THREE.Mesh(link, mat); m.visible = false; fxRoot.add(m); return m; });
+        return { P, off, hole, rim, links, at: .18 + i * .035, locked: false };
+      });
+      this.broke = false;
+    },
+    update(p, dt) {
+      const T = this.T, open = ease(seg(p, .05, .16)) * (1 - ease(seg(p, .88, .98))), rise = ease(seg(p, 0, .14));
+      const struggle = seg(p, .32, .7), squeeze = ease(seg(p, .48, .7)), cs = this.broke ? 0 : rise * (1 - squeeze * .7);
+      this.core.position.copy(T).add(new THREE.Vector3(Math.sin(t * 23) * .2 * struggle, Math.sin(t * 17) * .2 * struggle - (1 - rise) * 6, Math.cos(t * 19) * .2 * struggle));
+      this.core.rotation.y += dt * (1 - squeeze * .9); this.core.rotation.x += dt * .3;
+      this.core.scale.setScalar(Math.max(.01, cs)); this.core.visible = !this.broke;
+      this.coreE.material.color.set(PALE).lerp(_hc.set(0xb050ff), squeeze); this.heart.material.opacity = 1 - squeeze * .5;
+      if (p > .58 && p < .7) implode(this.core.position, 10, 7, Math.random() < .5 ? PALE : 0xb050ff, .4);
+      const A = new THREE.Vector3(), Pt = new THREE.Vector3(), N = new THREE.Vector3();
+      for (const c of this.chains) {
+        c.hole.scale.setScalar(Math.max(.01, open)); c.rim.scale.setScalar(Math.max(.01, open)); c.rim.material.opacity = .8 * open;
+        const e = ease(seg(p, c.at, c.at + .12)) * (this.broke ? 1 - ease(seg(p, .72, .86)) : 1), taut = ease(seg(p, c.at + .12, .36));
+        A.copy(c.off).multiplyScalar(Math.max(cs, .25)).add(this.core.position);
+        const n = c.links.length, shown = Math.floor(e * n);
+        c.links.forEach((m, k) => {
+          m.visible = k < shown; if (!m.visible) return;
+          const u = (k + .5) / n, u2 = (k + 1.5) / n;
+          Pt.lerpVectors(c.P, A, u); Pt.y -= Math.sin(u * Math.PI) * 1.5 * (1 - taut);
+          N.lerpVectors(c.P, A, u2); N.y -= Math.sin(u2 * Math.PI) * 1.5 * (1 - taut);
+          m.position.copy(Pt); m.lookAt(N); m.rotateZ(k % 2 ? Math.PI / 2 : 0); m.rotateX(Math.PI / 2);
+        });
+        if (e >= 1 && !c.locked) { c.locked = true; quake(.5); burst(A, 30, 5, 0xc050ff, .2, .6); bolt(c.P.clone().setY(.5), A.clone(), 0xb050ff, .25, .12, 1.2); }
+      }
+      if (struggle > 0 && struggle < 1 && Math.random() < .1) { const ch = this.chains[Math.floor(Math.random() * 6)]; bolt(ch.P.clone().setY(.5), this.core.position.clone(), 0xd080ff, .18, .12, 1); quake(.2); }
+      if (p > .7 && !this.broke) {
+        this.broke = true; flash('abyss'); quake(1.8); this.shock.visible = true; this.shock.position.copy(this.core.position);
+        burst(this.core.position, 500, 15, 0xc050ff, 0, 1.4); burst(this.core.position, 200, 10, PALE, 0, 1); smoke(this.core.position, 60, 10, 4.2, 2.4, .4);
+        for (const r of [12, 26]) ring(T.clone().setY(0), r, 1.3, 0x9a2bff);
+        for (let i = 0; i < 10; i++) bolt(this.core.position, this.core.position.clone().add(new THREE.Vector3().randomDirection().multiplyScalar(16)).setY(Math.max(0, Math.random() * 16)), 0xd080ff, .5, .15, 1.6);
+      }
+      if (this.broke) { const k = seg(p, .7, .9); this.shock.scale.setScalar(1 + ease(k) * 28); this.shock.material.uniforms.uA.value = 1 - k; }
+      setCracks(14 * ease(seg(p, .1, .4)), 1 - ease(seg(p, .88, 1)), T.x, T.z);
+      vigT = .65 * open;
+      const aim = Math.max(-1.3, Math.min(1.3, Math.atan2(T.x, T.z))), reach = ease(seg(p, .14, .22)) * (1 - ease(seg(p, .88, 1))), pull = env(p, .46, .52, .7, .74), crush = env(p, .69, .71, .8, .9);
+      return { rx: -1.5 * reach + .7 * pull - .8 * crush, rz: .1, rf: -.3 * pull, lx: -.4 * reach, lz: .3, lf: -.8 * reach, twist: aim * .6 * reach, lean: -.18 * pull + .15 * crush, look: .15 * reach };
+    },
+    end() { [this.core, this.shock, ...this.chains.flatMap(c => [c.hole, c.rim, ...c.links])].forEach(o => fxRoot.remove(o)); setCracks(0, 0); } },
+
+  // END OF ALL: he rises under a black eclipse; his colossal shadow climbs out of the dark behind him; lightning tears the sky,
+  // the ground breaks loose, and a sphere of darkness swallows the whole world but the two of them
+  endtime: { dur: 12, wide: 3.4, start() {
+      giant = giant || makeGiant();
+      // the shadow and the eclipse stand behind him, as seen from wherever the camera is
+      const v = camera.position.clone().sub(controls.target).setY(0).normalize(); this.back = v.clone().negate(); this.face = Math.atan2(v.x, v.z);
+      this.eclipse = sprite(eclipseTex, 0xffffff, 22, THREE.NormalBlending); this.eclipse.position.copy(this.back).multiplyScalar(42).add(new THREE.Vector3(this.back.z * 14, 24, -this.back.x * 14)); this.eclipse.material.opacity = 0; fxRoot.add(this.eclipse);
+      this.rocks = Array.from({ length: 110 }, () => {
+        const m = new THREE.Mesh(new THREE.IcosahedronGeometry(.25 + Math.random() * .9, 0), darkRock), a = Math.random() * 6.28, r = 4 + Math.random() * 28;
+        m.position.set(Math.cos(a) * r, -.3, Math.sin(a) * r);
+        m.userData = { v: .4 + Math.random() * 1.6, at: .05 + Math.random() * .25, gone: false, sx: Math.random(), sy: Math.random() };
+        fxRoot.add(m); return m;
+      });
+      this.dome = new THREE.Mesh(new THREE.SphereGeometry(1, 64, 40), domeMat()); this.dome.position.set(0, 4.5, 0); this.dome.scale.setScalar(.01); fxRoot.add(this.dome);
+      this.phase = 0;
+    },
+    update(p, dt) {
+      styleWorld(ease(seg(p, .02, .18)) * (1 - ease(seg(p, .92, 1))));
+      this.eclipse.material.opacity = ease(seg(p, .06, .22)) * (1 - ease(seg(p, .9, .98))); this.eclipse.material.rotation = t * .05;
+      // the shadow rises
+      const g = giant, rise = ease(seg(p, .08, .34)), sinkG = ease(seg(p, .88, 1));
+      g.g.visible = rise > 0 && sinkG < 1; g.sync();
+      g.g.scale.setScalar(3.2); g.g.rotation.y = this.face; g.g.position.copy(this.back).multiplyScalar(20).setY(-34 + rise * 28 - sinkG * 30);
+      g.mat.uniforms.uA.value = rise * (1 - sinkG); g.eyeMat.opacity = rise * (1 - sinkG);
+      g.eyes.forEach(s => { s.visible = g.g.visible; });
+      if (rise > 0 && rise < 1) { quake(.15); if (Math.random() < .4) smoke(this.back.clone().multiplyScalar(20).add(new THREE.Vector3((Math.random() - .5) * 18, .5, (Math.random() - .5) * 18)), 2, 3, 5, 2.2, 3); }
+      setCracks(34 * ease(seg(p, .08, .45)), 1 - ease(seg(p, .9, 1)));
+      // the sky splits with lightning
+      if (p > .12 && p < .5 && Math.random() < .2) {
+        const x = (Math.random() - .5) * 50, z = (Math.random() - .5) * 50;
+        bolt(new THREE.Vector3(x + (Math.random() - .5) * 8, 34, z + (Math.random() - .5) * 8), new THREE.Vector3(x, 0, z), Math.random() < .7 ? 0xb050ff : 0xff3080, .35, .12, 2);
+        quake(.3); ring(new THREE.Vector3(x, 0, z), 3, .5, 0x9a2bff); smoke(new THREE.Vector3(x, .5, z), 4, 2, 3, 1.8, 1.5);
+      }
+      const wave = ease(seg(p, .5, .72)) * 90;
+      this.dome.scale.setScalar(Math.max(.01, wave)); this.dome.material.uniforms.uA.value = p < .5 ? 0 : 1 - ease(seg(p, .86, 1));
+      for (const m of this.rocks) {
+        const u = m.userData; if (u.gone) continue;
+        m.position.y = -.3 + seg(p, u.at, 1) * u.v * 10; m.rotation.x += dt * u.sx; m.rotation.y += dt * u.sy;
+        if (p > .5 && m.position.distanceTo(this.dome.position) < wave) { u.gone = true; m.visible = false; burst(m.position, 10, 3, 0xb050ff, .2, .7); }
+      }
+      if (p > .5 && this.phase === 0) {
+        this.phase = 1; flash('abyss'); quake(2);
+        for (const s of [20, 40, 60, 80]) ring(new THREE.Vector3(), s, 1.6, 0x9a2bff);
+        burst(new THREE.Vector3(0, 5, 0), 600, 16, 0xc050ff, 0, 1.4); smoke(new THREE.Vector3(0, 3, 0), 80, 14, 5, 2.4, .5);
+        for (let i = 0; i < 14; i++) { const a = i / 14 * 6.28; bolt(new THREE.Vector3(0, 6, 0), new THREE.Vector3(Math.cos(a) * 30, Math.random() * 10, Math.sin(a) * 30), 0xd080ff, .6, .14, 1.8); }
+      }
+      if (p > .5 && p < .72) quake(.35);
+      if (p > .9 && this.phase === 1) { this.phase = 2; ring(new THREE.Vector3(), 10, 1, 0xffffff); }
+      vigT = .8 * ease(seg(p, .05, .2)) * (1 - ease(seg(p, .88, 1)));
+      const up = ease(seg(p, .02, .3)), fold = env(p, .36, .46, .48, .52), open = ease(seg(p, .5, .56)), down = ease(seg(p, .88, 1));
+      return { lift: up * 2.6 * (1 - down), rx: -.4 * up - 1.2 * fold - .9 * open, rz: -.6 * up + .55 * fold - 1.1 * open, rf: -1.3 * fold,
+        lx: -.4 * up - 1.2 * fold - .9 * open, lz: .6 * up - .55 * fold + 1.1 * open, lf: -1.3 * fold, look: .25 * up - .3 * fold + .2 * open, lean: .2 * fold - .1 * open };
+    },
+    end() { [this.eclipse, this.dome, ...this.rocks].forEach(o => fxRoot.remove(o)); giant.g.visible = false; styleWorld(0); setCracks(0, 0); } },
+};
+let nextForm = null;
+function startSkill(name, button) {
+  if (skill || bigK > 1.01) return;
+  skill = SKILLS[name]; skillT = 0; skill.start();
+  document.querySelectorAll('[data-skill],[data-form]').forEach(o => o.classList.toggle('busy', o === button));
+}
+document.querySelectorAll('[data-skill]').forEach(b => b.onclick = () => startSkill(b.dataset.skill, b));
+document.querySelectorAll('[data-form]').forEach(b => b.onclick = () => {
+  if (skill || bigK > 1.01 || b.dataset.form === form) return;
+  nextForm = b.dataset.form; startSkill('transform', b);
+});
+let skillPose = {}, poseW = 0;
+function updateSkill(dt) {
+  vigT = 0;
+  if (skill) {
+    skillT += dt;
+    const p = Math.min(1, skillT / skill.dur);
+    skillPose = skill.update(p, dt) || {};
+    if (p >= 1) { skill.end(); skill = null; document.querySelectorAll('.busy').forEach(o => o.classList.remove('busy')); }
+  }
+  poseW += ((skill ? 1 : 0) - poseW) * (1 - Math.exp(-dt * 8));
+  planMat.uniforms.time.value = t;
+  updateSparks(dt); updateRings(dt); updateBolts(dt); updateSmoke(dt);
+}
+// the skill's arm and body offsets, eased in and out over the idle pose
+function applySkillPose() {
+  const P = skillPose, w = poseW, R = arms[-1], L = arms[1];
+  if (w < .001) { root.position.y = 0; return; }
+  R.upper.rotation.x += (P.rx || 0) * w; R.upper.rotation.z += (P.rz || 0) * w; R.fore.rotation.x += (P.rf || 0) * w;
+  L.upper.rotation.x += (P.lx || 0) * w; L.upper.rotation.z += (P.lz || 0) * w; L.fore.rotation.x += (P.lf || 0) * w; L.fore.rotation.y += (P.lfy || 0) * w;
+  spine.rotation.x += (P.lean || 0) * w; spine.rotation.y += (P.twist || 0) * w; head.rotation.x -= (P.look || 0) * w;
+  root.position.y = (P.lift || 0) * w;
+}
+
+
 /* ---------- GLB export ---------- */
 const exportMats = new Map();
 function exportMaterial(mat) {
@@ -662,13 +2248,50 @@ function animate() {
   holoW += ((mode === 'holo' ? 1 : 0) - holoW) * (1 - Math.exp(-dt * 7));
   walkW += ((mode === 'walk' ? 1 : 0) - walkW) * (1 - Math.exp(-dt * 7));
   if (waveT >= 0) { waveT += dt; if (waveT >= WAVE_DUR) waveT = -1; }
+  updateSkill(dt);
   pose(t);
+  applySkillPose();
+  fxTime.value = t;
+  uPx.value = renderer.getPixelRatio() * innerHeight / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2));
+  updateAura();
+  if (cape.visible) { const c = capeGeo.attributes.position; capeRest.forEach((r, i) => c.setZ(i, r.z + (Math.sin(t * 1.4 + r.x * 1.6 + r.v * 5) * .24 + Math.sin(t * 2.9 + r.x * 3) * .06) * r.v)); c.needsUpdate = true; }
+  if (flashT >= 0) { flashT += dt; flashEl.style.opacity = Math.max(0, 1 - flashT / .6) * .9; if (flashT > .6) flashT = -1; }
   if (goal) {
     camera.position.lerp(goal, 1 - Math.exp(-dt * 7));
-    if (camera.position.distanceTo(goal) < .02) goal = null;
+    if (camera.position.distanceTo(goal) < .02 * bigK) goal = null;
   }
+  // the big skills pull the camera back to show the whole of what they build, then let it come home
+  updateGiantMode(dt);
+  const wasWide = cam.wide;
+  cam.wide += ((skill && skill.wide ? skill.wide : 1) - cam.wide) * (1 - Math.exp(-dt * 2.5));
+  camera.position.sub(controls.target).multiplyScalar(cam.wide / wasWide).add(controls.target);
   controls.update();
+  // red lightning crawls over the body of the abyss
+  if (auraAmt.value > .5) {
+    for (let n = 0; n < 2; n++) {
+      if (Math.random() > .55) continue;
+      const i = Math.floor(Math.random() * AURA_N), a = new THREE.Vector3().fromArray(auraPos, i * 3);
+      for (let tries = 0; tries < 8; tries++) {
+        const b = new THREE.Vector3().fromArray(auraPos, Math.floor(Math.random() * AURA_N) * 3), d = a.distanceTo(b);
+        if (d > .5 * bigK && d < 2.2 * bigK) {
+          const out = v => v.add(new THREE.Vector3(v.x, 0, v.z).normalize().multiplyScalar(.12 * bigK));
+          bolt(out(a.clone()), out(b), 0xff1525, .09 + Math.random() * .08, .32, .35 * bigK, 0xffb0a0, bigK < 2 && Math.random() < .3);
+          break;
+        }
+      }
+    }
+  }
+  // the abyss crackles even at rest
+  if (form === 'abyss' && !skill && uDarkR.value >= DARK_FULL && Math.random() < .025) {
+    const a = Math.random() * 6.28;
+    bolt(new THREE.Vector3((Math.random() - .5) * 1.6, 1.5 + Math.random() * 6, (Math.random() - .5) * .8).multiplyScalar(bigK), new THREE.Vector3(Math.cos(a) * (2 + Math.random() * 2), 0, Math.sin(a) * (2 + Math.random() * 2)).multiplyScalar(bigK), Math.random() < .7 ? 0x9a2bff : 0xff3080, .18, .2, .6 * bigK, 0xffffff, bigK < 2);
+  }
+  vig += (vigT - vig) * (1 - Math.exp(-dt * 4)); vigEl.style.opacity = vig;
+  const jolt = new THREE.Vector3((Math.random() - .5) * shake, (Math.random() - .5) * shake, (Math.random() - .5) * shake);
+  shake *= Math.exp(-dt * 6);
+  camera.position.add(jolt);
   renderer.render(scene, camera);
+  camera.position.sub(jolt);
 }
 animate();
 </script>

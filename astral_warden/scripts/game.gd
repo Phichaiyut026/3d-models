@@ -11,14 +11,26 @@ var camera: Camera3D
 var hud: Hud
 var menu: GameMenu
 var cutscene: Cutscene
-var powers: CosmicShow
+var powers: CosmicShow ## The powers of whoever is being played.
+var gemini_show: CosmicShow
+var abyss_show: AbyssShow
+var hero := "gemini" ## Chosen on the menu: "gemini" or "aum".
 var haven: SafeHaven
+var domain: WormsDomain
+var town: TownMap ## เมืองดาวรุ่ง, through the golden gate by the first shrine.
+var town_gate: Node3D
+var gate: Node3D ## The red gate in the tower's arena, open once OBLIVION has fallen.
 var haven_seen := false
+var supreme_unlocked := false ## Form 2: Zero Day restores it in Safe Mode, before the rematch with OBLIVION.
+var argon_unlocked := false ## Form 3: wakes when OBLIVION falls, kept for WORMS.
 var enemies: Array[Enemy] = []
 var shrines: Array[Shrine] = []
-var boss: Enemy
+var boss: Enemy ## Whichever boss the fight is with.
+var overlord: Enemy
+var worms: WormsBoss
 var boss_active := false
-var boss_defeated := false
+var boss_defeated := false ## OBLIVION has fallen.
+var worms_defeated := false ## And so has WORMS: the game is won.
 var checkpoint: Shrine
 var boss_intro_seen := false
 var state := "title" ## title, play, cutscene, dead
@@ -47,7 +59,66 @@ func oblivion_fighting() -> bool:
 	return boss_active and boss != null and boss.oblivion
 
 
+## The ground under (x, z): the valley's terrain, or the floor of WORMS' system out where it hangs.
+func ground_height(x: float, z: float) -> float:
+	if WormsDomain.contains(x, z):
+		return WormsDomain.CENTER.y
+	if TownMap.contains(x, z):
+		return TownMap.CENTER.y
+	return terrain.get_height(x, z)
+
+
+func in_town() -> bool:
+	return player != null and town != null and TownMap.contains(player.global_position.x, player.global_position.z)
+
+
+func near_town_gate(at: Vector3) -> bool:
+	return town_gate != null and town_gate.global_position.distance_to(at) < TownMap.REACH
+
+
+## Through the golden gate to the town. Nothing there will fight.
+func enter_town() -> void:
+	cutscene.fade = 1.0
+	town.visible = true
+	player.global_position = TownMap.CENTER + TownMap.ENTRY + Vector3(0, 0.3, 0)
+	player.velocity = Vector3.ZERO
+	player.set_flying(false)
+	player.cam_yaw = 0.0
+	player.rig.rotation.y = PI
+	player.reset_camera()
+	player.lock_input(0.6)
+	hud.banner("เมืองดาวรุ่ง", "เมืองแห่งผู้คน ตลาด และหมู่บ้านทุ่งทอง", Color(1.0, 0.8, 0.35), 3.0)
+
+
+## Back through the gate to the valley, beside the first shrine.
+func leave_town() -> void:
+	cutscene.fade = 1.0
+	var at := town_gate.global_position + Vector3(0, 0.3, 4.0)
+	player.global_position = at
+	player.velocity = Vector3.ZERO
+	player.set_flying(false)
+	player.reset_camera()
+	player.lock_input(0.6)
+	town.visible = false
+	hud.banner("หุบเขาอำพัน", "", Color(1.0, 0.85, 0.4), 2.0)
+
+
+func in_domain() -> bool:
+	return player != null and player.global_position.y > WormsDomain.CENTER.y - 100.0
+
+
+func worms_fighting() -> bool:
+	return boss_active and boss != null and boss is WormsBoss and boss.is_alive()
+
+
+## The fights whose blows are measured against the whole of the warrior, in any form.
+func harsh_boss_fighting() -> bool:
+	return oblivion_fighting() or worms_fighting()
+
+
 func boss_title() -> String:
+	if boss is WormsBoss:
+		return "WORMS"
 	return BOSS_NAME + " · OBLIVION" if boss != null and boss.oblivion else BOSS_NAME
 
 
@@ -56,7 +127,7 @@ func _define_inputs() -> void:
 		"move_forward": KEY_W, "move_back": KEY_S, "move_left": KEY_A, "move_right": KEY_D,
 		"run": KEY_SHIFT, "roll": KEY_SPACE, "lock_on": KEY_Q, "interact": KEY_E,
 		"vial": KEY_R, "bolt": KEY_F, "heavy": KEY_C, "upgrade": KEY_U, "weapon": KEY_X,
-		"transform": KEY_T, "skill_1": KEY_1, "skill_2": KEY_2, "skill_3": KEY_3, "skill_4": KEY_4, "skill_5": KEY_5, "skill_6": KEY_6, "skill_7": KEY_7,
+		"transform": KEY_T, "argon": KEY_G, "skill_1": KEY_1, "skill_2": KEY_2, "skill_3": KEY_3, "skill_4": KEY_4, "skill_5": KEY_5, "skill_6": KEY_6, "skill_7": KEY_7, "skill_8": KEY_8,
 		"fly": KEY_V, "fly_down": KEY_CTRL, "cutscene_skip": KEY_TAB,
 	}
 	for action: String in keys:
@@ -130,7 +201,13 @@ func warmup() -> void:
 	CosmicFx.warm(at)
 	powers.warm(at)
 	OverlordSkills.warm(at)
+	WormsSkills.warm(at)
+	for i in 4:
+		await RenderingServer.frame_post_draw
+	player.rig.set_form_level(2, true)
 	player.rig.warm_effects(at)
+	player.set_hero("aum") # Builds อั้ม's body once behind the loading screen.
+	player.abyss.global_position = at
 	player.warm_trail(at)
 	Fx.impact(at, tint, 1.0)
 	Fx.crescent(at, Vector3.FORWARD, 0.0, tint, 5.0)
@@ -145,6 +222,7 @@ func warmup() -> void:
 	player.rig.set_blade_sparks(false)
 	player.rig.set_form(false, true)
 	player.rig.set_armed_instant(false)
+	player.set_hero(hero)
 	warming = false
 	menu.finish_loading()
 
@@ -158,17 +236,39 @@ func return_to_title() -> void:
 	state = "title"
 	boss_active = false
 	boss_defeated = false
+	worms_defeated = false
 	boss_intro_seen = false
 	haven_seen = false
+	supreme_unlocked = false
+	argon_unlocked = false
 	stardust = 0
 	checkpoint = shrines[0]
 	player.new_game()
-	boss.restore_first_form()
+	boss = overlord
+	overlord.restore_first_form()
+	gate.visible = false
+	domain.exit_gate.visible = false
 	reset_enemies()
 	hud.clear()
 	menu.open_main()
 	if not autotest:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+
+## Who is played. The menu calls this as the cursor moves over each hero, so the one on screen changes with it.
+func set_hero(new_hero: String) -> void:
+	if state != "title" and state != "":
+		return
+	hero = new_hero
+	if powers != null:
+		powers.stop()
+	powers = abyss_show if hero == "aum" else gemini_show
+	player.set_hero(hero)
+
+
+func start_game_as(new_hero: String) -> void:
+	set_hero(new_hero)
+	start_game()
 
 
 func start_game() -> void:
@@ -182,7 +282,7 @@ func start_game() -> void:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	menu.close()
 	if not cutscene.opening():
-		hud.banner("หุบเขาอำพัน", "จงไปยังหอดาวทางเหนือ", Color(1.0, 0.42, 0.4))
+		hud.banner("เมืองดาวรุ่ง", "ออกทางประตูทองทางใต้ เพื่อไปหุบเขาอำพัน", TownMap.GOLD)
 
 
 func add_stardust(amount: int) -> void:
@@ -231,6 +331,9 @@ func reset_enemies() -> void:
 			enemies.erase(enemy)
 			enemy.queue_free()
 			continue
+		if enemy is WormsBoss:
+			enemy.reset()
+			continue
 		if enemy.is_boss and boss_defeated:
 			continue
 		enemy.reset()
@@ -239,7 +342,7 @@ func reset_enemies() -> void:
 func on_player_died() -> void:
 	state = "dead"
 	boss_active = false
-	hud.banner("แสงดาวดับลง", "", Color(0.85, 0.2, 0.2), 3.0)
+	hud.banner("แสงดาวดับลง", "ลองใหม่อีกครั้ง" if haven_seen else "", Color(0.85, 0.2, 0.2), 3.0)
 	var run := run_id
 	await get_tree().create_timer(3.2).timeout
 	if run != run_id:
@@ -265,7 +368,38 @@ func after_rescue() -> void:
 
 
 func in_haven() -> bool:
-	return player != null and player.global_position.y > SafeHaven.CENTER.y - 60.0
+	return player != null and player.global_position.y > SafeHaven.CENTER.y - 60.0 and not in_domain()
+
+
+## Through the red gate into WORMS' system. It comes down the first time.
+func enter_domain() -> void:
+	cutscene.fade = 1.0
+	var at := WormsDomain.CENTER + WormsDomain.ENTRY
+	player.global_position = at + Vector3(0, 0.3, 0)
+	player.velocity = Vector3.ZERO
+	player.set_flying(false)
+	player.cam_yaw = 0.0
+	player.rig.rotation.y = PI
+	player.reset_camera()
+	player.lock_input(0.6)
+	hud.banner("ระบบของ WORMS", "ทุกสิ่งในนี้อยู่ใต้คำสั่งของมัน", Color(1.0, 0.06, 0.19), 3.0)
+	if worms.state == "dormant":
+		await get_tree().create_timer(1.6).timeout
+		if in_domain() and state == "play":
+			worms.appear()
+
+
+## Back through the gate to the valley, by the shrine nearest the tower.
+func leave_domain() -> void:
+	cutscene.fade = 1.0
+	player.respawn(shrines[1])
+	player.reset_camera()
+	player.lock_input(0.4)
+	hud.banner("หุบเขาอำพัน", "", Color(1.0, 0.85, 0.4), 2.0)
+
+
+func near_gate(at: Vector3) -> bool:
+	return gate != null and gate.visible and gate.global_position.distance_to(at) < WormsDomain.REACH
 
 
 ## Through the door, back to the valley near the tower.
@@ -281,4 +415,92 @@ func on_boss_defeated() -> void:
 	boss_defeated = true
 	boss_active = false
 	add_stardust(5000)
-	hud.banner("ชัยชนะ", "ดวงดาวกลับคืนสู่ฟากฟ้า", Color(1.0, 0.85, 0.4), 6.0)
+	hud.banner("OBLIVION ถูกลบแล้ว", "แต่ดูเหมือนยังมีใครบางคนคุมระบบนี้อยู่...", Color(1.0, 0.85, 0.4), 4.0)
+	# The one behind it all opens a way into its own system.
+	var run := run_id
+	await get_tree().create_timer(4.5).timeout
+	if run != run_id or worms_defeated:
+		return
+	# OBLIVION's last words name the one behind it, and the third form wakes to answer.
+	supreme_unlocked = true
+	if cutscene.oblivion_last_words(func() -> void:
+			if run == run_id and not worms_defeated:
+				open_gate()):
+		return
+	unlock_argon()
+	await get_tree().create_timer(4.0).timeout
+	if run != run_id or worms_defeated:
+		return
+	open_gate()
+
+
+## Opens the second form for good.
+func unlock_supreme(quiet := false) -> void:
+	if supreme_unlocked:
+		return
+	supreme_unlocked = true
+	CosmicFx.pillar(player.global_position, 200.0, 1.0, CosmicFx.GOLD, 10.0)
+	CosmicFx.flash(Color(1.0, 0.92, 0.7), 0.5, 0.6)
+	Fx.ring(player.global_position, 12.0, CosmicFx.GOLD, 0.9)
+	if not quiet:
+		hud.banner("ปลดล็อกร่างที่ 2 · ร่างสูงสุด", "กด T เพื่อแปลงร่าง", CosmicFx.GOLD, 4.0)
+
+
+## Opens the third form for good. `quiet` leaves the announcement to a cutscene that is already saying it.
+func unlock_argon(quiet := false) -> void:
+	if argon_unlocked:
+		return
+	argon_unlocked = true
+	CosmicFx.pillar(player.global_position, 200.0, 1.0, Color(0.25, 0.91, 1.0), 10.0)
+	CosmicFx.flash(Color(0.85, 1.0, 0.98), 0.5, 0.6)
+	Fx.ring(player.global_position, 12.0, Color(0.25, 0.91, 1.0), 0.9)
+	if not quiet:
+		hud.banner("ปลดล็อกร่างที่ 3 · ARGON", "ได้สิทธิ์ผู้ดูแลระบบแล้ว · กด G เพื่อแปลงร่าง", Color(0.25, 0.91, 1.0), 4.0)
+
+
+func open_gate() -> void:
+	gate.visible = true
+	CosmicFx.pillar(gate.global_position, 200.0, 1.2, Color(1.0, 0.06, 0.19), 8.0)
+	CosmicFx.flash(Color(1.0, 0.06, 0.15), 0.6, 0.8)
+	shake(0.8)
+	hud.banner("ประตูแดงเปิดแล้ว", "เข้าสู่ระบบของ WORMS ที่ลานหอดาว (E)", Color(1.0, 0.06, 0.19), 4.0)
+
+
+## TESTING: P (or F9) jumps straight to the end of the game, to check what winning changes.
+## Read by physical key, so it works with a Thai keyboard layout too.
+func _unhandled_input(event: InputEvent) -> void:
+	var key := event as InputEventKey
+	if key != null and key.pressed and not key.echo and (key.physical_keycode == KEY_P or key.physical_keycode == KEY_F9 or key.keycode == KEY_F9):
+		debug_skip_to_victory()
+
+
+func debug_skip_to_victory() -> void:
+	if state != "play" or worms_defeated:
+		return
+	cutscene.abort()
+	boss_defeated = true
+	supreme_unlocked = true
+	argon_unlocked = true
+	haven_seen = true
+	# OBLIVION is simply gone, without its last-words scene.
+	overlord.hp = 0.0
+	overlord.state = "dead"
+	overlord.visible = false
+	overlord.collision_layer = 0
+	overlord.collision_mask = 0
+	if in_domain():
+		leave_domain()
+	hud.banner("TEST · ข้ามไปตอนชนะ", "", Color(1.0, 0.85, 0.4), 1.5)
+	on_worms_defeated()
+
+
+func on_worms_defeated() -> void:
+	worms_defeated = true
+	boss_active = false
+	add_stardust(10000)
+	gate.visible = false
+	hud.banner("ชัยชนะ", "WORMS ถูกลบออกจากระบบ · ดวงดาวกลับคืนสู่ฟากฟ้า", Color(1.0, 0.85, 0.4), 7.0)
+	var run := run_id
+	await get_tree().create_timer(5.0).timeout
+	if run == run_id:
+		domain.exit_gate.visible = true

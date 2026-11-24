@@ -53,10 +53,13 @@
   <button data-view="back">BACK</button>
   <button data-view="iso">ISO</button>
   <span class="gap"></span>
-  <button data-act="control">SYSTEM CONTROL</button>
-  <button data-act="domination">DATA DOMINATION</button>
-  <button data-act="overwrite">REALITY OVERWRITE</button>
-  <button data-act="final">FINAL SYSTEM</button>
+  <button data-act="sudo" title="คำสั่งสูงสุด">SUDO</button>
+  <button data-act="firewall" title="กำแพงไฟ">FIREWALL</button>
+  <button data-act="storm" title="พายุไบนารี">BINARY STORM</button>
+  <button data-act="panic" title="ระบบโลกล่ม">KERNEL PANIC</button>
+  <button data-act="root" title="สิทธิ์สูงสุด">ROOT ACCESS</button>
+  <span class="gap"></span>
+  <button id="giant" title="ขยายร่าง 500 เมตร">GIANT · 500 M</button>
   <span class="gap"></span>
   <button id="download">DOWNLOAD GLB</button>
  </div>
@@ -559,6 +562,143 @@ function capeGeometry() {
 }
 const cape = new THREE.Mesh(capeGeometry(), capeMat);
 cape.castShadow = true; chest.add(cape);
+
+/* ---------- bulk: the frame was too thin, so every part is widened in place (heights stay the same) ---------- */
+function bulk(group, sx, sz, moveGroups = false) {
+  for (const c of group.children) {
+    if (c.isMesh) { c.scale.x *= sx; c.scale.z *= sz; c.position.x *= sx; c.position.z *= sz; }
+    else if (c.isGroup && moveGroups) { c.position.x *= sx; c.position.z *= sz; }
+  }
+}
+bulk(hips, 1.7, 1.55, true);  // a wider waist, and the legs set further apart
+bulk(spine, 1.7, 1.55);
+bulk(chest, 1.32, 1.5, true); // a deeper, broader chest; the shoulders move out with it
+bulk(neck, 1.4, 1.3);
+bulk(skirt, 1.35, 1.3);
+for (const a of [armR, armL]) {
+  bulk(a.upper, 1.75, 1.75); bulk(a.elbow, 1.65, 1.65); bulk(a.hand, 1.25, 1.5, true);
+  a.fingers.forEach(f => { bulk(f, 1.35, 1.35); bulk(f.userData.tip, 1.35, 1.35); });
+}
+for (const l of [legR, legL]) { bulk(l.thigh, 1.75, 1.75); bulk(l.knee, 1.7, 1.7); }
+
+/* ---------- new design layer: data wings, a server spine, an orbiting core, a sigil behind the head, heavier gauntlets and greaves ---------- */
+const anim = { wings: [], rings: [], floaters: [], chains: [], sigil: null };
+
+/* data wings: two fans of black blades behind the shoulders, each with a red edge, fanning out over the cape */
+for (const s of [-1, 1]) {
+  const root = G(chest, s * .55, 1.0, -1.55);
+  root.rotation.set(-.32, s * .28, 0);
+  const fan = [];
+  for (let i = 0; i < 7; i++) {
+    const h = G(root);
+    const len = 5.4 - i * .55, rad = .62 - i * .05;
+    const b = blade(h, len, rad, i % 2 ? M.dark : M.plate, .16);
+    bar(h, [0, len * .08, rad * .16 + .03], [0, len * .9, .03], .045, i < 2 ? M.hot : M.red, .02);
+    if (i % 2 === 0) for (let k = 1; k < 4; k++) bar(h, [-rad * (1 - k / 4) * .7, len * k / 4.4, .05], [rad * (1 - k / 4) * .7, len * k / 4.4, .05], .03, M.ember, .02);
+    const base = -s * (.32 + i * .27);
+    h.rotation.z = base;
+    fan.push({ h, base, i });
+  }
+  anim.wings.push({ s, fan });
+}
+
+/* a spine of server blocks down the back, each with a lit slot */
+for (let i = 0; i < 8; i++) {
+  const y = 1.25 - i * .36;
+  const r = THREE.MathUtils.lerp(.56, 1.32, (y + 1.4) / 2.8) * .87;
+  const w = .62 - i * .03;
+  const v = mesh(chest, new THREE.BoxGeometry(w, .24, .3), i % 2 ? M.mid : M.plate, 0, y, -(r + .2));
+  v.rotation.x = .08;
+  bar(chest, [-w * .32, y, -(r + .37)], [w * .32, y, -(r + .37)], .05, i % 3 ? M.red : M.hot, .02);
+  for (const s of [-1, 1]) { const fin = blade(chest, .5, .1, M.dark, .5); fin.position.set(s * w * .48, y, -(r + .16)); fin.rotation.z = -s * 1.9; }
+}
+for (let i = 0; i < 4; i++) { // and down the waist
+  const v = mesh(spine, new THREE.BoxGeometry(.5 - i * .04, .22, .26), M.mid, 0, 1.0 - i * .38, -.95);
+  bar(spine, [-.14, 1.0 - i * .38, -1.09], [.14, 1.0 - i * .38, -1.09], .045, M.red, .02);
+}
+
+/* the core: two thin rings orbiting the gem, and hex panels with slits on each pectoral */
+for (const [r, mat, tilt] of [[.62, M.red, .5], [.82, M.ember, -.7]]) {
+  const ring = mesh(chest, new THREE.TorusGeometry(r, .028, 4, 48), mat, 0, .12, 1.4);
+  ring.rotation.set(tilt, .3, 0); anim.rings.push(ring);
+}
+const hexShape = (cx, cy, rr) => Array.from({ length: 6 }, (_, k) => [cx + Math.cos(k / 6 * Math.PI * 2 + Math.PI / 6) * rr, cy + Math.sin(k / 6 * Math.PI * 2 + Math.PI / 6) * rr]);
+for (const s of [-1, 1]) {
+  for (const [x, y, rr] of [[.95, .62, .2], [1.3, .3, .16], [1.05, .05, .14]]) {
+    const hx = shard(chest, hexShape(s * x, y, rr), .06, M.mid);
+    hx.position.z = 1.18; hx.rotation.y = s * .28;
+    bar(hx, [-rr * .5 + s * x, y, .06], [rr * .5 + s * x, y, .06], .03, M.red, .02);
+  }
+}
+
+/* a vertical sigil behind the head: broken rings and spokes, turning slowly */
+{
+  const sig = G(head, 0, .45, -1.05);
+  const spin = G(sig);
+  const arc = (inner, outer, start, len, mat) => { const m = new THREE.Mesh(new THREE.RingGeometry(inner, outer, 96, 1, start, len), mat); spin.add(m); return m; };
+  arc(1.55, 1.68, .3, Math.PI * 1.4, M.red); arc(1.55, 1.68, Math.PI * 1.85, Math.PI * .3, M.red);
+  arc(1.8, 1.84, 0, Math.PI * 2, M.ember); arc(1.15, 1.2, Math.PI * .2, Math.PI * 1.6, M.ember);
+  for (let i = 0; i < 12; i++) {
+    const a = i / 12 * Math.PI * 2;
+    const len = i % 3 ? .18 : .42;
+    bar(spin, [Math.cos(a) * 1.25, Math.sin(a) * 1.25, 0], [Math.cos(a) * (1.25 + len), Math.sin(a) * (1.25 + len), 0], .045, i % 3 ? M.ember : M.red, .02);
+  }
+  for (let i = 0; i < 4; i++) { const a = i / 4 * Math.PI * 2 + .4; const c = wireCube(spin, .22, .03, M.red); c.position.set(Math.cos(a) * 2.05, Math.sin(a) * 2.05, 0); }
+  M.red.side = M.ember.side = THREE.DoubleSide;
+  anim.sigil = spin;
+}
+
+/* shards that float free above each shoulder, as if the armour had been copied and left a little out of place */
+for (const s of [-1, 1]) for (let i = 0; i < 3; i++) {
+  const f = G(chest, s * (2.35 + i * .45), 2.15 + i * .55, -.3 - i * .2);
+  const rg = G(f); rg.rotation.z = -s * (.3 + i * .25);
+  blade(rg, .9 - i * .15, .22, i % 2 ? M.mid : M.plate, .35);
+  bar(rg, [0, .1, .06], [0, .55 - i * .1, .06], .03, M.red, .02);
+  anim.floaters.push({ g: f, y: f.position.y, k: i * 1.7 + (s > 0 ? 0 : 3) });
+}
+
+/* gauntlets: layered plates along the outside of each forearm, a guard over the knuckles */
+for (const [a, side] of [[armR, -1], [armL, 1]]) {
+  for (let i = 0; i < 4; i++) {
+    const p = shard(a.elbow, [[-.18, 0], [.22, .05], [.3, -.62], [0, -.82], [-.24, -.55]], .07, i % 2 ? M.mid : M.plate);
+    p.position.set(side * .44, -.35 - i * .5, -.04); p.rotation.set(0, side * Math.PI / 2, side * .08);
+  }
+  const spikes = [[.4, -.2], [.5, -.9], [.44, -1.6]];
+  for (const [x, y] of spikes) { const sp = blade(a.elbow, .55, .1, M.plate, .6); sp.position.set(side * x, y, -.15); sp.rotation.set(-.5, 0, -side * 1.7); }
+  bar(a.elbow, [side * .46, -.4, .1], [side * .46, -2.1, .1], .035, M.red, .02);
+  const guard = shard(a.hand, [[-.3, 0], [.3, 0], [.26, -.18], [-.26, -.18]], .08, M.mid);
+  guard.position.set(0, -.44, -.14);
+  bar(a.hand, [-.22, -.53, -.19], [.22, -.53, -.19], .03, M.red, .02);
+}
+
+/* greaves: a long plate down each shin, a spike off the knee, a ring at the ankle */
+for (const l of [legR, legL]) {
+  const g = shard(l.knee, [[-.28, 0], [.28, 0], [.22, -2.6], [0, -3.5], [-.22, -2.6]], .1, M.mid);
+  g.position.set(0, -.35, .52);
+  bar(l.knee, [0, -.6, .6], [0, -2.9, .6], .04, M.red, .02);
+  for (let i = 0; i < 3; i++) bar(l.knee, [-.18 + i * .02, -1.1 - i * .55, .6], [.18 - i * .02, -1.1 - i * .55, .6], .025, M.ember, .02);
+  const kn = blade(l.knee, .9, .16, M.plate, .5); kn.position.set(0, .05, .5); kn.rotation.x = 1.1;
+  const ring = mesh(l.ankle, new THREE.TorusGeometry(.3, .05, 4, 16), M.red, 0, .1, 0); ring.rotation.x = Math.PI / 2;
+  const tp = shard(l.thigh, [[-.3, 0], [.3, 0], [.25, -1.4], [-.25, -1.4]], .08, M.plate); tp.position.set(0, -.9, .74);
+}
+
+/* data chains hanging from the belt: strings of small cubes that sway */
+for (const [x, z] of [[-1.1, .35], [1.1, .35], [-1.05, -.4], [1.05, -.4], [-.6, .72], [.6, .72]]) {
+  const c = G(hips, x, .25, z);
+  for (let i = 0; i < 6; i++) {
+    const cubeLink = mesh(c, new THREE.BoxGeometry(.13, .13, .13), i % 2 ? M.mid : M.red, 0, -.22 - i * .24, 0);
+    cubeLink.rotation.set(.6, .6, 0);
+  }
+  anim.chains.push({ g: c, k: x * 3 + z });
+}
+
+function animateDesign(time) {
+  for (const { s, fan } of anim.wings) for (const { h, base, i } of fan) h.rotation.z = base - s * Math.sin(time * 1.1 + i * .35) * .05 * (1 + i * .3);
+  anim.rings.forEach((r, i) => { r.rotation.z = time * (i ? -1.2 : .9); r.rotation.y = .3 + Math.sin(time * .7 + i) * .4; });
+  if (anim.sigil) anim.sigil.rotation.z = time * .25;
+  for (const f of anim.floaters) { f.g.position.y = f.y + Math.sin(time * 1.3 + f.k) * .12; f.g.rotation.y = Math.sin(time * .6 + f.k) * .3; }
+  for (const c of anim.chains) { c.g.rotation.x = Math.sin(time * 1.4 + c.k) * .12; c.g.rotation.z = Math.sin(time * 1.1 + c.k * 2) * .08; }
+}
 
 /* ---------- the cube it holds ---------- */
 const cube = G(scene);
@@ -1185,7 +1325,7 @@ Object.assign(ACTS, {
           }`,
       });
       this.world = new THREE.Group();
-      this.world.position.set(-14, 16.5, -10);
+      this.world.position.set(-14, 16.5, -10).multiplyScalar(giantK); this.world.userData.k = giantK;
       this.planet = new THREE.Mesh(new THREE.SphereGeometry(4.2, 96, 64), mat);
       this.world.add(this.planet);
       this.halo = glow(this.world, 13, 0x3a7aff, .35);
@@ -1194,7 +1334,7 @@ Object.assign(ACTS, {
     },
     update(p) {
       const u = this.planet.material.uniforms;
-      this.world.scale.setScalar(ease(seg(p, 0, .18)));
+      this.world.scale.setScalar(ease(seg(p, 0, .18)) * this.world.userData.k);
       this.planet.rotation.y += .004;
       if (p > .05) caption('ERASE : WORLD', p < .86 ? 'TARGET: WORLD 0x01 · 7,900,000,000 PROCESSES' : '1 WORLD DELETED');
       if (p > .25 && p < .86) { beam(cube.position, this.world.position, .22 + Math.sin(t * 30) * .06); } else beam(null);
@@ -1216,7 +1356,7 @@ Object.assign(ACTS, {
   eraseUniverse: { dur: 8.5,
     start() {
       pose = 'sky';
-      this.uni = { center: { value: new THREE.Vector3(0, 26, 0) }, radius: { value: -1 }, fade: { value: 0 } };
+      this.uni = { center: { value: new THREE.Vector3(0, 26, 0).multiplyScalar(giantK) }, radius: { value: -1 }, fade: { value: 0 } };
       const pointsMat = new THREE.ShaderMaterial({
         transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, uniforms: this.uni,
         vertexShader: `attribute vec3 tint; attribute float sz; uniform vec3 center; uniform float radius;
@@ -1310,11 +1450,11 @@ Object.assign(ACTS, {
             const l = new THREE.Mesh(new THREE.TorusGeometry(.28, .07, 4, 10), additive(GREEN, .95));
             scene.add(l); links.push(l);
           }
-          this.chains.push({ to: new THREE.Vector3(...at).add(rig.position), links, from: foePoint(new THREE.Vector3(), .55 + (Math.random() - .5) * .2) });
+          this.chains.push({ to: new THREE.Vector3(...at).multiplyScalar(giantK).add(rig.position), links, from: foePoint(new THREE.Vector3(), .55 + (Math.random() - .5) * .2) });
         }
         for (const y of [11.4, 14.8]) {
           const lock = new THREE.Mesh(new THREE.TorusGeometry(2.1, .14, 6, 48), additive(GREEN, .95));
-          lock.position.set(0, y + rig.position.y, 0); lock.rotation.x = Math.PI / 2; lock.scale.setScalar(3);
+          lock.position.set(0, y * giantK + rig.position.y, 0); lock.rotation.x = Math.PI / 2; lock.scale.setScalar(3);
           scene.add(lock); this.locks.push(lock);
         }
       }
@@ -1333,7 +1473,7 @@ Object.assign(ACTS, {
         });
       }
       this.locks.forEach((l, i) => {
-        l.scale.setScalar(3 - 2 * ease(seg(p, .12, .22)));
+        l.scale.setScalar((3 - 2 * ease(seg(p, .12, .22))) * giantK);
         l.rotation.z = t * (i ? -1 : 1);
         l.material.color.set(red > .5 ? 0xff1030 : GREEN);
       });
@@ -1382,19 +1522,333 @@ Object.assign(ACTS, {
 });
 
 document.querySelectorAll('[data-act]').forEach(b => b.onclick = () => {
-  if (act) return;
+  if (act || giantRumble > 0) return;
   act = { def: ACTS[b.dataset.act], t: 0 };
   act.def.start();
   document.querySelectorAll('[data-act]').forEach(x => x.classList.toggle('on', x === b));
 });
 
+/* ---------- GIANT: Worms grows to about 500 metres; the city stays its own size ---------- */
+const WORMS_H = (() => { rig.updateMatrixWorld(true); const b = new THREE.Box3().setFromObject(rig); return Math.max(b.max.y, 1); })();
+const GIANT_M = 500;
+let giantK = 1, giantGoal = 1, giantRumble = 0;
+const sfx = G(scene); // every new skill is built in this group, so it grows with the body
+const W = (x, y, z) => new THREE.Vector3(x, y, z).multiplyScalar(giantK);
+function addFx(o, life, update) { sfx.add(o); temp.push({ o, t: 0, life, update }); return o; }
+const keyBase = key.position.clone(), shadowBase = { ...key.shadow.camera }, fogBase = [scene.fog.near, scene.fog.far];
+const FOE_BASE = FOE_AT.clone();
+land.scale.setScalar(14);
+function applyGiant(dt) {
+  if (Math.abs(giantGoal - giantK) < 1e-4 && giantRumble <= 0) return;
+  const prev = giantK;
+  const l0 = Math.log(giantK), l1 = Math.log(giantGoal);
+  giantK = Math.exp(l0 + (l1 - l0) * (1 - Math.exp(-dt * 1.1)));
+  if (Math.abs(giantK - giantGoal) / giantGoal < .002) giantK = giantGoal;
+  const r = giantK / prev;
+  rig.scale.setScalar(giantK); fx.scale.setScalar(giantK); sfx.scale.setScalar(giantK); shadowFloor.scale.setScalar(giantK);
+  camera.position.multiplyScalar(r); controls.target.multiplyScalar(r); // the whole view grows about the ground origin
+  if (viewGoal) viewGoal.multiplyScalar(r);
+  targetGoal.multiplyScalar(r);
+  controls.minDistance = 8 * giantK; controls.maxDistance = 160 * giantK;
+  camera.far = 1500 * Math.max(1, giantK); camera.updateProjectionMatrix();
+  scene.fog.near = fogBase[0] * giantK; scene.fog.far = fogBase[1] * giantK;
+  key.position.copy(keyBase).multiplyScalar(giantK);
+  for (const k of ['left', 'right', 'top', 'bottom', 'far']) key.shadow.camera[k] = shadowBase[k] * giantK;
+  key.shadow.camera.updateProjectionMatrix();
+  FOE_AT.copy(FOE_BASE).multiplyScalar(giantK > 1.01 ? giantK * .75 : 1);
+  if (giantRumble > 0) {
+    giantRumble -= dt; shake = Math.max(shake, .25 * giantK * Math.min(1, giantRumble));
+    caption(giantGoal > 1 ? 'SCALE OVERRIDE' : 'SCALE RESTORE', `HEIGHT: ${Math.round(WORMS_H * giantK)} m`);
+    if (Math.random() < .5) { _a.set((Math.random() - .5) * 8, 0, (Math.random() - .5) * 8).multiplyScalar(giantK); pixel(_a, _b.copy(_a).setY(giantK * (6 + Math.random() * 10)), 0xff1030, 1.2, .3 * giantK, giantK); }
+    if (giantRumble <= 0) caption(null);
+  }
+}
+document.getElementById('giant').onclick = e => {
+  if (act || giantRumble > 0) return;
+  giantGoal = giantGoal > 1 ? 1 : GIANT_M / WORMS_H;
+  giantRumble = 4.5;
+  e.target.classList.toggle('on', giantGoal > 1);
+  screenFlash(.35);
+  for (const s of [10, 22, 40]) boom(W(0, .5, 0), 0xff1030, s * giantK);
+};
+
+/* ---------- the new skills of the one who runs the system ---------- */
+const RED = 0xff1030, PALE = 0xffd6dc;
+const glitchFilters = ['hue-rotate(150deg) saturate(3)', 'invert(1) hue-rotate(180deg)', 'contrast(2.2) saturate(0)', 'saturate(4) brightness(1.4)'];
+
+/* SUDO: terminals open round it and every command it types becomes law */
+const SUDO_LINES = ['sudo chmod 000 /heroes', 'sudo kill -9 $(pgrep hope)', 'sudo rm -rf /resistance', 'sudo shutdown --world now', 'sudo passwd --lock clawd', 'sudo mount /dev/void /sky'];
+function drawTerminal(p, cmd, typed, ok) {
+  const c = p.canvas, g = p.ctx;
+  g.clearRect(0, 0, c.width, c.height);
+  g.fillStyle = 'rgba(40,0,6,.55)'; g.fillRect(0, 0, c.width, c.height);
+  g.strokeStyle = ok ? '#ffd6dc' : '#ff2a44'; g.lineWidth = 6; g.strokeRect(3, 3, c.width - 6, c.height - 6);
+  g.fillStyle = '#ff2a44'; g.fillRect(0, 0, c.width, 34);
+  g.fillStyle = '#16000a'; g.font = 'bold 20px monospace'; g.fillText('root@worms: ~', 14, 24);
+  g.font = 'bold 26px monospace'; g.fillStyle = '#ff9aa8';
+  g.fillText('# ' + cmd.slice(0, typed) + (Math.floor(t * 4) % 2 && !ok ? '█' : ''), 16, 92);
+  for (let i = 0; i < 3; i++) { g.fillStyle = '#ff2a4466'; g.fillRect(16, 120 + i * 26, 60 + ((i * 97 + typed * 13) % 360), 12); }
+  if (ok) { g.fillStyle = '#ffffff'; g.font = 'bold 34px monospace'; g.fillText('[ OK ] EXECUTED', 16, 232); }
+  p.tex.needsUpdate = true;
+}
+ACTS.sudo = { dur: 5, start() {
+    pose = 'push';
+    this.panels = SUDO_LINES.map((cmd, i) => {
+      const canvas = document.createElement('canvas'); canvas.width = 512; canvas.height = 256;
+      const tex = new THREE.CanvasTexture(canvas);
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(7, 3.5), new THREE.MeshBasicMaterial({ map: tex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, side: THREE.DoubleSide }));
+      const a = Math.PI / 2 + (i % 2 ? 1 : -1) * (.95 + Math.floor(i / 2) * .5), r = 12;
+      m.position.set(Math.cos(a) * r, 6 + Math.floor(i / 2) * 4.5, Math.sin(a) * r);
+      m.lookAt(m.position.x * 2, m.position.y, m.position.z * 2);
+      sfx.add(m);
+      return { m, canvas, ctx: canvas.getContext('2d'), tex, cmd, at: .04 + i * .05, gone: false };
+    });
+    this.done = false;
+  },
+  update(p) {
+    caption('SUDO', p < .62 ? 'PERMISSION: ROOT · TYPING…' : 'ALL COMMANDS ACCEPTED');
+    for (const q of this.panels) {
+      if (q.gone) continue;
+      const show = ease(seg(p, q.at, q.at + .08));
+      q.m.scale.set(1, Math.max(.01, show), 1);
+      const typed = Math.floor(seg(p, q.at + .06, .6) * q.cmd.length);
+      drawTerminal(q, q.cmd, typed, p > .62);
+      if (p > .72) {
+        q.gone = true; sfx.remove(q.m);
+        const at = sfx.localToWorld(q.m.position.clone());
+        boom(at, RED, 8 * giantK);
+        for (let i = 0; i < 18; i++) pixel(at, _b.copy(at).add(_c.randomDirection().multiplyScalar((4 + Math.random() * 8) * giantK)), Math.random() < .3 ? PALE : RED, 1.1, .3 * giantK, giantK);
+      }
+    }
+    if (p > .62 && p < .72) shake = Math.max(shake, .1 * giantK);
+    if (p > .72 && !this.done) {
+      this.done = true; screenFlash(.55); shake = .6 * giantK;
+      for (const s of [16, 30]) boom(W(0, 1, 0), RED, s * giantK);
+      const strike = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1, 24, 1, true), additive(PALE, .9));
+      addFx(strike, .9, (tt, o) => { const k = tt / .9; o.scale.set(6 * (1 - k) + .5, 120, 6 * (1 - k) + .5); o.position.y = 60; o.material.opacity = .9 * (1 - k); });
+    }
+  },
+  end() { for (const q of this.panels) if (!q.gone) sfx.remove(q.m); } };
+
+/* FIREWALL: a dome of red hexagons; everything thrown at it breaks on it */
+const domeMat = () => new THREE.ShaderMaterial({
+  transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
+  uniforms: { time: fxTime, grow: { value: 0 }, a: { value: 1 }, hits: { value: Array.from({ length: 8 }, () => new THREE.Vector4(0, 1, 0, 9)) } },
+  vertexShader: `varying vec3 vP, vN, vV; void main(){ vP = position; vN = normalize(normalMatrix * normal); vec4 mv = modelViewMatrix * vec4(position, 1.); vV = -mv.xyz; gl_Position = projectionMatrix * mv; }`,
+  fragmentShader: `uniform float time, grow, a; uniform vec4 hits[8]; varying vec3 vP, vN, vV;
+    vec2 hexc(vec2 p){ vec2 r = vec2(1., 1.732), h = r * .5, x = mod(p, r) - h, y = mod(p - h, r) - h; return dot(x, x) < dot(y, y) ? x : y; }
+    void main(){
+      vec3 d = normalize(vP);
+      float up = (vP.y + 4.) / 24.;
+      if (up > grow) discard;
+      vec2 g = hexc(vec2(atan(d.z, d.x) * 14., d.y * 22.));
+      float e = max(abs(g.x) * .866 + abs(g.y) * .5, abs(g.y));
+      float line = smoothstep(.45, .49, e);
+      float fr = pow(1. - abs(dot(normalize(vN), normalize(vV))), 2.);
+      float scan = smoothstep(.04, 0., abs(fract(up * 3. - time * .6) - .5) - .45);
+      float hit = 0.;
+      for (int i = 0; i < 8; i++) { float ang = acos(clamp(dot(d, normalize(hits[i].xyz)), -1., 1.)); float w = hits[i].w; hit += exp(-pow((ang - w * 1.4) / .07, 2.)) * max(0., 1. - w * 1.6) + exp(-ang * ang * 30.) * max(0., 1. - w * 4.); }
+      float edgeTop = smoothstep(.04, 0., grow - up) * step(grow, .999);
+      vec3 col = vec3(1., .05, .14) * (line * (.12 + fr * .9) + fr * .1 + scan * line * .4) + vec3(1., .75, .8) * (hit * (.25 + line * .8) + edgeTop * 1.2);
+      gl_FragColor = vec4(col * a * .8, 1.);
+    }`,
+});
+const THREAT_COLORS = [0x6ae0ff, 0xffd86a, 0xff9a5a, 0xb8ff2e];
+ACTS.firewall = { dur: 5.6, start() {
+    pose = 'wide';
+    this.dome = new THREE.Mesh(new THREE.SphereGeometry(20, 96, 64), domeMat()); this.dome.position.y = 4; sfx.add(this.dome);
+    this.hitI = 0; this.next = 0; this.blocked = 0;
+  },
+  update(p, dt) {
+    const u = this.dome.material.uniforms;
+    u.grow.value = ease(seg(p, 0, .16)); u.a.value = 1 - seg(p, .86, 1);
+    for (const h of u.hits.value) h.w += dt;
+    caption('FIREWALL', p < .16 ? 'DEPLOYING…' : `INBOUND THREATS BLOCKED: ${this.blocked}`);
+    this.next -= dt;
+    if (p > .16 && p < .8 && this.next <= 0) {
+      this.next = .06;
+      const from = new THREE.Vector3().randomDirection(); from.y = Math.abs(from.y) * .7 + .15; from.normalize();
+      const hitDir = from.clone(), start = from.clone().multiplyScalar(80).add(new THREE.Vector3(0, 4, 0)), end = from.clone().multiplyScalar(20).add(new THREE.Vector3(0, 4, 0));
+      const color = THREAT_COLORS[Math.floor(Math.random() * 4)];
+      const bolt = new THREE.Mesh(new THREE.BoxGeometry(.35, .35, 4), additive(color, 1));
+      const life = .45 + Math.random() * .2;
+      addFx(bolt, life, (tt, o) => {
+        o.position.lerpVectors(start, end, Math.min(1, tt / life)); o.lookAt(sfx.localToWorld(end.clone()));
+        if (tt + 1 / 60 >= life && !o.userData.hit) {
+          o.userData.hit = true; this.blocked++;
+          const h = u.hits.value[this.hitI++ % 8]; h.set(hitDir.x, hitDir.y, hitDir.z, 0);
+          const at = sfx.localToWorld(end.clone());
+          glowFlash(at, color, 5 * giantK);
+          for (let i = 0; i < 5; i++) pixel(at, _b.copy(at).add(_c.randomDirection().multiplyScalar(3 * giantK)), color, .6, .2 * giantK, giantK);
+        }
+      });
+    }
+    if (p > .16 && p < .8) shake = Math.max(shake, .04 * giantK);
+  },
+  end() { sfx.remove(this.dome); } };
+
+/* BINARY STORM: a tornado of ones and zeros, and red lightning out of it */
+const binTex = (() => {
+  const c = document.createElement('canvas'); c.width = 128; c.height = 64;
+  const g = c.getContext('2d'); g.fillStyle = '#fff'; g.font = 'bold 52px monospace'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText('0', 32, 34); g.fillText('1', 96, 34);
+  return new THREE.CanvasTexture(c);
+})();
+const stormMat = new THREE.ShaderMaterial({
+  transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
+  uniforms: { time: fxTime, k: { value: 0 }, S: { value: 1 }, tex: { value: binTex } },
+  vertexShader: `attribute vec4 aB; attribute float glyph; uniform float time, k, S; varying float vG, vH;
+    void main(){
+      float h = aB.y * 70. * k, rad = (2.5 + h * .42 + sin(aB.x * 3. + time) * 1.2) * (.4 + .6 * k);
+      float ang = aB.x + time * aB.z * (3.2 - aB.y * 1.8);
+      vec3 p = vec3(cos(ang) * rad, h, sin(ang) * rad);
+      vG = glyph; vH = aB.y;
+      vec4 mv = modelViewMatrix * vec4(p, 1.);
+      gl_PointSize = aB.w * S * 900. / -mv.z; gl_Position = projectionMatrix * mv;
+    }`,
+  fragmentShader: `uniform sampler2D tex; uniform float k; varying float vG, vH;
+    void main(){ float a = texture2D(tex, vec2((gl_PointCoord.x + vG) * .5, 1. - gl_PointCoord.y)).r;
+      gl_FragColor = vec4(mix(vec3(1., .06, .16), vec3(1., .85, .88), step(.93, fract(vH * 37.))) * a * 1.4 * k, 1.); }`,
+});
+const storm = (() => {
+  const N = 2400, b = new Float32Array(N * 4), gl = new Float32Array(N);
+  for (let i = 0; i < N; i++) { b.set([Math.random() * 6.283, Math.pow(Math.random(), .8), .6 + Math.random() * .8, .6 + Math.random() * 1.2], i * 4); gl[i] = Math.random() < .5 ? 0 : 1; }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(N * 3), 3));
+  g.setAttribute('aB', new THREE.BufferAttribute(b, 4)); g.setAttribute('glyph', new THREE.BufferAttribute(gl, 1));
+  const pts = new THREE.Points(g, stormMat); pts.frustumCulled = false; pts.visible = false; sfx.add(pts); return pts;
+})();
+function lightning(x, z) {
+  const grp = new THREE.Group(); let prev = new THREE.Vector3(x * .3, 70, z * .3);
+  for (let i = 1; i <= 12; i++) {
+    const f = i / 12, next = new THREE.Vector3(x * (.3 + .7 * f) + (Math.random() - .5) * 5 * (1 - f), 70 * (1 - f), z * (.3 + .7 * f) + (Math.random() - .5) * 5 * (1 - f));
+    const seg3 = new THREE.Mesh(PIX, additive(i % 3 ? RED : PALE, 1));
+    seg3.position.lerpVectors(prev, next, .5); seg3.lookAt(next); seg3.scale.set(.35, .35, prev.distanceTo(next)); grp.add(seg3);
+    prev = next;
+  }
+  addFx(grp, .3, (tt, o) => { o.visible = Math.random() > .25; o.children.forEach(m => m.material.opacity = 1 - tt / .3); });
+  const at = W(x, .3, z);
+  boom(at, RED, 10 * giantK); shake = Math.max(shake, .3 * giantK);
+  for (let i = 0; i < 10; i++) pixel(at, _b.copy(at).add(_c.randomDirection().setY(Math.random()).multiplyScalar(5 * giantK)), RED, .9, .25 * giantK, giantK);
+}
+ACTS.storm = { dur: 6, start() { pose = 'sky'; storm.visible = true; this.next = 0; },
+  update(p, dt) {
+    stormMat.uniforms.k.value = ease(seg(p, 0, .25)) * (1 - ease(seg(p, .88, 1)));
+    stormMat.uniforms.S.value = giantK;
+    slabSpeed = 1 + Math.sin(p * Math.PI) * 14; slabPull = -Math.sin(p * Math.PI) * .6;
+    caption('BINARY STORM', 'DATA VORTEX · 1,000,000 PACKETS/SEC');
+    this.next -= dt;
+    if (p > .35 && p < .88 && this.next <= 0) { this.next = .14; const a = Math.random() * 6.283, r = 14 + Math.random() * 30; lightning(Math.cos(a) * r, Math.sin(a) * r); }
+    shake = Math.max(shake, .05 * giantK * stormMat.uniforms.k.value);
+  },
+  end() { storm.visible = false; } };
+
+/* KERNEL PANIC: the world's own system crashes; only Worms is still running */
+const crackMat = new THREE.ShaderMaterial({
+  transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, uniforms: { time: fxTime, spread: { value: 0 }, a: { value: 0 } },
+  vertexShader: `varying vec2 vP; void main(){ vP = position.xy; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }`,
+  fragmentShader: `uniform float time, spread, a; varying vec2 vP;
+    float h(float v){ return fract(sin(v * 91.7) * 43758.5453); }
+    void main(){
+      float d = length(vP) / 60., ang = atan(vP.y, vP.x), s = floor((ang + 3.1416) / 6.2832 * 22.);
+      float wob = sin(d * 30. + s * 4.) * .03 + sin(d * 71. + s) * .012;
+      float crack = smoothstep(.02, 0., abs(fract((ang + wob + 3.1416) / 6.2832 * 22.) - .5) * (.25 + d * 1.5)) * step(.25, h(s));
+      float reach = smoothstep(spread * (.5 + .5 * h(s + 3.)), spread * (.5 + .5 * h(s + 3.)) - .05, d);
+      float pulse = .7 + .3 * sin(time * 14. - d * 30.);
+      gl_FragColor = vec4(vec3(1., .05, .14) * crack * reach * pulse * 2. * a + vec3(1., .05, .14) * exp(-d * 8.) * .2 * a, 1.);
+    }`,
+});
+const cracks = new THREE.Mesh(new THREE.PlaneGeometry(120, 120), crackMat); cracks.rotation.x = -Math.PI / 2; cracks.position.y = .06; cracks.visible = false; sfx.add(cracks);
+const towerBase = towers.map(tw => tw.position.clone());
+ACTS.panic = { dur: 5.6, start() { pose = 'raise'; cracks.visible = true; this.bsod = false; this.back = false; },
+  update(p) {
+    crackMat.uniforms.spread.value = ease(seg(p, .1, .55)); crackMat.uniforms.a.value = 1 - seg(p, .82, .95);
+    const live = p > .18 && p < .8;
+    if (p > .2 && !this.bsod) { this.bsod = true; screenFlash(.7, '#1030ff'); shake = .5 * giantK; }
+    renderer.domElement.style.filter = live && Math.random() < .2 ? glitchFilters[Math.floor(Math.random() * glitchFilters.length)] : '';
+    const msgs = ['FATAL EXCEPTION 0x000W0RM5', 'REALITY.SYS HAS STOPPED RESPONDING', 'CORE DUMPED · ALL PROCESSES LOST', 'PHYSICS.DLL NOT FOUND'];
+    caption(p < .8 ? 'KERNEL PANIC' : 'SYSTEM RESTORED', p < .8 ? msgs[Math.floor(p * 18) % msgs.length] : 'BY ORDER OF WORMS');
+    const k = Math.sin(seg(p, .18, .8) * Math.PI);
+    towers.forEach((tw, i) => {
+      const b = towerBase[i];
+      tw.position.set(b.x + (Math.random() - .5) * 3 * k, b.y - k * (i % 3) * 3 + (Math.random() - .5) * 2 * k, b.z + (Math.random() - .5) * 3 * k);
+      tw.rotation.z = Math.sin(i * 4.1) * .25 * k; tw.visible = !(live && Math.random() < .12);
+    });
+    slabSpeed = 1 + k * 10; slabPull = -k * .8;
+    shake = Math.max(shake, .12 * k * giantK);
+    if (live && Math.random() < .5) { _a.set((Math.random() - .5) * 60, 0, (Math.random() - .5) * 60).multiplyScalar(giantK); pixel(_a, _b.copy(_a).setY((4 + Math.random() * 14) * giantK), Math.random() < .2 ? 0x3050ff : RED, 1, .3 * giantK, giantK); }
+    if (p > .8 && !this.back) { this.back = true; screenFlash(.5); boom(W(0, 1, 0), RED, 30 * giantK); }
+  },
+  end() {
+    renderer.domElement.style.filter = ''; cracks.visible = false;
+    towers.forEach((tw, i) => { tw.position.copy(towerBase[i]); tw.rotation.z = 0; tw.visible = true; });
+  } };
+
+/* ROOT ACCESS: a sigil opens over the world, the cube climbs into it, and a pillar of red comes down */
+const sigilMat = new THREE.ShaderMaterial({
+  transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, uniforms: { time: fxTime, k: { value: 0 } },
+  vertexShader: `varying vec2 vP; void main(){ vP = position.xy; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }`,
+  fragmentShader: `uniform float time, k; varying vec2 vP;
+    float ring(float r, float at, float w){ return smoothstep(w, 0., abs(r - at)); }
+    void main(){
+      float r = length(vP) / 40., a = atan(vP.y, vP.x);
+      if (r > k) discard;
+      float c = ring(r, .2, .006) + ring(r, .36, .01) + ring(r, .38, .004) + ring(r, .62, .012) + ring(r, .66, .004) + ring(r, .94, .012);
+      float ticks = step(.82, fract(a * 48. / 6.2832 + time * .2)) * step(.66, r) * step(r, .94);
+      float runes = step(.5, fract(a * 12. / 6.2832 - time * .35)) * ring(r, .5, .05) * step(.4, fract(sin(floor(a * 36. / 6.2832 - time * 2.1) * 91.7) * 437.5));
+      float spokes = smoothstep(.012, 0., abs(fract(a * 6. / 6.2832 + time * .05) - .5) * r) * step(.2, r) * step(r, .62) * .6;
+      float v = c + ticks * .7 + runes * .9 + spokes + exp(-r * 6.) * .5;
+      gl_FragColor = vec4(vec3(1., .05, .14) * v * 1.6 * smoothstep(k, k - .02, r), 1.);
+    }`,
+});
+const sigil = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), sigilMat); sigil.rotation.x = -Math.PI / 2; sigil.position.y = 62; sigil.visible = false; sfx.add(sigil);
+const pillarMat = new THREE.ShaderMaterial({
+  transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, uniforms: { time: fxTime, a: { value: 0 } },
+  vertexShader: `varying vec2 vU; varying vec3 vN, vV; void main(){ vU = uv; vN = normalize(normalMatrix * normal); vec4 mv = modelViewMatrix * vec4(position, 1.); vV = -mv.xyz; gl_Position = projectionMatrix * mv; }`,
+  fragmentShader: `uniform float time, a; varying vec2 vU; varying vec3 vN, vV;
+    void main(){ float fr = abs(dot(normalize(vN), normalize(vV)));
+      float flow = .6 + .4 * sin(vU.y * 80. + time * 30.) * sin(vU.x * 25. - time * 5.);
+      gl_FragColor = vec4(mix(vec3(1., .05, .14), vec3(1., .9, .92), pow(fr, 3.)) * (.3 + fr * 1.4) * flow * a, 1.); }`,
+});
+const pillar = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 62, 48, 1, true), pillarMat); pillar.position.y = 31; pillar.visible = false; sfx.add(pillar);
+ACTS.root = { dur: 8.5, start() {
+    pose = 'sky'; setView('sigil'); sigil.visible = true; this.phase = 0; this.ring = 0;
+  },
+  update(p) {
+    sigilMat.uniforms.k.value = ease(seg(p, .05, .3)) * (1 - seg(p, .9, 1));
+    sigil.rotation.z = t * .15;
+    caption('ROOT ACCESS', p < .3 ? 'REQUESTING PRIVILEGE…' : p < .5 ? 'PRIVILEGE: ∞' : 'ALL SYSTEMS OBEY');
+    const rise = ease(seg(p, .2, .48));
+    cubeOverride.on = true;
+    cubeOverride.pos.lerpVectors(cubeHome, W(0, 62, 0), rise);
+    if (p > .9) cubeOverride.pos.lerpVectors(W(0, 62, 0), cubeHome, ease(seg(p, .9, 1)));
+    cubeOverride.scale = 1 + rise * 5 * (1 - seg(p, .9, 1)); cubeOverride.spin = 1 + rise * 16;
+    if (p > .5) pose = 'push';
+    const beamK = ease(seg(p, .5, .56)) * (1 - ease(seg(p, .78, .9)));
+    pillar.visible = beamK > .01; pillar.scale.set(1 + beamK * 9, 1, 1 + beamK * 9); pillarMat.uniforms.a.value = beamK * 1.3;
+    if (p > .5 && this.phase === 0) {
+      this.phase = 1; screenFlash(.8); shake = 1 * giantK;
+      for (const s of [20, 45, 80]) boom(W(0, 1, 0), RED, s * giantK);
+      for (let i = 0; i < 80; i++) { _a.set((Math.random() - .5) * 20, 0, (Math.random() - .5) * 20).multiplyScalar(giantK); pixel(_a, _b.copy(_a).add(_c.randomDirection().setY(Math.random() * 2).multiplyScalar(25 * giantK)), Math.random() < .3 ? PALE : RED, 1.6, .5 * giantK, 4 * giantK); }
+      const wave = new THREE.Mesh(new THREE.RingGeometry(.92, 1, 128), additive(RED, .95)); wave.rotation.x = -Math.PI / 2; wave.position.y = .2;
+      addFx(wave, 2.2, (tt, o) => { o.scale.setScalar(1 + tt * 120); o.material.opacity = .95 * (1 - tt / 2.2); this.ring = tt * 120; });
+    }
+    if (p > .5 && p < .8) shake = Math.max(shake, .3 * giantK);
+    // the shockwave flattens the skyline as it passes, and the city stands back up at the end
+    towers.forEach((tw, i) => { const r = towerBase[i].length(); const flat = this.ring * giantK > r ? 1 : 0; tw.scale.y = p > .9 ? 1 : 1 - flat * .85; tw.position.y = towerBase[i].y * tw.scale.y; });
+  },
+  end() {
+    sigil.visible = false; pillar.visible = false; setView('front');
+    towers.forEach((tw, i) => { tw.scale.y = 1; tw.position.copy(towerBase[i]); });
+  } };
+
 /* ---------- views ---------- */
-const VIEWS = { duel: [8, 9, 48], front: [0, 5.5, 42], side: [42, 5.5, .01], back: [.01, 5.5, -42], iso: [-24, 9, 34] }; // from a little below, looking up
+const VIEWS = { sigil: [0, 22, 200], duel: [8, 9, 48], front: [0, 5.5, 42], side: [42, 5.5, .01], back: [.01, 5.5, -42], iso: [-24, 9, 34] }; // from a little below, looking up
 let viewGoal = null;
 const targetGoal = new THREE.Vector3(0, 10, 0);
 function setView(name) {
-  viewGoal = new THREE.Vector3(...VIEWS[name]);
-  targetGoal.set(...(name === 'duel' ? [4.5, 8, 2] : [0, 10, 0])); // a duel frames Worms and its opponent together
+  viewGoal = new THREE.Vector3(...VIEWS[name]).multiplyScalar(giantK);
+  targetGoal.set(...(name === 'duel' ? [4.5, 8, 2] : name === 'sigil' ? [0, 30, 0] : [0, 10, 0])).multiplyScalar(giantK); // a duel frames Worms and its opponent together
   document.querySelectorAll('[data-view]').forEach(x => x.classList.toggle('on', x.dataset.view === name));
 }
 document.querySelectorAll('[data-view]').forEach(b => b.onclick = () => setView(b.dataset.view));
@@ -1431,6 +1885,7 @@ function frame() {
   requestAnimationFrame(frame);
   const dt = Math.min(clock.getDelta(), .05);
   t += dt;
+  applyGiant(dt);
   if (!frozen) fxTime.value += dt; // under HALT nothing but Worms moves
 
   if (act) {
@@ -1446,23 +1901,24 @@ function frame() {
   }
 
   /* it hangs in the air, breathing slowly */
-  rig.position.y = .7 + Math.sin(t * 1.1) * .2;
+  rig.position.y = (.7 + Math.sin(t * 1.1) * .2) * giantK;
   chest.rotation.x = Math.sin(t * 1.1) * .02;
   head.rotation.y = Math.sin(t * .4) * .06;
   haloSpin.rotation.y = t * .3;
-  gemLight.intensity = 5 + Math.sin(t * 2.2) * 2;
+  gemLight.intensity = (5 + Math.sin(t * 2.2) * 2) * giantK * giantK; gemLight.distance = 8 * giantK;
   rig.updateMatrixWorld(true);
   applyPose(dt);
+  animateDesign(t);
   rig.updateMatrixWorld(true);
 
   /* the cube floats over the open palm */
   armR.hand.localToWorld(cubeHome.set(0, -1.3, .35)); // just above the fingertips, a little in front of the palm
-  cubeHome.y += .9;
-  if (cubeOverride.on) { cube.position.copy(cubeOverride.pos); cube.scale.setScalar(cubeOverride.scale); }
-  else { cube.position.lerp(cubeHome, t < .3 ? 1 : 1 - Math.exp(-dt * 10)); cube.scale.setScalar(1 + Math.sin(t * 3) * .05); }
+  cubeHome.y += .9 * giantK;
+  if (cubeOverride.on) { cube.position.copy(cubeOverride.pos); cube.scale.setScalar(cubeOverride.scale * giantK); }
+  else { cube.position.lerp(cubeHome, t < .3 ? 1 : 1 - Math.exp(-dt * 10)); cube.scale.setScalar((1 + Math.sin(t * 3) * .05) * giantK); }
   const spinRate = cubeOverride.on ? cubeOverride.spin : 1;
   cubeSpin.rotation.x += dt * .5 * spinRate; cubeSpin.rotation.y += dt * .8 * spinRate;
-  cubeLight.intensity = 10 + Math.sin(t * 4) * 3;
+  cubeLight.intensity = (10 + Math.sin(t * 4) * 3) * giantK * giantK; cubeLight.distance = 10 * giantK;
 
   placeLabel();
   if (!frozen) {
@@ -1499,7 +1955,7 @@ function frame() {
 
   for (let i = temp.length - 1; i >= 0; i--) {
     const e = temp[i]; e.t += dt; e.update(e.t, e.o);
-    if (e.t >= e.life) { scene.remove(e.o); temp.splice(i, 1); }
+    if (e.t >= e.life) { e.o.removeFromParent(); temp.splice(i, 1); }
   }
 
   if (viewGoal) { // swing round the target rather than through the body
@@ -1515,7 +1971,7 @@ function frame() {
   }
   controls.update();
   camera.getWorldDirection(_dir);
-  aura.position.set(0, 11, 0).addScaledVector(_dir, 7); // always just behind the figure
+  aura.position.set(0, 11 * giantK, 0).addScaledVector(_dir, 7 * giantK); aura.scale.setScalar(30 * giantK); // always just behind the figure
   sky.position.copy(camera.position);
   shake *= Math.exp(-dt * 5);
   if (!innerWidth || !innerHeight) return; // a hidden tab has no size to draw into

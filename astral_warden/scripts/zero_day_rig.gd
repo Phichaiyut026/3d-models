@@ -6,10 +6,14 @@ const MODEL := "res://models/zero_day.glb"
 const BODY_SCALE := 0.42
 const CAPE := preload("res://shaders/zero_cape.gdshader")
 const HALO := preload("res://shaders/zero_halo.gdshader")
+const AURA := preload("res://shaders/zero_aura.gdshader")
 const THIGH := 3.5
 const SHIN := 2.9
-const IDLE := {"d": 0.3, "lean": 0.06, "yaw": 0.0, "tilt": 0.0, "rx": -0.42, "ry": 0.1, "rz": -0.2, "re": -0.86, "lx": -0.28, "ly": 1.2, "lz": 0.9, "le": -1.55, "blade": Vector3(0.93, -0.31, 0.21), "stride": 0.0}
-const FIGHT := {"d": 1.05, "lean": 0.24, "yaw": -0.18, "tilt": 0.0, "rx": -0.68, "ry": 0.1, "rz": -0.26, "re": -1.15, "lx": -0.5, "ly": 1.0, "lz": 0.78, "le": -1.7, "blade": Vector3(0.7, 0.12, 0.7), "stride": 0.95}
+## At rest: the key-sword held low, its point trailing on the floor in front, the left palm held out, feet set wide.
+const IDLE := {"d": 0.65, "lean": 0.1, "yaw": 0.2, "tilt": -0.07, "rx": -0.55, "ry": 0.2, "rz": -0.42, "re": -0.55, "lx": -1.1, "ly": 0.55, "lz": 0.55, "le": -0.6, "blade": Vector3(-0.48, -0.36, 0.8), "stride": 0.4, "wide": 0.2}
+const FIGHT := {"d": 1.05, "lean": 0.24, "yaw": -0.18, "tilt": 0.0, "rx": -0.68, "ry": 0.1, "rz": -0.26, "re": -1.15, "lx": -0.5, "ly": 1.0, "lz": 0.78, "le": -1.7, "blade": Vector3(0.7, 0.12, 0.7), "stride": 0.95, "wide": 0.12}
+## Off duty: standing straight, arms loose, the sword slung across its back.
+const CALM := {"d": 0.08, "lean": 0.0, "yaw": 0.0, "tilt": 0.02, "rx": -0.04, "ry": 0.0, "rz": -0.14, "re": -0.18, "lx": -0.04, "ly": 0.0, "lz": 0.14, "le": -0.18, "blade": Vector3(0.35, 0.9, -0.2), "stride": 0.0, "wide": 0.04}
 const MOVES := {
 	"lockdown": {"dur": 2.2, "keys": [[0.0, {}], [0.22, {"d": 0.6, "lean": -0.14, "lx": -2.3, "ly": 0.55, "lz": 0.78, "le": -0.3}], [0.42, {"d": 1.15, "lean": 0.3, "lx": -1.25, "ly": 0.1, "lz": 0.1, "le": -0.2, "stride": 0.9}], [1.0, {"d": 1.15, "lean": 0.3, "lx": -1.25, "ly": 0.1, "lz": 0.1, "le": -0.2, "stride": 0.9}]]},
 	"beckon": {"dur": 1.6, "keys": [[0.0, {}], [0.3, {"lean": 0.1, "lx": -1.5, "ly": 0.5, "lz": 0.5, "le": -1.0}], [0.6, {"lean": 0.14, "lx": -1.3, "ly": 0.5, "lz": 0.5, "le": -1.9}], [1.0, {}]]},
@@ -17,6 +21,7 @@ const MOVES := {
 }
 
 var fight_goal := 0.0
+var calm_goal := 0.0 ## 1 puts the sword away and stands it at ease.
 var walking := false
 
 var _root: Node3D
@@ -32,6 +37,11 @@ var _walk_weight := 0.0
 var _act := ""
 var _act_time := 0.0
 var _hold := false
+var _calm := 0.0
+var _stow := 0.0
+var _aura: ShaderMaterial
+var _glitch_wait := 2.0
+var _glitch_left := 0.0
 
 
 func _ready() -> void:
@@ -61,6 +71,7 @@ func _ready() -> void:
 	_dress_cape(_j["chest"])
 	_add_halo()
 	_add_data()
+	_add_aura()
 
 
 func _dress_cape(chest: Node3D) -> void:
@@ -89,6 +100,22 @@ func _add_halo() -> void:
 	_halo.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	_halo.position = Vector3(0, 18.2, -4.2)
 	_root.add_child(_halo)
+
+
+## A green skin of fire over every part of the body, as in zero_day.html.
+func _add_aura() -> void:
+	_aura = ShaderMaterial.new()
+	_aura.shader = AURA
+	var bodies: Array[MeshInstance3D] = []
+	for node in _j["hips"].find_children("*", "MeshInstance3D", true, false):
+		bodies.append(node)
+	for body in bodies:
+		var skin := MeshInstance3D.new()
+		skin.mesh = body.mesh
+		skin.material_override = _aura
+		skin.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		skin.extra_cull_margin = 2.0
+		body.add_child(skin)
 
 
 ## Bright pixels leaking off the body.
@@ -128,7 +155,7 @@ func stop_act() -> void:
 func _sample() -> Dictionary:
 	var base := {}
 	for key: String in IDLE:
-		base[key] = lerp(IDLE[key], FIGHT[key], _fight)
+		base[key] = lerp(lerp(IDLE[key], FIGHT[key], _fight), CALM[key], _calm)
 	if _act == "":
 		return base
 	var move: Dictionary = MOVES[_act]
@@ -149,16 +176,16 @@ func _sample() -> Dictionary:
 	return out
 
 
-func _leg(side: String, sign_x: float, drop: float, stride: float) -> void:
+func _leg(side: String, sign_x: float, drop: float, stride: float, wide := 0.0) -> void:
 	var height := maxf(1.2, 6.33 - drop)
 	var reach := minf(THIGH + SHIN - 0.005, Vector2(height, stride).length())
 	var a := acos(clampf((THIGH * THIGH + reach * reach - SHIN * SHIN) / (2.0 * THIGH * reach), -1.0, 1.0))
 	var b := acos(clampf((SHIN * SHIN + reach * reach - THIGH * THIGH) / (2.0 * SHIN * reach), -1.0, 1.0))
 	var thigh_x := -(atan2(stride, height) + a)
 	var knee_x := a + b
-	_j["thigh" + side].rotation = Vector3(thigh_x, 0, sign_x * 0.1)
+	_j["thigh" + side].rotation = Vector3(thigh_x, 0, sign_x * (0.1 + wide))
 	_j["knee" + side].rotation = Vector3(knee_x, 0, 0)
-	_j["foot" + side].rotation = Vector3(-(thigh_x + knee_x), 0, -sign_x * 0.1)
+	_j["foot" + side].rotation = Vector3(-(thigh_x + knee_x), 0, -sign_x * (0.1 + wide))
 
 
 func _curl(side: String, amount: float, spread: float) -> void:
@@ -178,6 +205,16 @@ func _process(delta: float) -> void:
 	_clock += delta
 	var t := _clock
 	_fight = lerpf(_fight, fight_goal, 1.0 - exp(-delta * 8.0))
+	_calm = lerpf(_calm, calm_goal if _act == "" else 0.0, 1.0 - exp(-delta * 5.0))
+	_stow = lerpf(_stow, 1.0 if calm_goal > 0.5 or _act == "lockdown" else 0.0, 1.0 - exp(-delta * 6.0))
+	# Glitch bursts: the aura slips sideways in bands for a moment every couple of seconds.
+	_glitch_wait -= delta
+	if _glitch_wait <= 0.0:
+		_glitch_left = randf_range(0.12, 0.28)
+		_glitch_wait = randf_range(1.6, 4.0)
+	_glitch_left = maxf(0.0, _glitch_left - delta)
+	if _aura != null:
+		_aura.set_shader_parameter("glitch", randf_range(0.6, 1.0) if _glitch_left > 0.0 else 0.0)
 	_walk_weight = lerpf(_walk_weight, 1.0 if walking else 0.0, 1.0 - exp(-delta * 8.0))
 	_walk_phase += delta * 5.5 * _walk_weight
 	if _act != "":
@@ -191,7 +228,8 @@ func _process(delta: float) -> void:
 	var drop: float = p["d"] + _walk_weight * (0.25 + absf(step) * -0.18)
 	var lean: float = p["lean"] + _walk_weight * 0.12
 	var yaw: float = p["yaw"]
-	_j["hips"].position = Vector3(0, 7.8 - drop + b * 0.05, 0)
+	var sway := sin(t * 0.55) * 0.18 * (1.0 - _fight) * (1.0 - _calm) * (1.0 - _walk_weight) * (1.0 if _act == "" else 0.0)
+	_j["hips"].position = Vector3(sway, 7.8 - drop + b * 0.05, 0)
 	_j["hips"].rotation = Vector3(lean * 0.3, yaw * 0.4 + step * 0.08 * _walk_weight, big * 0.012)
 	_j["spine"].rotation = Vector3(lean * 0.35 + b * 0.012, yaw * 0.3, 0)
 	_j["chest"].rotation = Vector3(lean * 0.35 + b * 0.018, yaw * 0.3 - step * 0.1 * _walk_weight, -big * 0.012)
@@ -201,16 +239,14 @@ func _process(delta: float) -> void:
 	_j["shoulderL"].rotation = Vector3(p["lx"] + b * 0.02 - step * 0.2 * _walk_weight, p["ly"], p["lz"])
 	_j["elbowL"].rotation.x = p["le"]
 	_j["handR"].rotation = Vector3(-0.15, 0, 0)
-	_j["handL"].rotation = Vector3(-0.08 + sin(t * 1.2) * 0.05, -1.45, 0.08)
-	_curl("R", 0.95, 0.0)
-	_curl("L", 0.12 if _act == "lockdown" else 0.3, 0.2)
+	_j["handL"].rotation = Vector3(lerpf(-0.08 + sin(t * 1.2) * 0.05, -0.05, _calm), lerpf(-1.45, 0.0, _calm), lerpf(0.08, 0.0, _calm))
+	_curl("R", lerpf(0.95, 0.45, _stow), 0.0)
+	_curl("L", 0.12 if _act == "lockdown" else lerpf(0.3, 0.45, _calm), 0.2 * (1.0 - _calm))
 	var stride: float = p["stride"]
-	_leg("R", -1.0, drop, -stride * 0.55 + 0.12 - step * 2.2 * _walk_weight)
-	_leg("L", 1.0, drop, stride * 0.9 + 0.12 + step * 2.2 * _walk_weight)
-	var hand: Vector3 = _root.to_local((_j["handR"] as Node3D).global_position)
-	_weapon.position = hand - Vector3(0, 0.25, 0)
-	var blade: Vector3 = p["blade"]
-	_weapon.basis = Basis(Quaternion(Vector3.UP, blade.normalized()))
+	var wide: float = p["wide"]
+	_leg("R", -1.0, drop, -stride * 0.55 + 0.12 - step * 2.2 * _walk_weight, wide)
+	_leg("L", 1.0, drop, stride * 0.9 + 0.12 + step * 2.2 * _walk_weight, wide)
+	_hold_sword((p["blade"] as Vector3).normalized())
 	for lock: Array in _locks:
 		var node: Node3D = lock[0]
 		var base: Vector3 = lock[1]
@@ -218,3 +254,25 @@ func _process(delta: float) -> void:
 		node.position = base + Vector3(sin(t * 0.7 + ph) * 0.35, sin(t * 1.15 + ph) * 0.55, cos(t * 0.55 + ph) * 0.35)
 		node.rotation = Vector3(0, -signf(base.x) * 0.25 + sin(t * 0.8 + ph) * 0.16, sin(t * 0.62 + ph) * 0.09)
 	_halo.rotation.z = sin(t * 0.3) * 0.2
+
+
+## The fist turns so the hilt runs through it, blade out of the thumb side; put away, the sword hangs across the back.
+func _hold_sword(blade: Vector3) -> void:
+	var hand: Node3D = _j["handR"]
+	var root_q := _root.global_basis.get_rotation_quaternion()
+	var want := (root_q * blade).normalized()
+	var hand_q := hand.global_basis.get_rotation_quaternion()
+	var thumb_side := (hand_q * Vector3.RIGHT).normalized()
+	var grip := Quaternion(thumb_side, want).slerp(Quaternion.IDENTITY, _stow) * hand_q
+	var size := hand.global_basis.get_scale()
+	hand.global_basis = Basis(grip).scaled(size)
+	var at := _root.to_local(hand.to_global(Vector3(0, -0.82, 0.42)))
+	var rot := root_q.inverse() * grip * Quaternion(Vector3.BACK, -PI / 2.0)
+	if _stow > 0.001:
+		var chest: Node3D = _j["chest"]
+		var mount := _root.to_local(chest.to_global(Vector3(0.6, 1.6, -3.4)))
+		var hung := root_q.inverse() * chest.global_basis.get_rotation_quaternion() * Quaternion.from_euler(Vector3(-0.12, 0.0, -0.42))
+		at = at.lerp(mount, _stow)
+		rot = rot.slerp(hung, _stow)
+	_weapon.position = at
+	_weapon.quaternion = rot

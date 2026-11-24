@@ -6,6 +6,7 @@ const WHITE := Color(0.95, 0.94, 1.0)
 const MUTED := Color(0.72, 0.7, 0.86)
 const GOLD := Color(0.96, 0.8, 0.46)
 const LAVENDER := Color(0.7, 0.6, 1.0)
+const ARGON := Color(0.25, 0.91, 1.0)
 const SKEW := 0.65
 const ARENA := Vector3(22, 0, -112)
 const LETTERBOX := 110.0
@@ -174,12 +175,15 @@ func _slant(pos: Vector2, width: float, height: float) -> PackedVector2Array:
 
 ## A slanted meter. `trail` is the pale segment showing damage just taken.
 func _bar(pos: Vector2, width: float, height: float, ratio: float, top: Color, bottom: Color, trail := -1.0) -> void:
-	ratio = clampf(ratio, 0.0, 1.0)
+	# A sliver under a pixel wide cannot be triangulated, so it is left out rather than logged every frame.
+	if width < 1.0 or is_nan(width):
+		return
+	ratio = 0.0 if is_nan(ratio) else clampf(ratio, 0.0, 1.0)
 	var back := _slant(pos, width, height)
 	draw_colored_polygon(back, Color(0.03, 0.02, 0.09, 0.82))
-	if trail > ratio:
+	if trail > ratio and width * minf(trail, 1.0) >= 1.0:
 		draw_colored_polygon(_slant(pos, width * minf(trail, 1.0), height), Color(1.0, 0.86, 0.62, 0.8))
-	if ratio > 0.001:
+	if width * ratio >= 1.0:
 		draw_polygon(_slant(pos, width * ratio, height), PackedColorArray([top, top, bottom, bottom]))
 	var outline := back.duplicate()
 	outline.append(back[0])
@@ -226,7 +230,7 @@ func _draw_vitals() -> void:
 	draw_colored_polygon(ring, Color(0.06, 0.04, 0.16, 0.9))
 	ring.append(ring[0])
 	draw_polyline(ring, GOLD, 2.0, true)
-	draw_colored_polygon(_star_points(emblem, 27.0, 0.22, sin(_clock * 0.6) * 0.08), GOLD if p.rig.is_supreme else LAVENDER)
+	draw_colored_polygon(_star_points(emblem, 27.0, 0.22, sin(_clock * 0.6) * 0.08), ARGON if p.rig.is_argon else (GOLD if p.rig.is_supreme else LAVENDER))
 	draw_colored_polygon(_star_points(emblem, 15.0, 0.18, sin(_clock * 0.6) * 0.08), Color.WHITE)
 	if p.upgrades > 0:
 		var badge := emblem + Vector2(27, 26)
@@ -268,7 +272,9 @@ func _draw_compass() -> void:
 		return
 	if Game.checkpoint != null:
 		_compass_marker(Game.checkpoint.global_position - from, heading, center, width, LAVENDER)
-	if not Game.boss_defeated:
+	if Game.in_domain():
+		return
+	if not Game.worms_defeated:
 		_compass_marker(ARENA - from, heading, center, width, GOLD)
 
 
@@ -285,12 +291,17 @@ func _draw_objective() -> void:
 	if Game.in_haven():
 		goal = "พักที่ Safe Mode แล้วกลับผ่านประตู"
 		detail = ""
-	elif Game.boss_defeated:
+	elif Game.worms_defeated:
 		goal = "หุบเขาอำพันกลับคืนสู่ความสงบ"
 		detail = ""
 	elif Game.boss_active:
 		goal = "โค่น " + Game.boss_title()
 		detail = ""
+	elif Game.in_domain():
+		goal = "โค่น WORMS"
+		detail = ""
+	elif Game.boss_defeated:
+		goal = "เข้าประตูแดงที่ลานหอดาว"
 	var box_width := _text_width(goal, 20) + 36.0
 	var box_height := 86.0 if detail != "" else 66.0
 	draw_style_box(_panel, Rect2(Vector2(right + 2.0 - box_width, 16), Vector2(box_width + 12.0, box_height)))
@@ -315,11 +326,17 @@ func _draw_slots() -> void:
 	draw_style_box(_panel, Rect2(Vector2(30, y - 42), Vector2(_text_width(hint, 15) + 50.0, 28)))
 	var hint_x := 37.0 + _keycap(Vector2(37, y - 38), "X") + 7.0
 	_text(Vector2(hint_x, y - 23), hint, 15, WHITE)
-	var form := "กลับร่างเดิม" if p.rig.is_supreme else "แปลงร่าง"
+	var form: String = ["ร่างสูงสุด" if Game.supreme_unlocked else ("ร่าง ARGON" if Game.argon_unlocked else "แปลงร่าง · ล็อก"), "ร่าง ARGON" if Game.argon_unlocked else "กลับร่างเดิม", "กลับร่างเดิม"][p.rig.form]
 	var ready := p._transform_cooldown <= 0.0
-	draw_style_box(_panel_lit if p.state == "transform" else _panel, Rect2(Vector2(30, y - 76), Vector2(_text_width(form, 15) + 50.0, 28)))
+	var form_width := _text_width(form, 15) + 50.0
+	draw_style_box(_panel_lit if p.state == "transform" else _panel, Rect2(Vector2(30, y - 76), Vector2(form_width, 28)))
 	var form_x := 37.0 + _keycap(Vector2(37, y - 72), "T") + 7.0
-	_text(Vector2(form_x, y - 57), form, 15, (GOLD if not p.rig.is_supreme else WHITE) if ready else Color(MUTED, 0.6))
+	_text(Vector2(form_x, y - 57), form, 15, (GOLD if not p.rig.is_supreme else WHITE) if ready and (Game.supreme_unlocked or Game.argon_unlocked) else Color(MUTED, 0.6))
+	var argon := "กลับร่างเดิม" if p.rig.is_argon else ("ร่าง ARGON" if Game.argon_unlocked else "ร่าง ARGON · ล็อก")
+	var argon_left := 30.0 + form_width + 8.0
+	draw_style_box(_panel, Rect2(Vector2(argon_left, y - 76), Vector2(_text_width(argon, 15) + 50.0, 28)))
+	var argon_x := argon_left + 7.0 + _keycap(Vector2(argon_left + 7.0, y - 72), "G") + 7.0
+	_text(Vector2(argon_x, y - 57), argon, 15, (ARGON if not p.rig.is_argon else WHITE) if ready and Game.argon_unlocked else Color(MUTED, 0.6))
 	if not Game.in_haven():
 		var flight := "ลงพื้น · Space ขึ้น · Ctrl ลง" if p.flying else "บิน"
 		draw_style_box(_panel_lit if p.flying else _panel, Rect2(Vector2(30, y - 110), Vector2(_text_width(flight, 15) + 50.0, 28)))
@@ -444,6 +461,24 @@ func _draw_prompt() -> void:
 		if npc != null:
 			_draw_action_prompt("คุยกับ " + npc.display_name)
 			return
+	if Game.in_town():
+		var here := Game.player.global_position
+		if Game.town.near_exit(here):
+			_draw_action_prompt("กลับหุบเขาอำพัน")
+			return
+		var person := Game.town.nearest_person(here)
+		if person != null:
+			_draw_action_prompt("คุยกับ " + str(person.get("display_name")))
+			return
+	elif Game.near_town_gate(Game.player.global_position):
+		_draw_action_prompt("ไปเมืองดาวรุ่ง")
+		return
+	if Game.near_gate(Game.player.global_position):
+		_draw_action_prompt("เข้าสู่ระบบของ WORMS")
+		return
+	if Game.in_domain() and Game.domain.near_exit(Game.player.global_position):
+		_draw_action_prompt("กลับหุบเขาอำพัน")
+		return
 	if Game.nearest_shrine(Game.player.global_position, 3.6) == null:
 		return
 	var cost := Game.player.upgrade_cost()

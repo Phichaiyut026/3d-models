@@ -82,7 +82,7 @@ static func teleport(enemy: Enemy) -> void:
 	var p := Game.player
 	var a := randf() * TAU
 	var at := p.global_position + Vector3(cos(a), 0, sin(a)) * randf_range(16.0, 22.0)
-	at.y = Game.terrain.get_height(at.x, at.z) + 0.15
+	at.y = Game.ground_height(at.x, at.z) + 0.15
 	enemy.global_position = at
 	pixels(enemy.chest_position(), 24, 0.6)
 
@@ -111,7 +111,7 @@ static func call_processes(enemy: Enemy) -> void:
 	for i in count:
 		var a := i * TAU / 3.0 + randf()
 		var at := enemy.global_position + Vector3(cos(a), 0, sin(a)) * 6.0
-		at.y = Game.terrain.get_height(at.x, at.z) + 0.1
+		at.y = Game.ground_height(at.x, at.z) + 0.1
 		var soldier := Enemy.new().setup(at, false, "process")
 		soldier.summoned = true
 		soldier.reward = 0

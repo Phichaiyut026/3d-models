@@ -18,7 +18,8 @@
   @media (max-width:640px){button{padding:6px 7px;font-size:11px}.gap{width:2px}#bar{gap:4px;bottom:10px}}
   /* forms */
   #forms{position:fixed;left:50%;top:14px;transform:translateX(-50%);display:flex;gap:6px;z-index:4}
-  #forms button{padding:7px 11px;font-size:11px}
+  #forms button{padding:7px 11px;font-size:11px;white-space:nowrap}
+  @media (min-width:901px) and (max-width:1300px){#forms{left:20px;transform:none;top:88px}} /* five forms no longer fit between the title and the status */
   #formFade{position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:5;transition:opacity .28s}
   @media (max-width:900px){#forms{left:20px;transform:none;top:100px;flex-direction:column;align-items:flex-start}}
   /* /forms */
@@ -1164,6 +1165,8 @@ animate();
   <button data-form="cosmic_warrior_base.html" class="on">ร่าง 1 · COSMIC</button>
   <button data-form="cosmic_warrior.html">ร่าง 2 · SUPREME</button>
   <button data-form="gemini_aegis.html">ร่าง 3 · ARGON</button>
+  <button data-form="gemini_aegis.html#hydrogen">ร่าง 4 · HYDROGEN</button>
+  <button data-form="gemini_aegis.html#carbon">ร่าง 5 · CARBON</button>
 </div>
 <div id="formFade"></div>
 <script>

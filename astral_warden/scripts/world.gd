@@ -30,6 +30,10 @@ var _grass_far := 0.16
 var _sun: DirectionalLight3D
 var _env: Environment
 var _corruption := -1.0
+var _cleanse := 0.0 ## 0 while WORMS rules the system, rising to 1 once it is gone: the valley's red clears.
+var _town_look := false ## True while the town's own blue sky is up.
+var _valley_sky: Material
+var _town_sky: ProceduralSkyMaterial
 var _fallout: Array[CPUParticles3D] = [] ## Ash and embers, kept around the camera.
 
 const CORRUPT_CENTER := Vector3(22, 0, -136) ## Matches the corrupt_center shader global.
@@ -69,6 +73,27 @@ func _ready() -> void:
 	var haven := SafeHaven.new()
 	add_child(haven)
 	Game.haven = haven
+	var domain := WormsDomain.new()
+	add_child(domain)
+	Game.domain = domain
+	var town := TownMap.new()
+	add_child(town)
+	Game.town = town
+	# The journey begins in the town: the warrior stands on its south street from the very first frame.
+	town.visible = true
+	Game.player.global_position = TownMap.CENTER + TownMap.START + Vector3(0, 0.2, 0)
+	Game.player.rig.rotation.y = PI
+	Game.player.reset_camera()
+	var town_gate := WormsDomain.gate(TownMap.GOLD)
+	add_child(town_gate)
+	town_gate.global_position = _ground(SHRINE_START + Vector3(16, 0, 4))
+	town_gate.rotation.y = -PI * 0.5
+	Game.town_gate = town_gate
+	var gate := WormsDomain.gate(Color(1.0, 0.06, 0.19))
+	add_child(gate)
+	gate.global_position = _ground(ARENA + Vector3(0, 0, -6))
+	gate.visible = false
+	Game.gate = gate
 	_build_ui()
 
 	Game.apply_settings()
@@ -82,13 +107,28 @@ func _ready() -> void:
 ## Stepped, so the sky's lighting is only redrawn when the change can be seen.
 func _update_corruption() -> void:
 	var at := Game.camera.global_position
+	# The town has a clear blue sky of its own; leaving it puts the valley's back.
+	if TownMap.contains(at.x, at.z):
+		if not _town_look:
+			_set_town_look(true)
+		for p: CPUParticles3D in _fallout:
+			p.visible = false
+		return
+	if _town_look:
+		_set_town_look(false)
 	var near := Vector2(at.x - CORRUPT_CENTER.x, at.z - CORRUPT_CENTER.z).length()
 	var amount := lerpf(1.0, 0.85, smoothstep(70.0, 200.0, near))
 	var in_haven := at.y > SafeHaven.CENTER.y - 60.0
 	if in_haven:
 		amount = 0.0
+	# With WORMS deleted the darkness lifts, slowly enough to watch it go.
+	if Game.worms_defeated:
+		_cleanse = minf(1.0, _cleanse + get_process_delta_time() / 6.0)
+	else:
+		_cleanse = 0.0
+	amount *= 1.0 - _cleanse
 	for p: CPUParticles3D in _fallout:
-		p.visible = not in_haven
+		p.visible = not in_haven and _cleanse < 0.6
 		if not in_haven:
 			p.global_position = Vector3(at.x, _ground(Vector3(at.x, 0, at.z)).y + p.get_meta("lift"), at.z)
 	amount = snappedf(amount, 0.05)
@@ -102,6 +142,32 @@ func _update_corruption() -> void:
 	_env.fog_density = lerpf(0.003, 0.006, amount)
 	_env.ambient_light_energy = lerpf(0.75, 0.5, amount)
 	_env.adjustment_saturation = lerpf(1.08, 1.2, amount)
+
+
+func _set_town_look(on: bool) -> void:
+	_town_look = on
+	if on:
+		if _town_sky == null:
+			_valley_sky = _env.sky.sky_material
+			_town_sky = ProceduralSkyMaterial.new()
+			_town_sky.sky_top_color = Color(0.16, 0.45, 0.93)
+			_town_sky.sky_horizon_color = Color(0.62, 0.82, 1.0)
+			_town_sky.sky_curve = 0.12
+			_town_sky.ground_horizon_color = Color(0.62, 0.82, 1.0)
+			_town_sky.ground_bottom_color = Color(0.3, 0.45, 0.3)
+			_town_sky.sun_angle_max = 20.0
+			_town_sky.sky_energy_multiplier = 1.1
+		_env.sky.sky_material = _town_sky
+		RenderingServer.global_shader_parameter_set("corruption", 0.0)
+		_sun.light_color = Color(1.0, 0.98, 0.93)
+		_sun.light_energy = 1.45
+		_env.fog_light_color = Color(0.7, 0.84, 1.0)
+		_env.fog_density = 0.0012
+		_env.ambient_light_energy = 0.8
+		_env.adjustment_saturation = 1.22
+	else:
+		_env.sky.sky_material = _valley_sky
+		_corruption = -1.0 # forces the valley's look to be laid down again on the next update
 
 
 ## Ash coming down and embers going up, everywhere the darkness has taken. They follow the camera.
@@ -753,6 +819,12 @@ func _spawn_actors() -> void:
 	add_child(boss)
 	Game.enemies.append(boss)
 	Game.boss = boss
+	Game.overlord = boss
+	# WORMS waits outside the system until OBLIVION falls.
+	var worms := WormsBoss.new().setup_worms(WormsDomain.CENTER + WormsDomain.BOSS_HOME + Vector3(0, 0.1, 0))
+	add_child(worms)
+	Game.enemies.append(worms)
+	Game.worms = worms
 
 
 func _build_ui() -> void:
@@ -775,3 +847,7 @@ func _build_ui() -> void:
 	var powers := CosmicShow.new()
 	add_child(powers)
 	Game.powers = powers
+	Game.gemini_show = powers
+	var abyss_show := AbyssShow.new()
+	add_child(abyss_show)
+	Game.abyss_show = abyss_show

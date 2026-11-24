@@ -70,7 +70,7 @@ func _place_near(enemy: Enemy, distance: float) -> void:
 	var p := Game.player
 	var offset := Vector3(0, 0, distance)
 	var at := enemy.global_position + offset
-	at.y = Game.terrain.get_height(at.x, at.z) + 0.2
+	at.y = Game.ground_height(at.x, at.z) + 0.2
 	p.global_position = at
 	p.velocity = Vector3.ZERO
 	p.cam_yaw = 0.0
@@ -181,7 +181,7 @@ func _test_blade_summon(p: Player) -> void:
 	# Far from every soldier, so nothing keeps the player in combat.
 	await _wait(6.5) # Lets the victory banner clear before the close-ups.
 	p.hp = p.max_hp
-	p.global_position = Vector3(0, Game.terrain.get_height(0, 88) + 0.3, 88)
+	p.global_position = Vector3(0, Game.ground_height(0, 88) + 0.3, 88)
 	p.velocity = Vector3.ZERO
 	p.rig.rotation.y = 0.0
 	p.cam_yaw = 0.45
@@ -239,7 +239,7 @@ func _test_blade_summon(p: Player) -> void:
 	Input.action_release("run")
 	Input.action_release("move_forward")
 
-	p.global_position = Vector3(0, Game.terrain.get_height(0, 88) + 0.3, 88)
+	p.global_position = Vector3(0, Game.ground_height(0, 88) + 0.3, 88)
 	p.cam_yaw = 0.0
 	await _wait(0.3)
 	await _tap("weapon")
@@ -318,7 +318,7 @@ func _bench() -> void:
 
 
 func _park_front(p: Player, at: Vector3) -> void:
-	p.global_position = Vector3(at.x, Game.terrain.get_height(at.x, at.z) + 0.3, at.z)
+	p.global_position = Vector3(at.x, Game.ground_height(at.x, at.z) + 0.3, at.z)
 	p.velocity = Vector3.ZERO
 	p.rig.rotation.y = 0.0
 	p.cam_yaw = 0.35
@@ -358,7 +358,7 @@ func _test_first_skills(p: Player) -> void:
 		soldier.hp = 99999.0
 		soldier.freeze(40.0)
 		soldier.global_position = p.global_position + look * 9.0
-		soldier.global_position.y = Game.terrain.get_height(soldier.global_position.x, soldier.global_position.z) + 0.2
+		soldier.global_position.y = Game.ground_height(soldier.global_position.x, soldier.global_position.z) + 0.2
 		await _wait(0.35)
 		await _tap(key)
 		await _wait(0.05)
@@ -463,7 +463,7 @@ func _test_supreme(p: Player) -> void:
 			# Skills fire where the camera looks.
 			var look := Vector3(-sin(p.cam_yaw), 0, -cos(p.cam_yaw))
 			s.global_position = p.global_position + look * (dist + i * 1.5) + look.cross(Vector3.UP) * (i - 1) * 2.0
-			s.global_position.y = Game.terrain.get_height(s.global_position.x, s.global_position.z) + 0.2
+			s.global_position.y = Game.ground_height(s.global_position.x, s.global_position.z) + 0.2
 			i += 1
 
 	for key: String in Player.SKILL_KEYS:
@@ -493,7 +493,7 @@ func _test_supreme(p: Player) -> void:
 
 	await _shot("form_6_hud")
 	p._transform_cooldown = 0.0
-	await _tap("transform")
+	p._start_transform(0) # T now walks on to ARGON; this checks the way straight back.
 	_check("T starts the way back", p.state == "transform")
 	await _wait(1.3)
 	_check("returns to the first form", not p.rig.is_supreme and p.state == "move")
@@ -547,7 +547,7 @@ func _test_cutscenes(p: Player) -> void:
 	_check("everyone moves again", soldier.process_mode == Node.PROCESS_MODE_INHERIT)
 
 	p._transform_cooldown = 0.0
-	await _tap("transform")
+	p._start_transform(0) # T now walks on to ARGON; this checks the way straight back.
 	_check("going back needs no scene", not scene.is_playing() and p.state == "transform")
 	await _wait(1.3)
 	_check("back in the first form", not p.rig.is_supreme and p.state == "move")
@@ -563,7 +563,7 @@ func _test_cutscenes(p: Player) -> void:
 	_check("a skipped scene still changes the form", p.rig.is_supreme and p.state == "move")
 	await _wait(0.5)
 	p._transform_cooldown = 0.0
-	await _tap("transform")
+	p._start_transform(0) # T now walks on to ARGON; this checks the way straight back.
 	await _wait(1.3)
 	_check("first form again", not p.rig.is_supreme)
 
@@ -626,7 +626,7 @@ func _test_boss_skills(p: Player) -> void:
 	boss.reset()
 	await _wait(0.2)
 	p.global_position = boss.home + Vector3(0, 0.3, 9)
-	p.global_position.y = Game.terrain.get_height(p.global_position.x, p.global_position.z) + 0.3
+	p.global_position.y = Game.ground_height(p.global_position.x, p.global_position.z) + 0.3
 	p.velocity = Vector3.ZERO
 	p.cam_yaw = 0.25
 	p.rig.rotation.y = PI
@@ -658,6 +658,12 @@ func _test_boss_skills(p: Player) -> void:
 
 
 func _run() -> void:
+	if "--abyss" in OS.get_cmdline_user_args():
+		await _wait_loaded()
+		await _test_abyss()
+		print("AUTOTEST DONE failures=%d" % _failures)
+		get_tree().quit(1 if _failures > 0 else 0)
+		return
 	if "--bench" in OS.get_cmdline_user_args():
 		await _bench()
 		return
@@ -713,7 +719,7 @@ func _run() -> void:
 	p.cam_yaw = yaw_before
 	await _wait(1.0)
 	_check("floor contact", p.is_on_floor())
-	_check("spawn above ground", p.global_position.y > Game.terrain.get_height(p.global_position.x, p.global_position.z) - 0.3)
+	_check("spawn above ground", p.global_position.y > Game.ground_height(p.global_position.x, p.global_position.z) - 0.3)
 	await _wait(3.5)
 	print("FPS meadow %d" % Engine.get_frames_per_second())
 	await _shot("02_gameplay")
@@ -892,3 +898,68 @@ func _run() -> void:
 	print("FPS %d" % Engine.get_frames_per_second())
 	print("AUTOTEST DONE failures=%d" % _failures)
 	get_tree().quit(1 if _failures > 0 else 0)
+
+
+## อั้ม · ABYSS: picked on the selection screen, never changes form, and all eight powers play.
+func _test_abyss() -> void:
+	var menu := Game.menu
+	await _shot("abyss_00_title")
+	menu.start_button.pressed.emit()
+	await _wait(0.6)
+	_check("start opens the hero choice", menu.current_screen() == "heroes")
+	await _shot("abyss_01_choose")
+	(menu.hero_cards["aum"] as Button).grab_focus()
+	await _wait(1.0)
+	_check("moving over อั้ม shows อั้ม", Game.hero == "aum" and Game.player.abyss != null and Game.player.abyss.visible)
+	await _shot("abyss_02_choose_aum")
+	(menu.hero_cards["aum"] as Button).pressed.emit()
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	await _wait(1.5)
+	var p := Game.player
+	_check("the game starts as อั้ม", Game.state == "play" and p.hero == "aum" and Game.powers == Game.abyss_show)
+	_check("อั้ม has eight powers", p.skill_keys().size() == 8)
+	var enemy: Enemy = null
+	for e in Game.enemies:
+		if e.is_alive() and not e.is_boss:
+			enemy = e
+			break
+	if enemy != null:
+		_place_near(enemy, 16.0)
+	await _wait(1.0)
+	await _shot("abyss_03_stand")
+	_tap("attack")
+	await _wait(0.45)
+	await _shot("abyss_04_strike")
+	await _wait(1.2)
+	_tap("transform")
+	await _wait(0.5)
+	_check("the ABYSS never changes form", p.rig.form == 0 and p.hero == "aum" and p.state != "transform")
+	var hp := p.hp
+	p.take_damage(5000.0, p.global_position + Vector3(0, 0, 3))
+	_check("no one can bring อั้ม down", p.hp >= hp - 5000.0 * 0.011 and p.hp >= 1.0)
+	for i in 8:
+		var key := "skill_%d" % (i + 1)
+		var info: Dictionary = p.skill_info(key)
+		p.fp = p.max_fp
+		p._skill_cooldowns.clear()
+		while p.state != "move":
+			await get_tree().process_frame
+		if enemy == null or not enemy.is_alive():
+			for e in Game.enemies:
+				if e.is_alive() and not e.is_boss:
+					enemy = e
+					break
+			if enemy != null:
+				_place_near(enemy, 16.0)
+				await _wait(0.4)
+		_tap(key)
+		await _wait(0.2)
+		_check("power %d (%s) starts" % [i + 1, info["id"]], p.state == "skill" and p._skill_key == key)
+		var length: float = info["length"]
+		for share: float in [0.3, 0.62]:
+			while p.state == "skill" and p.state_time / p.state_length < share:
+				await get_tree().process_frame
+			await _shot("abyss_1%d_%s_%d" % [i, info["id"], int(share * 100)])
+		while p.state == "skill":
+			await get_tree().process_frame
+		await _wait(0.3)

@@ -15,12 +15,21 @@ const CONTROLS := [
 	["X", "เสก / เก็บดาบ"], ["R", "ดื่มยาฟื้นพลัง"],
 	["Q", "ล็อกเป้า"], ["E", "พักที่แท่นดาว"],
 	["U", "เสริมพลังที่แท่นดาว"], ["Esc", "หยุดเกม"],
-	["T", "แปลงร่าง / กลับร่าง"], ["1 - 7", "ใช้สกิล"],
+	["T", "แปลงร่าง / กลับร่าง"], ["1 - 7", "ใช้สกิล (อั้ม 1 - 8)"],
 	["V", "บิน / ลงพื้น"], ["Space / Ctrl", "บินขึ้น / บินลง"],
 	["Tab", "ข้ามคัตซีน"], ["คลิก / Space", "บทพูดถัดไป"],
 ]
 
+## The heroes on the selection screen. Moving over one shows it in the world behind the menu.
+const HEROES := [
+	{"id": "gemini", "name": "GEMINI", "title": "ผู้พิทักษ์ดวงดาว", "tint": Color(0.7, 0.6, 1.0),
+		"lines": "นักดาบแห่งดวงดาว ปลดล็อกร่างใหม่ไปตามเนื้อเรื่อง\nร่างแรก · ร่างสูงสุด · ร่าง ARGON  ·  แปลงร่างด้วย T / G\nสกิล 7 ท่า"},
+	{"id": "aum", "name": "อั้ม · ABYSS", "title": "ร่างแห่งความมืด · พลังสูงสุด · ไม่มีใครสู้ได้", "tint": Color(1.0, 0.3, 0.42),
+		"lines": "ดำสนิททั้งตัว ตาขาวเรืองแสง ออร่าความมืดและสายฟ้าแดง\nอยู่ในร่าง ABYSS ตลอดเวลา ไม่เปลี่ยนแปลง\nสกิล 8 ท่า: หลุมดำ · หนามมืด · ลำแสงทำลาย · กองทัพเงา\nอุกกาบาตมืด · ประตูนรก · โซ่ว่างเปล่า · จุดจบของทุกสิ่ง"},
+]
+
 var start_button: Button
+var hero_cards := {} ## Hero id -> its card on the selection screen.
 var resume_button: Button
 var settings_widgets := {} ## Setting key -> slider or toggle, for refreshing.
 
@@ -65,6 +74,7 @@ func _ready() -> void:
 	add_child(_dim)
 
 	_build_main()
+	_build_heroes()
 	_build_pause()
 	_build_controls()
 	_build_settings()
@@ -174,12 +184,82 @@ func _build_main() -> void:
 	_place(subtitle, Vector2(0, 0.5), Vector2(110, -190), Vector2(760, 44))
 	screen.add_child(subtitle)
 	start_button = _column(screen, -90, [
-		["เริ่มเกม", Game.start_game],
+		["เริ่มเกม", _start_pressed],
 		["วิธีเล่น", _open.bind("controls", "main")],
 		["ตั้งค่า", _open.bind("settings", "main")],
 		["ออกจากเกม", _quit],
 	])
 	_first_focus["main"] = start_button
+
+
+## Choosing who to play. Each hero is a card; the one under the cursor stands in the world on the right.
+func _build_heroes() -> void:
+	var screen := _screen("heroes")
+	var title := _label("เลือกตัวละคร", 58, GOLD)
+	_place(title, Vector2(0, 0.5), Vector2(104, -330), Vector2(760, 90))
+	screen.add_child(title)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 16)
+	_place(column, Vector2(0, 0.5), Vector2(104, -225), Vector2(640, 480))
+	screen.add_child(column)
+	var first: Button = null
+	for hero: Dictionary in HEROES:
+		var card := _hero_card(hero)
+		column.add_child(card)
+		hero_cards[hero["id"]] = card
+		if first == null:
+			first = card
+	var back := _menu_button("กลับ", _back)
+	column.add_child(back)
+	_first_focus["heroes"] = first
+
+
+## The scripted tests start straight away as before, unless they are testing the choice itself.
+func _start_pressed() -> void:
+	var args := OS.get_cmdline_user_args()
+	if "--autotest" in args and not "--abyss" in args:
+		Game.start_game()
+	else:
+		_open("heroes", "main")
+
+
+func _hero_card(hero: Dictionary) -> Button:
+	var tint: Color = hero["tint"]
+	var card := Button.new()
+	card.custom_minimum_size = Vector2(640, 190)
+	var normal := StyleBoxFlat.new()
+	normal.bg_color = Color(0.06, 0.04, 0.14, 0.88)
+	normal.border_color = Color(tint, 0.35)
+	normal.set_border_width_all(2)
+	normal.set_corner_radius_all(10)
+	var lit := normal.duplicate() as StyleBoxFlat
+	lit.bg_color = Color(tint.r * 0.28, tint.g * 0.14, tint.b * 0.3, 0.95)
+	lit.border_color = tint
+	lit.set_border_width_all(3)
+	for style: String in ["normal", "disabled"]:
+		card.add_theme_stylebox_override(style, normal)
+	for style: String in ["hover", "pressed", "focus", "hover_pressed"]:
+		card.add_theme_stylebox_override(style, lit)
+	var box := VBoxContainer.new()
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_theme_constant_override("separation", 2)
+	box.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	box.offset_left = 26
+	box.offset_top = 14
+	box.offset_right = -20
+	box.offset_bottom = -12
+	card.add_child(box)
+	var name_label := _label(hero["name"], 36, tint)
+	var title_label := _label(hero["title"], 19, WHITE)
+	var lines := _label(hero["lines"], 16, MUTED)
+	lines.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	for label: Label in [name_label, title_label, lines]:
+		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		box.add_child(label)
+	card.mouse_entered.connect(card.grab_focus)
+	card.focus_entered.connect(Game.set_hero.bind(hero["id"]))
+	card.pressed.connect(Game.start_game_as.bind(hero["id"]))
+	return card
 
 
 func _build_pause() -> void:
@@ -450,7 +530,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not (event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE):
 		return
 	match _current:
-		"controls", "settings", "confirm":
+		"controls", "settings", "confirm", "heroes":
 			_back()
 		"pause":
 			Game.set_paused(false)

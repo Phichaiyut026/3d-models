@@ -55,7 +55,7 @@ func lockdown(boss: Enemy) -> void:
 	for i in 6:
 		var a := i * TAU / 6.0
 		var ground := center + Vector3(cos(a), 0, sin(a)) * 16.0
-		ground.y = Game.terrain.get_height(ground.x, ground.z)
+		ground.y = Game.ground_height(ground.x, ground.z)
 		_chain(ground, body + Vector3(cos(a) * 2.0, randf_range(-2.0, 3.0), sin(a) * 2.0))
 		Fx.burst(ground + Vector3(0, 0.3, 0), GREEN, 22, 10.0, 0.08)
 	var spots := [Vector3(-3.4, 2.0, 2.2), Vector3(3.4, 2.0, 2.2), Vector3(-2.2, -3.0, 2.8), Vector3(2.2, -3.0, 2.8)]
@@ -190,7 +190,7 @@ func walk_to(p: Player) -> void:
 	_rig.fight_goal = 0.0
 	var side := Vector3.UP.cross(p.global_position - _rig.global_position).normalized()
 	var goal := p.global_position + side * 3.2
-	goal.y = Game.terrain.get_height(goal.x, goal.z)
+	goal.y = Game.ground_height(goal.x, goal.z)
 	var to := goal - _rig.global_position
 	_rig.rotation.y = atan2(to.x, to.z)
 	_rig.walking = true
@@ -208,7 +208,7 @@ func open_door(p: Player, facing: Vector3) -> void:
 	var away := p.global_position - facing
 	away.y = 0.0
 	_door = p.global_position + away.normalized() * 7.0
-	_door.y = Game.terrain.get_height(_door.x, _door.z)
+	_door.y = Game.ground_height(_door.x, _door.z)
 	_portal_at(_door, facing, 18.0)
 	CosmicFx.shock(_door + Vector3(0, 7, 0), 14.0, 2.2, 0.7, GREEN)
 	Fx.burst(_door + Vector3(0, 6, 0), GREEN, 60, 12.0, 0.09)

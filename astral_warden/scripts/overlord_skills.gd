@@ -38,7 +38,7 @@ static func _wait(seconds: float) -> void:
 
 
 static func _ground(pos: Vector3) -> Vector3:
-	return Vector3(pos.x, Game.terrain.get_height(pos.x, pos.z), pos.z)
+	return Vector3(pos.x, Game.ground_height(pos.x, pos.z), pos.z)
 
 
 static func fire(boss: Enemy, skill: String) -> void:
@@ -343,7 +343,7 @@ static func _spikes(boss: Enemy) -> void:
 
 static func _grow(height: float, spike: MeshInstance3D) -> void:
 	spike.scale.y = height
-	var base := Game.terrain.get_height(spike.global_position.x, spike.global_position.z)
+	var base := Game.ground_height(spike.global_position.x, spike.global_position.z)
 	spike.global_position.y = base + height * 0.5
 
 

@@ -1,0 +1,1550 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Claude Fable</title>
+<style>
+  html,body{margin:0;height:100%;overflow:hidden;background:#120c1c;font-family:ui-monospace,Menlo,monospace;color:#f7ece0}
+  canvas{display:block}
+  #title{position:fixed;left:20px;top:16px;font:800 22px/1.1 system-ui,sans-serif;letter-spacing:.02em;pointer-events:none}
+  #title small{display:block;font:500 12px/1.6 system-ui,sans-serif;opacity:.65;letter-spacing:0}
+  #bar{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);display:flex;gap:6px;flex-wrap:wrap;justify-content:center;width:max-content;max-width:calc(100vw - 32px)}
+  button{font:600 12px ui-monospace,Menlo,monospace;padding:9px 12px;background:#1b1426;color:#f4efe6;border:1px solid #ffffff2e;border-radius:4px;cursor:pointer}
+  button:hover{background:#3a2c44}
+  button.on{background:#e8490f;color:#fff}
+  .gap{width:10px}
+  #charge{touch-action:none;user-select:none;-webkit-user-select:none}
+  #meter{position:fixed;left:50%;top:84px;transform:translateX(-50%);width:min(260px,70vw);height:12px;border:1px solid #ffffff55;border-radius:7px;background:#1b142699;overflow:hidden;pointer-events:none}
+  #meter[hidden]{display:none}
+  #meter i{display:block;height:100%;width:0;border-radius:6px;background:linear-gradient(90deg,#c0260f,#ff7a22,#ffe08a)}
+  @media (max-width:560px){button{padding:7px 8px;font-size:11px}.gap{width:2px}#bar{gap:4px;bottom:10px}}
+</style>
+<script type="importmap">
+{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}
+</script>
+</head>
+<body>
+<div id="title">CLAUDE · FABLE<small>ร่างใหม่ของ Claude · ผู้เล่าเรื่องผู้เขียนตอนจบ<br>ลากเพื่อหมุน · เลื่อนเพื่อซูม · คลิกขวาลากเพื่อเลื่อน<br>กด CHARGE ค้างไว้เพื่อชาร์จ ปล่อยเพื่อฟัน</small></div>
+<div id="meter" hidden><i></i></div>
+<div id="bar">
+  <button data-view="front">FRONT</button>
+  <button data-view="side">SIDE</button>
+  <button data-view="back">BACK</button>
+  <button data-view="iso">ISO</button>
+  <span class="gap"></span>
+  <button data-mode="idle" class="on">IDLE</button>
+  <button data-mode="walk">WALK</button>
+  <span class="gap"></span>
+  <button data-act="slash">SLASH</button>
+  <button data-act="sweep">SWEEP</button>
+  <button data-act="rise">RISE</button>
+  <button data-act="combo">COMBO</button>
+  <span class="gap"></span>
+  <button data-act="spin">SPIN</button>
+  <button data-act="slam">SLAM</button>
+  <button data-act="wave">WAVE</button>
+  <button id="charge">CHARGE</button>
+  <span class="gap"></span>
+  <button data-act="snap">SNAP</button>
+  <button data-act="roar">ROAR</button>
+  <span class="gap"></span>
+  <button data-act="pGalaxy">GALAXY</button>
+  <button data-act="pBeam">MECHA BEAM</button>
+  <button data-act="pHakai">DESTRUCTION</button>
+  <button data-act="pCrimson">CRIMSON END</button>
+  <button data-act="pErase">ERASE ALL</button>
+  <span class="gap"></span>
+  <button id="pause">PAUSE</button>
+  <button id="stars">ร่างดวงดาว · STARS</button>
+  <span class="gap"></span>
+  <button id="download">DOWNLOAD GLB</button>
+</div>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+
+/* ---------- scene ---------- */
+const PIXEL_SIZE = 2;
+const scene = new THREE.Scene();
+scene.background = (() => { // a short canvas, so the dusk sky falls in visible pixel bands
+  const c = document.createElement('canvas'); c.width = 2; c.height = 56;
+  const x = c.getContext('2d'), g = x.createLinearGradient(0, 0, 0, 56);
+  g.addColorStop(0, '#0d0b1e'); g.addColorStop(.5, '#2b1436'); g.addColorStop(.74, '#7a2f2a'); g.addColorStop(.84, '#3c1a26'); g.addColorStop(1, '#170d18');
+  x.fillStyle = g; x.fillRect(0, 0, 2, 56);
+  const t = new THREE.CanvasTexture(c);
+  t.magFilter = t.minFilter = THREE.NearestFilter; t.generateMipmaps = false;
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+})();
+const camera = new THREE.PerspectiveCamera(26, innerWidth / innerHeight, .1, 900);
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.BasicShadowMap;
+document.body.appendChild(renderer.domElement);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.target.set(0, 9.6, 0);
+controls.minDistance = 10; controls.maxDistance = 240;
+
+scene.add(new THREE.HemisphereLight(0x7f7fc8, 0x5a2016, 1.35));
+const key = new THREE.DirectionalLight(0xffd7ad, 2.7);
+key.position.set(-10, 30, 22); key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048);
+Object.assign(key.shadow.camera, { left: -26, right: 26, top: 26, bottom: -14, far: 90 });
+key.shadow.bias = -.0015; key.shadow.normalBias = .03;
+scene.add(key);
+const rimLight = new THREE.DirectionalLight(0x45dcff, 3.2); // cool rim against the warm body
+rimLight.position.set(6, 7, -10); scene.add(rimLight);
+const emberLight = new THREE.PointLight(0xff5a1c, 10, 16, 1.4);
+emberLight.position.set(0, 3, 8); emberLight.distance = 44; scene.add(emberLight);
+
+/* ---------- pixel-art surface ---------- */
+let seed = 7;
+const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+const TEX = 256, TILE = 8; // one tile covers 8 world units, so 32 texels per unit
+
+function noiseTexture() {
+  const c = document.createElement('canvas'); c.width = c.height = TEX;
+  const x = c.getContext('2d');
+  x.fillStyle = '#eee'; x.fillRect(0, 0, TEX, TEX);
+  const paint = (v, px, py, w, h) => { x.fillStyle = `rgb(${v},${v},${v})`; x.fillRect(px, py, w, h); };
+  for (let i = 0; i < 900; i++) paint(205 + rnd() * 50 | 0, rnd() * TEX | 0, rnd() * TEX | 0, 2 + rnd() * 7 | 0, 1 + rnd() * 5 | 0);
+  for (let i = 0; i < 90; i++) paint(95 + rnd() * 45 | 0, rnd() * TEX | 0, rnd() * TEX | 0, 2 + rnd() * 5 | 0, 1 + rnd() * 2 | 0); // scuffs
+  for (let i = 0; i < 16; i++) { // chips with a lit lower edge
+    const px = rnd() * TEX | 0, py = rnd() * TEX | 0, w = 3 + rnd() * 5 | 0;
+    paint(70, px, py, w, 2); paint(255, px, py + 2, w, 1);
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.magFilter = t.minFilter = THREE.NearestFilter; t.generateMipmaps = false;
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+const noise = noiseTexture();
+const ramp = new THREE.DataTexture(new Uint8Array([78, 150, 225, 255]), 4, 1, THREE.RedFormat);
+ramp.magFilter = ramp.minFilter = THREE.NearestFilter; ramp.needsUpdate = true;
+
+const toon = color => new THREE.MeshToonMaterial({ color, map: noise, gradientMap: ramp });
+const flat = color => new THREE.MeshBasicMaterial({ color, toneMapped: false });
+const godTime = { value: 0 };
+const spaceMat = new THREE.ShaderMaterial({ // pixel-stepped, to sit with the rest of the sprite-like armour
+  uniforms: { time: godTime },
+  vertexShader: `varying vec3 vP; void main(){ vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }`,
+  fragmentShader: `uniform float time; varying vec3 vP;
+    float h(vec3 p){ return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }
+    float n(vec3 p){ vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f);
+      return mix(mix(mix(h(i), h(i + vec3(1,0,0)), f.x), mix(h(i + vec3(0,1,0)), h(i + vec3(1,1,0)), f.x), f.y),
+                 mix(mix(h(i + vec3(0,0,1)), h(i + vec3(1,0,1)), f.x), mix(h(i + vec3(0,1,1)), h(i + vec3(1,1,1)), f.x), f.y), f.z); }
+    void main(){
+      vec3 q = floor(vP * 26.) / 26.;
+      float a = (n(q * 2.1 + time * .05) + .5 * n(q * 5.2 - time * .08)) / 1.5;
+      vec3 col = mix(vec3(.04, .02, .13), vec3(.36, .07, .42), smoothstep(.34, .72, a));
+      col += vec3(.95, .34, .08) * smoothstep(.66, .86, a);
+      float r = h(floor(vP * 13.));
+      col += vec3(1., .95, .8) * step(.955, r) * (.55 + .45 * sin(time * (1.5 + r * 5.) + r * 50.)) * 1.5;
+      gl_FragColor = vec4(col, 1.);
+    }`,
+});
+const M = {
+  orange: toon(0xe05a2a), bright: toon(0xf47a42), hot: toon(0xffe08a), dark: spaceMat,
+  steel: spaceMat, steelLite: toon(0xf0c050), gold: toon(0xffd25a), ember: flat(0xfff0c0),
+  black: flat(0x130d0b), eyeHalo: flat(0xffe9a0), eye: flat(0xffffff),
+  badge: flat(0xffb340), letter: flat(0xfff0c2),
+};
+
+/* ---------- ground ---------- */
+const floorTile = (() => {
+  const S = 64, c = document.createElement('canvas'); c.width = c.height = S;
+  const x = c.getContext('2d');
+  x.fillStyle = '#3b2a3a'; x.fillRect(0, 0, S, S);
+  for (let i = 0; i < 26; i++) { x.fillStyle = rnd() < .5 ? '#322332' : '#463244'; x.fillRect(rnd() * S | 0, rnd() * S | 0, 2 + rnd() * 8 | 0, 2 + rnd() * 4 | 0); }
+  x.fillStyle = '#8a4a2c'; x.fillRect(0, 0, S, 2); x.fillRect(0, 0, 2, S);
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(56, 56);
+  t.magFilter = THREE.NearestFilter; t.anisotropy = 8;
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+})();
+const floorFade = (() => { // separate from the tile, so the floor can scroll under a fixed vignette
+  const c = document.createElement('canvas'); c.width = c.height = 256;
+  const x = c.getContext('2d'), g = x.createRadialGradient(128, 128, 0, 128, 128, 128);
+  g.addColorStop(0, '#fff'); g.addColorStop(.42, '#fff'); g.addColorStop(1, '#000');
+  x.fillStyle = g; x.fillRect(0, 0, 256, 256);
+  return new THREE.CanvasTexture(c);
+})();
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(56, 56), new THREE.MeshToonMaterial({ map: floorTile, alphaMap: floorFade, gradientMap: ramp, transparent: true, depthWrite: false }));
+ground.rotation.x = -Math.PI / 2; ground.scale.set(3, 3, 1); ground.receiveShadow = true; scene.add(ground);
+
+const hullMat = new THREE.ShaderMaterial({
+  side: THREE.BackSide,
+  uniforms: { t: { value: .036 } },
+  vertexShader: `attribute vec3 smoothNormal; uniform float t;
+    void main(){ gl_Position = projectionMatrix * modelViewMatrix * vec4(position + smoothNormal * t, 1.); }`,
+  fragmentShader: `void main(){ gl_FragColor = vec4(.05,.03,.06,1.); }`,
+});
+const headHull = hullMat.clone(); headHull.uniforms.t.value = .036 / .55;
+
+function prepare(geo) {
+  const g = geo.index ? geo.toNonIndexed() : geo;
+  g.computeVertexNormals();
+  const p = g.attributes.position, n = g.attributes.normal, count = p.count;
+  // world-scale UVs so every surface shares one texel size
+  const uv = new Float32Array(count * 2), ou = rnd(), ov = rnd(), k = 1 / TILE;
+  for (let i = 0; i < count; i++) {
+    const ax = Math.abs(n.getX(i)), ay = Math.abs(n.getY(i)), az = Math.abs(n.getZ(i));
+    let u, v;
+    if (ax >= ay && ax >= az) { u = p.getZ(i); v = p.getY(i); }
+    else if (ay >= az) { u = p.getX(i); v = p.getZ(i); }
+    else { u = p.getX(i); v = p.getY(i); }
+    uv[i * 2] = u * k + ou; uv[i * 2 + 1] = v * k + ov;
+  }
+  g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  // averaged normals keep the outline closed at hard corners
+  const sum = new Map(), keys = [];
+  for (let i = 0; i < count; i++) {
+    const key = `${Math.round(p.getX(i) * 1e3)},${Math.round(p.getY(i) * 1e3)},${Math.round(p.getZ(i) * 1e3)}`;
+    keys.push(key);
+    const v = sum.get(key) || new THREE.Vector3();
+    v.x += n.getX(i); v.y += n.getY(i); v.z += n.getZ(i); sum.set(key, v);
+  }
+  const smooth = new Float32Array(count * 3);
+  keys.forEach((key, i) => { const v = sum.get(key).clone().normalize(); smooth.set([v.x, v.y, v.z], i * 3); });
+  g.setAttribute('smoothNormal', new THREE.BufferAttribute(smooth, 3));
+  return g;
+}
+
+function add(parent, geo, mat, pos = [0, 0, 0], rot = [0, 0, 0], outline = true) {
+  const g = prepare(geo);
+  const m = new THREE.Mesh(g, mat);
+  m.position.set(...pos); m.rotation.set(...rot);
+  m.castShadow = true; m.receiveShadow = !mat.isMeshBasicMaterial;
+  if (outline) m.add(new THREE.Mesh(g, hullMat));
+  parent.add(m);
+  return m;
+}
+const box = (parent, pos, size, mat, rot) => add(parent, new THREE.BoxGeometry(...size), mat, pos, rot);
+
+function seg(parent, a, b, r1, r2, mat, sides = 6) {
+  const A = new THREE.Vector3(...a), B = new THREE.Vector3(...b), d = B.clone().sub(A);
+  const m = add(parent, new THREE.CylinderGeometry(r2, r1, d.length(), sides, 1), mat, A.clone().add(B).multiplyScalar(.5).toArray());
+  m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize());
+  return m;
+}
+const spike = (parent, base, tip, r = .13, mat = M.bright) => seg(parent, base, tip, r, .008, mat, 5);
+
+function shapeGeo(points, depth, bevel = 0, holes = []) {
+  const s = new THREE.Shape(points.map(p => new THREE.Vector2(...p)));
+  holes.forEach(h => s.holes.push(new THREE.Path(h.map(p => new THREE.Vector2(...p)))));
+  const g = new THREE.ExtrudeGeometry(s, { depth, bevelEnabled: bevel > 0, bevelSize: bevel, bevelThickness: bevel, bevelSegments: 1, curveSegments: 4 });
+  g.translate(0, 0, -depth / 2);
+  return g;
+}
+
+/* ---------- Fable's shapes: Claude's spark and quill feathers ---------- */
+const SPARK_RAYS = [1, .72, .92, .66, .97, .7, .88, .75, 1, .68, .93, .71];
+const SPARK_JIT = [0, .05, -.04, .03, -.02, .06, -.05, .02, .04, -.03, .05, -.06];
+const petal = (len, w) => [[0, 0], [w * .6, len * .22], [w, len * .48], [w * .55, len * .78], [0, len], [-w * .55, len * .78], [-w, len * .48], [-w * .6, len * .22]];
+// twelve uneven rays round a centre, like Claude's spark
+function sparkMesh(parent, r, depth, mat, pos, rot = [0, 0, 0], outline = true) {
+  const g = new THREE.Group(); g.position.set(...pos); g.rotation.set(...rot); parent.add(g);
+  SPARK_RAYS.forEach((k, i) => add(g, shapeGeo(petal(r * k, r * .13), depth), mat, [0, 0, 0], [0, 0, -(i / 12 * Math.PI * 2 + SPARK_JIT[i])], outline));
+  return g;
+}
+const leaf = (L, w) => [[0, 0], [w * .7, L * .15], [w, L * .55], [w * .35, L * .9], [0, L], [-w * .5, L * .7], [-w * .55, L * .2]];
+
+/* ---------- body ---------- */
+const root = new THREE.Group(); scene.add(root);
+const upper = new THREE.Group(); root.add(upper);
+const pelvis = new THREE.Group(); root.add(pelvis);
+
+const THIGH = 1.3, SHIN = 1.25, ANKLE_Y = .45, HIP_Y = 2.87, LEG_SPLAY = .1; // the torso tilts about the hips
+
+// the head is the original armoured block, now a helmet on a neck
+const NECK_Y = 5.25, HEAD_K = [.52, .8, .55];
+seg(upper, [0, 4.92, 0], [0, 5.4, 0], .36, .3, M.steel, 7);
+const neck = new THREE.Group(); neck.position.y = NECK_Y; upper.add(neck);
+const head = new THREE.Group(); head.position.y = -2.78 * HEAD_K[1]; head.scale.set(...HEAD_K); neck.add(head);
+
+add(head, shapeGeo([[-1.12, -.57], [1.12, -.57], [1.24, .02], [1, .57], [-1, .57], [-1.24, .02]], 2.1), M.orange, [0, 3.35, 0]);
+box(head, [0, 2.8, 0], [2.26, .05, 2.03], M.ember);
+
+// feelers that lean forward, clear of the sword's arc
+const antennae = [];
+for (const s of [-1, 1]) {
+  const a = new THREE.Group(); a.position.set(s * .42, 3.9, .82); head.add(a);
+  // a crest of quill feathers swept back over the helmet, where the feelers were
+  a.position.set(s * .5, 3.95, .55);
+  for (let i = 0; i < 3; i++) {
+    const f = new THREE.Group(); f.rotation.set(-1.15 - i * .16, s * .25, s * (-.3 - i * .22)); a.add(f);
+    add(f, shapeGeo(leaf(2.1 - i * .35, .26), .09, .02), i === 1 ? M.bright : M.letter);
+    add(f, shapeGeo(leaf(1.5 - i * .3, .1), .13), M.orange, [0, .25, 0]);
+  }
+  antennae.push({ group: a, s });
+}
+
+// head spikes: two rows of three, plus one centred
+for (const [x, z, h] of [[-.76, .62, .42], [0, .62, .34], [.76, .62, .46], [-.76, -.55, .4], [0, -.55, .46], [.76, -.55, .36], [.3, .03, .32]])
+  spike(head, [x, 3.9, z], [x, 3.92 + h, z], .15);
+
+// face
+for (const s of [-1, 1]) {
+  const eye = k => [[-.21 * k, .03 * k], [.2 * k, .17 * k], [.23 * k, -.03 * k], [.1 * k, -.15 * k], [-.11 * k, -.15 * k]].map(([o, y]) => [s * o, y]);
+  add(head, shapeGeo(eye(1.32), .02), M.eyeHalo, [s * .52, 3.47, 1.055], [0, 0, 0], false);
+  add(head, shapeGeo(eye(.8), .02), M.eye, [s * .52, 3.47, 1.075], [0, 0, 0], false);
+  box(head, [s * .53, 3.66, 1.1], [.88, .17, .17], M.steel, [0, 0, s * .58]);
+}
+box(head, [0, 3.2, 1.06], [.34, .055, .03], M.black);
+for (const s of [-1, 1]) box(head, [s * .24, 3.155, 1.06], [.2, .055, .03], M.black, [0, 0, s * .62]);
+
+// the helmet's rear plate and studs
+box(head, [0, 3.28, -1.08], [1.9, .86, .08], M.bright);
+for (const [x, y, h] of [[-.95, 3.72, .24], [.95, 3.72, .24], [-.47, 3.42, .3], [.47, 3.42, .3]]) {
+  seg(head, [x, y, -1.1], [x, y, -1.18], .16, .15, M.hot, 6);
+  spike(head, [x, y, -1.18], [x, y, -1.18 - h], .13, M.hot);
+}
+head.traverse(o => { if (o.material === hullMat) o.material = headHull; }); // the head is scaled, so its outline must not be
+
+// a tapered chest over the glowing seam, then an abdomen of narrowing plates
+add(upper, shapeGeo([[-.72, -.65], [.72, -.65], [1.14, .35], [.9, .65], [-.9, .65], [-1.14, .35]], 1.15), M.orange, [0, 4.35, 0]);
+box(upper, [0, 3.68, 0], [1.52, .05, 1.02], M.ember);
+for (let i = 0; i < 4; i++) box(upper, [0, 3.54 - i * .19, 0], [1.36 - i * .08, .2, 1 - i * .05], i % 2 ? M.dark : M.steel);
+for (const s of [-1, 1]) box(upper, [s * .44, 3.54, .51], [.26, .1, .06], M.gold);
+
+// chest badge
+box(upper, [0, 4.42, .58], [1.02, .78, .06], M.dark);
+const rrect = (w, h, c) => [[-w + c, -h], [w - c, -h], [w, -h + c], [w, h - c], [w - c, h], [-w + c, h], [-w, h - c], [-w, -h + c]];
+add(upper, shapeGeo(rrect(.47, .38, .1), .04, 0, [rrect(.39, .3, .07).reverse()]), M.badge, [0, 4.42, .62], [0, 0, 0], false);
+sparkMesh(upper, .3, .03, M.letter, [0, 4.42, .63], [0, 0, 0], false);
+
+// back plate and studs
+box(upper, [0, 4.42, -.6], [1.5, .98, .1], M.bright);
+for (const [x, y, h] of [[-.95, 4.82, .24], [.95, 4.82, .24], [-.42, 4.68, .3], [.42, 4.68, .3], [-.42, 4.12, .3], [.42, 4.12, .3]]) {
+  const z = x * x > .5 ? -.56 : -.65;
+  seg(upper, [x, y, z + .02], [x, y, z - .06], .14, .13, M.hot, 6);
+  spike(upper, [x, y, z - .06], [x, y, z - .06 - h], .12, M.hot);
+}
+
+// shoulders
+for (const s of [-1, 1]) {
+  seg(upper, [s * 1, 4.72, .05], [s * 1.68, 4.72, .05], .42, .47, M.steel, 8);
+  seg(upper, [s * 1.3, 4.72, .05], [s * 1.38, 4.72, .05], .49, .5, M.gold, 8);
+  spike(upper, [s * 1.26, 5.08, .05], [s * 1.22, 5.56, .05], .15);
+  spike(upper, [s * 1.54, 5.04, .05], [s * 1.64, 5.42, .05], .12);
+  box(upper, [s * 1.4, 4.78, .5], [.12, .08, .05], M.ember);
+  box(upper, [s * 1.71, 4.62, .2], [.03, .14, .1], M.ember);
+}
+
+// hips
+box(pelvis, [0, 2.86, 0], [1.42, .5, .96], M.dark);
+box(pelvis, [0, 3.1, 0], [1.46, .13, 1.02], M.gold);
+add(pelvis, shapeGeo([[-.34, .22], [.34, .22], [.13, -.42], [-.13, -.42]], .1), M.orange, [0, 2.76, .52]);
+box(pelvis, [0, 2.84, .58], [.26, .06, .03], M.ember);
+for (const s of [-1, 1]) box(pelvis, [s * .86, 2.62, 0], [.3, .74, .9], M.orange, [0, 0, s * .16]);
+
+/* ---------- legs ---------- */
+const rel = (p, o) => p.map((v, i) => v - o[i]);
+const legs = [];
+function leg(s, phase) {
+  const tilt = new THREE.Group(); tilt.position.set(s * .48, HIP_Y, 0); tilt.rotation.z = s * LEG_SPLAY; pelvis.add(tilt);
+  const thigh = new THREE.Group(); tilt.add(thigh);
+  const knee = new THREE.Group(); knee.position.y = -THIGH; thigh.add(knee);
+  const ankle = new THREE.Group(); ankle.position.y = -SHIN; knee.add(ankle);
+
+  seg(thigh, [0, 0, 0], [0, -THIGH, 0], .42, .32, M.dark, 7);
+  box(thigh, [0, -.62, .3], [.42, .78, .12], M.bright);
+  spike(thigh, [s * .34, -.52, 0], [s * .74, -.2, 0], .1);
+
+  add(knee, new THREE.IcosahedronGeometry(.36, 0), M.steel);
+  spike(knee, [0, .16, .28], [s * .06, .52, .62], .11);
+  seg(knee, [0, 0, 0], [0, -SHIN, 0], .34, .24, M.orange, 7);
+  box(knee, [0, -.56, .26], [.34, .72, .1], M.bright);
+  spike(knee, [s * .24, -.55, -.08], [s * .58, -.42, -.26], .08);
+
+  seg(ankle, [0, .1, 0], [0, -.1, .04], .27, .31, M.dark, 7);
+  box(ankle, [0, .03, 0], [.56, .08, .56], M.gold);
+  const boot = shapeGeo([[-.42, -.42], [.8, -.42], [.84, -.22], [.36, -.03], [.22, .14], [-.38, .14]], .62);
+  boot.rotateY(-Math.PI / 2);
+  add(ankle, boot, M.bright);
+  box(ankle, [0, -.42, .2], [.68, .06, 1.3], M.steelLite);
+  spike(ankle, [0, -.24, .78], [0, -.36, 1.16], .12, M.steelLite);
+
+  legs.push({ thigh, knee, ankle, s, phase });
+}
+leg(-1, 0); leg(1, Math.PI); // the two legs step in turn
+
+// Hip height and foot position in; thigh, knee and ankle angles out, so a planted foot stays planted.
+function placeLeg(l, hipHeight, footZ, footLift, toeDown) {
+  const y = (ANKLE_Y + footLift - hipHeight) / Math.cos(LEG_SPLAY);
+  const D = Math.min(Math.hypot(footZ, y), THIGH + SHIN - .01);
+  const clampCos = v => Math.acos(Math.max(-1, Math.min(1, v)));
+  const lean = Math.atan2(footZ, -y) + clampCos((THIGH * THIGH + D * D - SHIN * SHIN) / (2 * THIGH * D));
+  const bend = Math.PI - clampCos((THIGH * THIGH + SHIN * SHIN - D * D) / (2 * THIGH * SHIN));
+  l.thigh.rotation.x = -lean;
+  l.knee.rotation.x = bend;
+  l.ankle.rotation.x = lean - bend + toeDown;
+}
+
+/* ---------- crab legs growing from the back ---------- */
+const backLegs = [];
+box(upper, [0, 4.3, -.74], [1.5, 1.4, .24], M.steel);
+box(upper, [0, 4.3, -.87], [.14, 1.1, .03], M.ember);
+function backLeg(s, base, knee, ankle, toe, phase, planted) {
+  const b = [s * base[0], base[1], base[2]], k = [s * knee[0], knee[1], knee[2]];
+  const a = [s * ankle[0], ankle[1], ankle[2]], f = [s * toe[0], toe[1], toe[2]];
+  const yaw = new THREE.Group(); yaw.position.set(...b); upper.add(yaw);
+  const lift = new THREE.Group(); yaw.add(lift);
+  const kneeJoint = new THREE.Group(); kneeJoint.position.set(...rel(k, b)); lift.add(kneeJoint);
+  const B = p => rel(p, b), K = p => rel(p, k);
+
+  add(yaw, new THREE.IcosahedronGeometry(.27, 0), M.steel);
+  seg(lift, [0, 0, 0], B(k), .16, .22, M.dark, 6);
+  add(kneeJoint, new THREE.IcosahedronGeometry(.26, 0), M.steel);
+  seg(kneeJoint, [0, 0, 0], K(a), .22, .17, M.orange, 6);
+  seg(kneeJoint, K(a), K(f), .17, .09, M.bright, 6);
+  const tip = [0, 1, 2].map(i => f[i] + (f[i] - a[i]) * .22);
+  seg(kneeJoint, K(f), K(tip), .09, .012, M.steelLite, 5);
+
+  const mid = [0, 1, 2].map(i => (b[i] + k[i]) / 2);
+  spike(lift, B([mid[0], mid[1] + .14, mid[2]]), B([mid[0] + s * .04, mid[1] + .5, mid[2]]), .09);
+  spike(kneeJoint, [0, .16, 0], [s * .14, .58, 0], .1);
+  const shin = [0, 1, 2].map(i => (k[i] + a[i]) / 2);
+  spike(kneeJoint, K([shin[0] + s * .14, shin[1], shin[2]]), K([shin[0] + s * .46, shin[1] + .1, shin[2]]), .08);
+
+  const dir = new THREE.Vector3(k[0] - b[0], 0, k[2] - b[2]).normalize();
+  backLegs.push({ yaw, lift, knee: kneeJoint, axis: new THREE.Vector3().crossVectors(dir, new THREE.Vector3(0, 1, 0)), s, phase, planted });
+}
+/* ---------- quill wings, where the crab legs were ---------- */
+const wings = [];
+for (const s of [-1, 1]) {
+  const wing = new THREE.Group(); wing.position.set(s * .5, 4.75, -.8); upper.add(wing);
+  [3.4, 3.7, 3.55, 3.15, 2.7, 2.2, 1.7].forEach((L, i) => {
+    const f = new THREE.Group(); f.rotation.set(-.35, s * -.2, s * -(.28 + i * .21)); wing.add(f);
+    add(f, shapeGeo(leaf(L, .36).map(([x, y]) => [s * x, y]), .1, .02), i % 2 ? M.letter : M.bright);
+    add(f, shapeGeo(leaf(L * .72, .15).map(([x, y]) => [s * x, y]), .14), i % 2 ? M.orange : M.hot, [0, L * .12, 0]);
+    seg(f, [0, .1, 0], [0, L * .8, 0], .045, .02, M.gold, 4);
+  });
+  wings.push({ wing, s });
+}
+
+/* ---------- the halo: Claude's spark, huge, behind the head ---------- */
+const halo = new THREE.Group(); halo.position.set(0, 6.55, -1.7); upper.add(halo);
+const haloSpark = sparkMesh(halo, 2.1, .08, M.hot, [0, 0, 0]);
+sparkMesh(halo, 1.25, .1, M.bright, [0, 0, .06]);
+add(halo, new THREE.CylinderGeometry(.34, .34, .14, 12), M.ember, [0, 0, .12], [Math.PI / 2, 0, 0]);
+add(halo, new THREE.TorusGeometry(2.45, .05, 4, 48), M.gold, [0, 0, 0], [0, 0, 0]);
+
+/* ---------- blade aura ---------- */
+const auraTime = { value: 0 }, auraPower = { value: 1 }, auraSize = { value: 1 };
+const AURA_SPARKS = 60, auraPos = new Float32Array(AURA_SPARKS * 3), auraRise = new Float32Array(AURA_SPARKS);
+let auraGeo, auraLight;
+const auraFlame = new THREE.ShaderMaterial({
+  side: THREE.DoubleSide,
+  transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
+  uniforms: { time: auraTime, power: auraPower, size: auraSize },
+  // a quad that spins about the blade to face the camera, nudged forward so it clears the banner
+  vertexShader: `uniform float size; varying vec2 vP;
+    void main(){
+      vec4 c = modelViewMatrix * vec4(0., 0., 0., 1.);
+      vec3 axis = normalize((modelViewMatrix * vec4(0., 1., 0., 0.)).xyz);
+      vec3 view = normalize(-c.xyz);
+      vec3 side = normalize(cross(axis, view));
+      vP = position.xy;
+      gl_Position = projectionMatrix * vec4(c.xyz + (side * position.x + axis * position.y) * size + view * .4, 1.);
+    }`,
+  // distance to a wavering capsule gives a soft, rounded flame with no polygon edges
+  fragmentShader: `uniform float time, power; varying vec2 vP;
+    void main(){
+      float up = smoothstep(-1.5, 2.2, vP.y);
+      float sway = (sin(vP.y * 2.1 - time * 3.4) + .5 * sin(vP.y * 4.7 - time * 5.9 + 1.3)) * .1 * (.25 + up);
+      float top = 1.35 + .28 * sin(time * 4.1) + .16 * sin(time * 7.3 + 1.);
+      float d = length(vec2(vP.x + sway, vP.y - clamp(vP.y, -1.3, top)));
+      float r = mix(1.25, .55, up) * (1. + .14 * sin(vP.y * 5.3 - time * 6.2) + .08 * sin(vP.y * 11. - time * 9.5 + vP.x * 4.));
+      float g = clamp(1. - d / r, 0., 1.);
+      g *= smoothstep(-2.3, -1.1, vP.y);
+      vec3 col = mix(vec3(.85, .14, .05), vec3(1., .5, .12), smoothstep(.1, .6, g));
+      col = mix(col, vec3(1., .86, .5), smoothstep(.62, 1., g));
+      gl_FragColor = vec4(col * g * power * .9, 1.);
+    }`,
+});
+const softDot = (() => {
+  const c = document.createElement('canvas'); c.width = c.height = 32;
+  const x = c.getContext('2d'), g = x.createRadialGradient(16, 16, 0, 16, 16, 16);
+  g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(.45, 'rgba(255,255,255,.55)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+  x.fillStyle = g; x.fillRect(0, 0, 32, 32);
+  return new THREE.CanvasTexture(c);
+})();
+function addBladeAura(blade) {
+  const flame = new THREE.Mesh(new THREE.PlaneGeometry(3.6, 5.4), auraFlame);
+  flame.position.y = 1.4; flame.frustumCulled = false; blade.add(flame); // the shader moves it, so its bounds are meaningless
+  for (let i = 0; i < AURA_SPARKS; i++) {
+    auraPos.set([(rnd() - .5) * .9, rnd() * 3.1, (rnd() - .5) * .3], i * 3);
+    auraRise[i] = .9 + rnd() * 1.5;
+  }
+  auraGeo = new THREE.BufferGeometry();
+  auraGeo.setAttribute('position', new THREE.BufferAttribute(auraPos, 3));
+  blade.add(new THREE.Points(auraGeo, new THREE.PointsMaterial({ color: 0xffb347, size: .2, map: softDot, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false })));
+  auraLight = new THREE.PointLight(0xff7a22, 9, 9, 1.4);
+  auraLight.position.set(0, 1.4, .5); blade.add(auraLight);
+}
+function driftAura(dt, time) {
+  for (let i = 0; i < AURA_SPARKS; i++) {
+    let y = auraPos[i * 3 + 1] + auraRise[i] * dt;
+    auraPos[i * 3] += Math.sin(time * 3 + i) * dt * .28;
+    if (y > 3.15) { y = rnd() * .4; auraPos[i * 3] = (rnd() - .5) * .9; }
+    auraPos[i * 3 + 1] = y;
+  }
+  auraGeo.attributes.position.needsUpdate = true;
+}
+
+/* ---------- sword arm (viewer's left) ---------- */
+let bannerGeo, bannerRest, swordHand, swordBlade, swordForearm;
+const GRIP = {}, NO_TURN = new THREE.Quaternion(), turnBy = new THREE.Quaternion();
+const swordPivot = [-1.4, 4.72, .05];
+const swordArm = new THREE.Group(); swordArm.position.set(...swordPivot); upper.add(swordArm);
+{
+  const R = p => rel(p, swordPivot);
+  const elbow = [-2.45, 4.58, .42], mid = [-2.5, 5.05, .5], wrist = [-2.42, 5.5, .56], fist = [-2.36, 5.86, .6];
+  const E = p => rel(p, elbow);
+  seg(swordArm, R(swordPivot), R(elbow), .24, .28, M.orange, 7);
+  swordForearm = new THREE.Group(); swordForearm.position.set(...R(elbow)); swordArm.add(swordForearm);
+  add(swordForearm, new THREE.IcosahedronGeometry(.32, 0), M.steel);
+  seg(swordForearm, [0, 0, 0], E(mid), .3, .37, M.orange, 7);
+  seg(swordForearm, E(mid), E(wrist), .37, .28, M.bright, 7);
+  spike(swordForearm, E([-2.78, 4.72, .46]), E([-3.02, 4.7, .46]), .1);
+  spike(swordForearm, E([-2.82, 5.15, .5]), E([-3.04, 5.19, .5]), .08);
+
+  // The arm is authored raised, which is where the attacks start from. These rotations lower it into a resting grip.
+  const V = (...v) => new THREE.Vector3(...v).normalize();
+  const turn = (from, to) => new THREE.Quaternion().setFromUnitVectors(from, to);
+  const forearmRaised = V(...E(fist));
+  GRIP.shoulder = turn(V(...R(elbow)), V(-.28, -.95, -.05)); // upper arm hanging beside the body
+  const swung = forearmRaised.clone().applyQuaternion(GRIP.shoulder);
+  GRIP.elbow = GRIP.shoulder.clone().invert().multiply(turn(swung, V(-.1, .18, .98))).multiply(GRIP.shoulder); // forearm level, fist at the waist
+  const bladeUp = V(-.12, .82, .56), banner = V(-.7, 0, -.7); // edge leading; the banner flies outward where it can be read
+  banner.addScaledVector(bladeUp, -banner.dot(bladeUp)).normalize();
+  const gripBasis = new THREE.Matrix4().makeBasis(banner, bladeUp, banner.clone().cross(bladeUp));
+  GRIP.hand = GRIP.shoulder.clone().multiply(GRIP.elbow).invert().multiply(new THREE.Quaternion().setFromRotationMatrix(gripBasis));
+
+  const hand = new THREE.Group(); hand.position.set(...E(fist)); hand.rotation.z = -.888; swordForearm.add(hand); swordHand = hand;
+  add(hand, new THREE.IcosahedronGeometry(.36, 1), M.orange);
+  for (const y of [-.14, .12]) {
+    const f = add(hand, new THREE.TorusGeometry(.3, .12, 5, 9), M.bright, [0, y, 0]);
+    f.rotation.x = Math.PI / 2;
+  }
+
+  seg(hand, [0, -.92, 0], [0, .76, 0], .1, .1, M.steel, 6);
+  box(hand, [0, -.96, 0], [.26, .18, .26], M.steelLite);
+  box(hand, [0, .73, 0], [1.3, .2, .26], M.gold);
+  for (const s of [-1, 1]) box(hand, [s * .7, .73, 0], [.14, .32, .3], M.steelLite);
+
+  const blade = new THREE.Group(); blade.position.y = .78; hand.add(blade); swordBlade = blade;
+  add(blade, shapeGeo([[-.25, 0], [.25, 0], [.25, 2.56], [.02, 2.82], [-.25, 2.7]], .15), M.dark);
+  add(blade, shapeGeo([[-.13, .04], [.13, .04], [.13, 2.5], [.01, 2.66], [-.13, 2.58]], .18), M.ember, [0, 0, 0], [0, 0, 0], false);
+  for (let i = 0; i < 4; i++) spike(blade, [-.25, .38 + i * .54, 0], [-.46, .64 + i * .54, 0], .07, M.dark); // serrated cutting edge
+  addBladeAura(blade);
+
+  makeBanner(hand);
+}
+
+/* ---------- banner ---------- */
+function bannerTexture(mirror) {
+  const W = 300, H = 150, c = document.createElement('canvas'); c.width = W; c.height = H;
+  const x = c.getContext('2d');
+  // the ragged silhouette is identical on both faces; only the lettering flips
+  const r = (a => () => (a = (a * 16807) % 2147483647) / 2147483647)(311);
+  x.fillStyle = '#4c1015'; x.beginPath(); x.moveTo(0, 6); x.lineTo(238, 10);
+  [[258, 2], [247, 28], [296, 22], [262, 52], [299, 74], [256, 84], [284, 118], [236, 108], [226, 142], [190, 122], [158, 148], [122, 126], [84, 146], [50, 128], [0, 142]].forEach(p => x.lineTo(...p));
+  x.closePath(); x.fill();
+  x.globalCompositeOperation = 'source-atop';
+  for (let i = 0; i < 70; i++) { x.fillStyle = r() < .5 ? '#430d13' : '#561418'; x.fillRect(r() * W | 0, r() * H | 0, 6 + r() * 26 | 0, 2 + r() * 3 | 0); }
+  x.fillStyle = '#ff6a2a'; x.textAlign = 'center'; x.textBaseline = 'middle';
+  x.save();
+  if (mirror) { x.translate(W, 0); x.scale(-1, 1); }
+  const cx = mirror ? W - 124 : 124;
+  x.font = '900 31px "Arial Narrow",Impact,sans-serif'; x.fillText("YOU'RE", cx, 34);
+  x.font = '900 34px "Arial Narrow",Impact,sans-serif'; x.fillText('ABSOLUTELY', cx, 72);
+  x.font = '900 31px "Arial Narrow",Impact,sans-serif'; x.fillText('RIGHT', cx, 109);
+  x.restore();
+  const t = new THREE.CanvasTexture(c);
+  t.magFilter = t.minFilter = THREE.NearestFilter; t.generateMipmaps = false;
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+function makeBanner(hand) {
+  const w = 2.15, h = 1.08;
+  bannerGeo = new THREE.PlaneGeometry(w, h, 24, 8);
+  bannerGeo.translate(w / 2, 0, 0);
+  bannerRest = bannerGeo.attributes.position.array.slice();
+  const pivot = new THREE.Group(); pivot.position.set(.2, 2.45, 0); pivot.rotation.z = .468; hand.add(pivot);
+  for (const [side, mirror] of [[THREE.FrontSide, false], [THREE.BackSide, true]]) {
+    const mat = new THREE.MeshBasicMaterial({ map: bannerTexture(mirror), side, alphaTest: .5, toneMapped: false });
+    const m = new THREE.Mesh(bannerGeo, mat); m.castShadow = side === THREE.FrontSide; pivot.add(m);
+  }
+}
+function waveBanner(t) {
+  const p = bannerGeo.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    const x = bannerRest[i * 3], y = bannerRest[i * 3 + 1];
+    p.setZ(i, Math.sin(x * 3.6 - t * 3.2 + y * 1.4) * x * .085);
+  }
+  p.needsUpdate = true;
+}
+
+/* ---------- pincer arm (viewer's right) ---------- */
+const clawPivot = [1.4, 4.72, .05];
+const clawArm = new THREE.Group(); clawArm.position.set(...clawPivot); upper.add(clawArm);
+let lowerJaw, bookRef;
+{
+  const R = p => rel(p, clawPivot);
+  const elbow = [2.05, 3.82, .28], wrist = [2.26, 3.2, .72];
+  seg(clawArm, R(clawPivot), R(elbow), .24, .28, M.orange, 7);
+  seg(clawArm, R(elbow), R(wrist), .3, .34, M.dark, 7);
+  spike(clawArm, R([2.34, 3.86, .4]), R([2.68, 4.06, .38]), .11);
+  spike(clawArm, R([2.14, 4.14, .3]), R([2.2, 4.5, .26]), .1);
+
+  // an armoured fist where the pincer was, holding Fable's open book above the palm
+  const claw = new THREE.Group(); claw.position.set(...R(wrist)); clawArm.add(claw);
+  add(claw, new THREE.BoxGeometry(.6, .5, .55), M.dark, [0, -.2, .05]);
+  add(claw, shapeGeo([[-.32, -.25], [.32, -.25], [.36, .15], [0, .3], [-.36, .15]], .18, .03), M.orange, [0, -.15, .3]);
+  sparkMesh(claw, .16, .04, M.letter, [0, -.12, .41], [0, 0, 0], false);
+  for (let i = 0; i < 4; i++) box(claw, [-.21 + i * .14, -.52, .2], [.11, .24, .14], i % 2 ? M.steel : M.bright);
+  for (const [x, z] of [[-.3, -.1], [.3, -.1], [0, -.25]]) spike(claw, [x, .02, z], [x * 1.4, .4, z - .15], .1, M.hot);
+  lowerJaw = new THREE.Group(); lowerJaw.position.set(-.34, -.3, .25); claw.add(lowerJaw);
+  add(lowerJaw, new THREE.BoxGeometry(.14, .3, .14), M.bright, [-.02, -.12, 0], [0, 0, .4]);
+  // the book: two covers, two pages of writing, gold corners
+  const book = new THREE.Group(); book.position.set(.05, .75, .35); book.rotation.set(-.55, 0, 0); claw.add(book);
+  bookRef = book;
+  for (const s of [-1, 1]) {
+    const cover = new THREE.Group(); cover.rotation.y = s * -.35; book.add(cover);
+    add(cover, new THREE.BoxGeometry(.7, .95, .06), M.orange, [s * .36, 0, 0]);
+    add(cover, new THREE.BoxGeometry(.64, .88, .05), M.letter, [s * .35, 0, .05], [0, 0, 0], false);
+    for (let i = 0; i < 6; i++) box(cover, [s * (.36 + (i % 2 ? .04 : -.06)), .3 - i * .11, .085], [.38 - (i % 3) * .08, .03, .01], M.black);
+    for (const y of [-.44, .44]) box(cover, [s * .66, y, .02], [.1, .1, .1], M.gold);
+  }
+  add(book, new THREE.CylinderGeometry(.06, .06, .95, 6), M.gold);
+  sparkMesh(book, .2, .03, M.hot, [0, .25, .4], [0, 0, 0], false);
+}
+
+/* ---------- glow ---------- */
+function faceGlow(parent, pos, size, color) {
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const x = c.getContext('2d'), g = x.createRadialGradient(32, 32, 0, 32, 32, 32);
+  g.addColorStop(0, 'rgba(255,255,255,.6)'); g.addColorStop(.5, 'rgba(255,255,255,.16)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+  x.fillStyle = g; x.fillRect(0, 0, 64, 64);
+  // a quad lying on the face, so the glow disappears when seen edge-on
+  const s = new THREE.Mesh(new THREE.PlaneGeometry(size, size), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), color, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+  s.position.set(...pos); parent.add(s);
+  return s;
+}
+const glows = [faceGlow(head, [-.52, 3.47, 1.09], .95, 0xff7a10), faceGlow(head, [.52, 3.47, 1.09], .95, 0xff7a10)];
+faceGlow(upper, [0, 4.42, .65], 1.5, 0xff6a10);
+
+/* ---------- blade trail: a ribbon through recent base and tip positions ---------- */
+const TRAIL_N = 64;
+const trailSamples = Array.from({ length: TRAIL_N }, () => ({ a: new THREE.Vector3(), b: new THREE.Vector3(), s: 0, t: -9 }));
+let trailHead = 0, trailNow = 0;
+const trailPos = new Float32Array(TRAIL_N * 6), trailFade = new Float32Array(TRAIL_N * 2), trailAcross = new Float32Array(TRAIL_N * 2);
+const trailIndex = [];
+for (let i = 0; i < TRAIL_N; i++) {
+  trailAcross[i * 2 + 1] = 1;
+  if (i < TRAIL_N - 1) { const j = i * 2; trailIndex.push(j, j + 1, j + 2, j + 1, j + 3, j + 2); }
+}
+const trailGeo = new THREE.BufferGeometry();
+trailGeo.setAttribute('position', new THREE.BufferAttribute(trailPos, 3));
+trailGeo.setAttribute('aFade', new THREE.BufferAttribute(trailFade, 1));
+trailGeo.setAttribute('aAcross', new THREE.BufferAttribute(trailAcross, 1));
+trailGeo.setIndex(trailIndex);
+const trailMesh = new THREE.Mesh(trailGeo, new THREE.ShaderMaterial({
+  side: THREE.DoubleSide, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
+  vertexShader: `attribute float aFade, aAcross; varying float vF, vA;
+    void main(){ vF = aFade; vA = aAcross; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }`,
+  fragmentShader: `varying float vF, vA;
+    void main(){
+      float edge = smoothstep(0., .35, vA) * (1. - smoothstep(.82, 1., vA));
+      vec3 col = mix(vec3(.95, .2, .06), vec3(1., .82, .45), vA * vF);
+      gl_FragColor = vec4(col * edge * vF * (.35 + .65 * vA), 1.);
+    }`,
+}));
+trailMesh.frustumCulled = false; scene.add(trailMesh);
+function pushTrail(time, strength) {
+  trailHead = (trailHead + 1) % TRAIL_N;
+  const k = trailSamples[trailHead];
+  swordBlade.localToWorld(k.a.set(0, .35, 0)); swordBlade.localToWorld(k.b.set(0, 3.05, 0));
+  k.s = strength; k.t = time;
+}
+function drawTrail(time) {
+  for (let i = 0; i < TRAIL_N; i++) {
+    const k = trailSamples[(trailHead - i + TRAIL_N) % TRAIL_N];
+    trailPos.set([k.a.x, k.a.y, k.a.z, k.b.x, k.b.y, k.b.z], i * 6);
+    const left = Math.max(0, 1 - (time - k.t) / .34);
+    trailFade[i * 2] = trailFade[i * 2 + 1] = k.s * left * left;
+  }
+  trailGeo.attributes.position.needsUpdate = true; trailGeo.attributes.aFade.needsUpdate = true;
+}
+
+/* ---------- skill effects ---------- */
+const P_N = 1800, pPos = new Float32Array(P_N * 3), pCol = new Float32Array(P_N * 3), pVel = new Float32Array(P_N * 3);
+const pLife = new Float32Array(P_N), pMax = new Float32Array(P_N), pGrav = new Float32Array(P_N);
+let pNext = 0, sparkDebt = 0, camShake = 0, flash = 0;
+const fxGeo = new THREE.BufferGeometry();
+fxGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+fxGeo.setAttribute('color', new THREE.BufferAttribute(pCol, 3));
+const fxPoints = new THREE.Points(fxGeo, new THREE.PointsMaterial({ size: .62, map: softDot, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+fxPoints.frustumCulled = false; scene.add(fxPoints);
+function emit(x, y, z, vx, vy, vz, life, grav) {
+  const i = pNext; pNext = (pNext + 1) % P_N;
+  pPos.set([x, y, z], i * 3); pVel.set([vx, vy, vz], i * 3);
+  pLife[i] = pMax[i] = life; pGrav[i] = grav;
+}
+function burst(q, count, speed) {
+  for (let i = 0; i < count; i++) {
+    const a = rnd() * Math.PI * 2, up = rnd(), v = speed * (.4 + rnd() * .8);
+    emit(q.x, Math.max(q.y, .1), q.z, Math.cos(a) * v, (.4 + up * 1.2) * speed * .6, Math.sin(a) * v, .45 + rnd() * .6, -11);
+  }
+}
+function chargeSparks(dt, c) { // sparks pulled in from around the blade
+  const mid = swordBlade.localToWorld(new THREE.Vector3(0, 1.6, 0));
+  sparkDebt += dt * (45 + c * 170);
+  while (sparkDebt >= 1) {
+    sparkDebt--;
+    const a = rnd() * Math.PI * 2, d = 2.5 + rnd() * 3, life = .38 + rnd() * .22;
+    const x = mid.x + Math.cos(a) * d, y = mid.y + (rnd() - .5) * 4, z = mid.z + Math.sin(a) * d;
+    emit(x, y, z, (mid.x - x) / life, (mid.y - y) / life, (mid.z - z) / life, life, 0);
+  }
+}
+
+const groundFade = `(1. - smoothstep(.86, 1., d))`;
+const ringVertex = `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }`;
+const rings = Array.from({ length: 14 }, () => {
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new THREE.ShaderMaterial({
+    transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
+    uniforms: { r: { value: 0 }, a: { value: 0 } },
+    vertexShader: ringVertex,
+    fragmentShader: `uniform float r, a; varying vec2 vUv;
+      void main(){
+        float d = length(vUv - .5) * 2., x = (d - r) / .075;
+        float g = (exp(-x * x) + .22 * (1. - smoothstep(0., r + .001, d))) * ${groundFade};
+        gl_FragColor = vec4(mix(vec3(1., .3, .07), vec3(1., .85, .5), exp(-x * x)) * g * a, 1.);
+      }`,
+  }));
+  mesh.visible = false; mesh.position.y = .05; mesh.renderOrder = 2; scene.add(mesh);
+  return { mesh, age: 0, life: .7, strength: 1 };
+});
+function shockwave(q, radius, strength) {
+  const s = rings.find(o => !o.mesh.visible) || rings[0];
+  s.mesh.position.x = q.x; s.mesh.position.z = q.z; s.mesh.scale.setScalar(radius * 2);
+  s.age = 0; s.strength = strength; s.mesh.visible = true;
+}
+
+const chargeRing = new THREE.Mesh(new THREE.PlaneGeometry(36, 36).rotateX(-Math.PI / 2), new THREE.ShaderMaterial({
+  transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
+  uniforms: { c: { value: 0 }, time: auraTime },
+  vertexShader: ringVertex,
+  fragmentShader: `uniform float c, time; varying vec2 vUv;
+    void main(){
+      float d = length(vUv - .5) * 2.;
+      float g = c * (.3 + .7 * (sin(d * 26. + time * 11.) * .5 + .5)) * smoothstep(.06, .3, d) * (1. - smoothstep(.45, 1., d));
+      gl_FragColor = vec4(mix(vec3(.9, .18, .05), vec3(1., .72, .28), c) * g * .8, 1.);
+    }`,
+}));
+chargeRing.position.y = .04; chargeRing.renderOrder = 2; chargeRing.visible = false; scene.add(chargeRing);
+
+const waveShape = new THREE.TorusGeometry(2.6, .34, 12, 56, 2.2).rotateZ(-1.1).rotateY(-Math.PI / 2).translate(0, 0, -2.6); // apex at the origin, bulging forward
+const waves = Array.from({ length: 3 }, () => {
+  const mesh = new THREE.Mesh(waveShape, new THREE.ShaderMaterial({
+    transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
+    uniforms: { a: { value: 0 } },
+    vertexShader: `varying vec3 vN, vV; varying vec2 vUv;
+      void main(){ vUv = uv; vec4 p = modelViewMatrix * vec4(position, 1.); vN = normalize(normalMatrix * normal); vV = normalize(-p.xyz); gl_Position = projectionMatrix * p; }`,
+    fragmentShader: `uniform float a; varying vec3 vN, vV; varying vec2 vUv;
+      void main(){
+        float f = pow(max(dot(normalize(vN), normalize(vV)), 0.), 1.4) * pow(sin(vUv.x * 3.14159), .8);
+        gl_FragColor = vec4(mix(vec3(1., .32, .08), vec3(1., .85, .5), f) * f * a * 1.4, 1.);
+      }`,
+  }));
+  mesh.visible = false; mesh.rotation.z = .6; mesh.frustumCulled = false; scene.add(mesh);
+  return { mesh, age: 0, life: .72, size: 1 };
+});
+function launchWave(size) {
+  const w = waves.find(o => !o.mesh.visible) || waves[0];
+  w.age = 0; w.size = size * 2.7; w.mesh.visible = true; w.mesh.position.set(-1.6, 9.5, 6);
+}
+
+function updateFx(dt) {
+  for (let i = 0; i < P_N; i++) {
+    if (pLife[i] <= 0) continue;
+    pLife[i] -= dt;
+    const n = i * 3, k = Math.max(0, pLife[i] / pMax[i]);
+    pVel[n + 1] += pGrav[i] * dt;
+    pPos[n] += pVel[n] * dt; pPos[n + 1] += pVel[n + 1] * dt; pPos[n + 2] += pVel[n + 2] * dt;
+    pCol[n] = k; pCol[n + 1] = k * (.35 + .5 * k); pCol[n + 2] = k * .14;
+  }
+  fxGeo.attributes.position.needsUpdate = true; fxGeo.attributes.color.needsUpdate = true;
+  for (const s of rings) {
+    if (!s.mesh.visible) continue;
+    s.age += dt;
+    const a = s.age / s.life;
+    if (a >= 1) { s.mesh.visible = false; continue; }
+    s.mesh.material.uniforms.r.value = (1 - (1 - a) * (1 - a)) * .9;
+    s.mesh.material.uniforms.a.value = (1 - a) * s.strength;
+  }
+  for (const w of waves) {
+    if (!w.mesh.visible) continue;
+    w.age += dt;
+    const a = w.age / w.life;
+    if (a >= 1) { w.mesh.visible = false; continue; }
+    w.mesh.position.z += 62 * dt;
+    w.mesh.scale.setScalar(w.size * (1 + a * .6));
+    w.mesh.material.uniforms.a.value = 1 - a * a;
+  }
+  flash *= Math.exp(-dt * 7);
+}
+
+const EMBERS = 170, emberPos = new Float32Array(EMBERS * 3), emberRise = new Float32Array(EMBERS);
+for (let i = 0; i < EMBERS; i++) {
+  const a = rnd() * Math.PI * 2, d = 2.5 + rnd() * 11;
+  emberPos.set([Math.cos(a) * d, rnd() * 10, Math.sin(a) * d], i * 3);
+  emberRise[i] = .35 + rnd() * .9;
+}
+const emberGeo = new THREE.BufferGeometry();
+emberGeo.setAttribute('position', new THREE.BufferAttribute(emberPos, 3));
+scene.add(new THREE.Points(emberGeo, new THREE.PointsMaterial({ color: 0xff8a3a, size: .09, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false })));
+function driftEmbers(dt, time) {
+  for (let i = 0; i < EMBERS; i++) {
+    emberPos[i * 3 + 1] = (emberPos[i * 3 + 1] + emberRise[i] * dt) % 10;
+    emberPos[i * 3] += Math.sin(time + i) * dt * .12;
+  }
+  emberGeo.attributes.position.needsUpdate = true;
+}
+
+/* ---------- the cosmic guardian ---------- */
+const CLAWD_SCALE = 2.5;
+root.scale.setScalar(CLAWD_SCALE);
+const guardianPower = { value: 1 };
+// the five fighters whose power this body can call on: Cosmic, ChatGPT, Grok, Overlord and Clawd
+const POWERS = [0x7a6cff, 0x3dffc8, 0xc45cff, 0xff2a40, 0xffb347];
+const billboard = (parent, pos, size, color, opacity = 1) => {
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: softDot, color, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, toneMapped: false, opacity }));
+  s.position.set(...pos); s.scale.setScalar(size); parent.add(s); return s;
+};
+
+// crown of the guardian, resting above the helmet
+add(neck, new THREE.TorusGeometry(.72, .05, 6, 28), M.gold, [0, 1.42, 0], [Math.PI / 2, 0, 0]);
+for (let i = 0; i < 10; i++) {
+  const a = i / 10 * Math.PI * 2, tall = i % 2 ? .4 : .78;
+  seg(neck, [Math.cos(a) * .72, 1.42, Math.sin(a) * .72], [Math.cos(a) * .9, 1.42 + tall, Math.sin(a) * .9], .07, .008, M.gold, 5);
+}
+add(neck, new THREE.IcosahedronGeometry(.3, 0), flat(0xfff0c0), [0, 2.5, 0], [0, 0, 0], false);
+billboard(neck, [0, 2.5, 0], 3.6, 0xffc060, .95);
+
+// tips of the back legs glow with the powers they carry
+const LEG_TIPS = [[3.42, 4.3, -.4, 0], [3.82, 1.45, -1.08, 1], [3.04, .48, -2.58, 3]];
+for (const s of [-1, 1]) for (const [x, y, z, power] of LEG_TIPS) billboard(upper, [s * x, y, z], 1.5, POWERS[power], .9);
+
+// a wheel of the five powers behind the body
+const powerWheel = new THREE.Mesh(new THREE.PlaneGeometry(9.4, 9.4), new THREE.ShaderMaterial({
+  transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, uniforms: { time: godTime, power: guardianPower },
+  vertexShader: `varying vec2 vP; void main(){ vP = position.xy / 4.7; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }`,
+  fragmentShader: `uniform float time, power; varying vec2 vP;
+    float line(float v, float w){ return smoothstep(w, 0., abs(v)); }
+    void main(){
+      vec2 q = floor(vP * 150.) / 150.;
+      float d = length(q), a = atan(q.y, q.x), t = time;
+      float k = fract((a + t * .16) / 6.2832) * 5., sector = floor(k);
+      vec3 c0 = vec3(.48, .42, 1.), c1 = vec3(.24, 1., .78), c2 = vec3(.77, .36, 1.), c3 = vec3(1., .16, .25), c4 = vec3(1., .7, .28);
+      vec3 hue = sector < 1. ? c0 : sector < 2. ? c1 : sector < 3. ? c2 : sector < 4. ? c3 : c4;
+      float band = smoothstep(.62, .66, d) * smoothstep(.9, .86, d) * smoothstep(.0, .05, fract(k)) * smoothstep(1., .95, fract(k));
+      float rings = line(d - .94, .012) + line(d - .58, .01) + line(d - .36, .012);
+      float spokes = line(fract((a - t * .22) / 6.2832 * 20.) - .5, .05) * step(.36, d) * step(d, .58);
+      vec3 col = hue * band * .95 + vec3(1., .82, .45) * (rings + spokes * .7);
+      gl_FragColor = vec4(col * step(d, 1.) * power, 1.);
+    }`,
+}));
+powerWheel.position.set(0, 4.5, -3.3); powerWheel.frustumCulled = false; upper.add(powerWheel);
+
+// the five power cores in orbit
+const coreOrbit = new THREE.Group(); coreOrbit.position.y = 4.8; coreOrbit.rotation.set(.22, 0, .12); root.add(coreOrbit);
+const coreShapes = [
+  new THREE.ExtrudeGeometry(new THREE.Shape([[.46, 0], [.1, .1], [0, .56], [-.1, .1], [-.46, 0], [-.1, -.1], [0, -.56], [.1, -.1]].map(p => new THREE.Vector2(...p))), { depth: .12, bevelEnabled: false }).translate(0, 0, -.06),
+  new THREE.TorusKnotGeometry(.27, .085, 64, 10, 2, 3),
+  new THREE.SphereGeometry(.38, 20, 14),
+  new THREE.OctahedronGeometry(.48, 0),
+  new THREE.IcosahedronGeometry(.42, 0),
+];
+const coreMats = [flat(0xb8b0ff), flat(0x9dffe6), flat(0x050109), toon(0xc2132a), flat(0xffe08a)];
+const cores = POWERS.map((color, i) => {
+  const a = i / 5 * Math.PI * 2, g = new THREE.Group(); g.position.set(Math.cos(a) * 4.5, 0, Math.sin(a) * 4.5); coreOrbit.add(g);
+  const mesh = add(g, coreShapes[i], coreMats[i], [0, 0, 0], [0, 0, 0], i === 3);
+  return { g, mesh, glow: billboard(g, [0, 0, 0], i === 2 ? 3.2 : 2.6, color, .95), seed: i * 1.3 };
+});
+
+// the guardian's aura, kept behind the body
+const auraSheet = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({
+  transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, uniforms: { time: godTime, power: guardianPower },
+  vertexShader: `varying vec2 vP; void main(){ vP = position.xy; vec4 c = modelViewMatrix * vec4(0., 0., 0., 1.); c.xyz += vec3(position.xy * vec2(17., 19.), -8.); gl_Position = projectionMatrix * c; }`,
+  fragmentShader: `uniform float time, power; varying vec2 vP;
+    float h(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+    float n(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f); return mix(mix(h(i), h(i + vec2(1, 0)), f.x), mix(h(i + vec2(0, 1)), h(i + vec2(1, 1)), f.x), f.y); }
+    float fbm(vec2 p){ float a = .5, s = 0.; for (int i = 0; i < 4; i++) { s += a * n(p); p = p * 2.03 + 11.; a *= .5; } return s; }
+    void main(){
+      vec2 p = floor(vP * 170.) / 170.;
+      float t = time, body = 1. - length(p / vec2(.68, .9));
+      float flames = fbm(vec2(p.x * 4., p.y * 2.6 - t * 1.5));
+      float edge = smoothstep(-.14, .4, body + (flames - .5) * .66) * smoothstep(1., .84, abs(p.y));
+      float cycle = fract(atan(p.y, p.x) / 6.2832 + t * .05) * 5.;
+      vec3 a = cycle < 1. ? vec3(.5, .42, 1.) : cycle < 2. ? vec3(.2, 1., .75) : cycle < 3. ? vec3(.8, .3, 1.) : cycle < 4. ? vec3(1., .16, .25) : vec3(1., .6, .15);
+      vec3 col = mix(a * .85, vec3(1., .78, .4), edge * edge) * edge;
+      gl_FragColor = vec4(col * (.5 + pow(fbm(vec2(p.x * 16., p.y - t * 3.)), 2.) * 2.2) * power, 1.);
+    }`,
+}));
+auraSheet.position.y = 3.9; auraSheet.frustumCulled = false; root.add(auraSheet);
+
+/* ---------- borrowed powers ---------- */
+const flameSheet = (pos, dir, { len, rad, color, power }) => {
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(rad * 3.4, len + rad * 3.4).translate(0, len / 2, 0), new THREE.ShaderMaterial({
+    side: THREE.DoubleSide, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
+    uniforms: { time: godTime, power, len: { value: len }, rad: { value: rad }, color: { value: new THREE.Color(color) } },
+    vertexShader: `varying vec2 vP;
+      void main(){
+        vec4 c = modelViewMatrix * vec4(0., 0., 0., 1.);
+        vec3 axis = normalize((modelViewMatrix * vec4(0., 1., 0., 0.)).xyz), view = normalize(-c.xyz), side = normalize(cross(axis, view));
+        vP = position.xy;
+        gl_Position = projectionMatrix * vec4(c.xyz + side * position.x + axis * position.y + view * .25, 1.);
+      }`,
+    fragmentShader: `uniform float time, power, len, rad; uniform vec3 color; varying vec2 vP;
+      void main(){
+        float up = clamp(vP.y / max(len, .001), 0., 1.), wob = sin(vP.y * 6. - time * 13.) * .05;
+        float d = length(vec2(vP.x + wob * up * rad, vP.y - clamp(vP.y, 0., len)));
+        float g = clamp(1. - d / (rad * mix(1., .55, up)), 0., 1.);
+        gl_FragColor = vec4(mix(color, vec3(1.), smoothstep(.5, 1., g)) * g * g * power, 1.);
+      }`,
+  }));
+  mesh.position.set(...pos);
+  mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(...dir).normalize());
+  mesh.frustumCulled = false; scene.add(mesh);
+  return mesh;
+};
+
+// sky that turns with whichever power is in use
+const skyMat = new THREE.ShaderMaterial({
+  side: THREE.BackSide, transparent: true, depthWrite: false, uniforms: { a: { value: 0 }, tint: { value: new THREE.Color() }, time: godTime },
+  vertexShader: `varying vec3 vD; void main(){ vD = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }`,
+  fragmentShader: `uniform float a, time; uniform vec3 tint; varying vec3 vD;
+    float h(vec3 p){ return fract(sin(dot(p, vec3(12.9, 78.2, 37.7))) * 43758.5); }
+    void main(){
+      vec3 d = normalize(vD), cell = floor(d * 120.);
+      float star = step(.96, h(cell)) * (.5 + .5 * sin(time * 3. + h(cell + 1.) * 40.));
+      float n = sin(d.x * 4. + time * .2) * sin(d.y * 5.) * sin(d.z * 3. + 1.);
+      gl_FragColor = vec4(vec3(.02, .01, .05) + tint * smoothstep(-.2, .8, n) * .55 + vec3(star), a);
+    }`,
+});
+const skyDome = new THREE.Mesh(new THREE.SphereGeometry(420, 30, 20), skyMat);
+skyDome.visible = false; skyDome.renderOrder = -2; skyDome.frustumCulled = false; scene.add(skyDome);
+
+const galaxyDisc = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.ShaderMaterial({
+  transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, uniforms: { time: godTime, a: { value: 0 } },
+  vertexShader: `varying vec2 vP; void main(){ vP = position.xy * 2.; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }`,
+  fragmentShader: `uniform float time, a; varying vec2 vP;
+    float h(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+    void main(){
+      float r = length(vP), an = atan(vP.y, vP.x), swirl = an * 2. - log(r + .02) * 7. + time * .6, arms = pow(.5 + .5 * sin(swirl), 2.6);
+      vec2 c = floor(vec2(swirl * 22., log(r + .02) * 40.));
+      float star = step(.86, h(c)), fall = smoothstep(1., .12, r);
+      float clear = smoothstep(.02, .22, r); // the middle stays dark enough to read the figure above it
+      vec3 col = mix(vec3(.3, .4, 1.), vec3(1., .5, .2), smoothstep(.1, .9, r)) * arms * fall * clear + vec3(1., .95, .85) * star * arms * fall * clear * 1.7 + vec3(1., .88, .6) * exp(-r * r * 200.) * .8;
+      gl_FragColor = vec4(col * a, 1.);
+    }`,
+}));
+galaxyDisc.visible = false; galaxyDisc.position.set(0, 2, -6); galaxyDisc.rotation.x = -1.14; galaxyDisc.renderOrder = 1; galaxyDisc.frustumCulled = false; scene.add(galaxyDisc); // it lies under him, so it must draw after the floor
+
+const beamPower = { value: 0 };
+flameSheet([0, 11, 6], [0, .02, 1], { len: 340, rad: 8, color: POWERS[1], power: beamPower });
+
+// the destruction sphere
+const hakaiPower = { value: 0 };
+const hakai = new THREE.Group(); hakai.position.set(0, 27, 12); hakai.visible = false; scene.add(hakai);
+hakai.add(new THREE.Mesh(new THREE.SphereGeometry(1, 30, 22), new THREE.MeshBasicMaterial({ color: 0x050109, toneMapped: false })));
+const hakaiGlow = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.ShaderMaterial({
+  transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, uniforms: { time: godTime, power: hakaiPower },
+  vertexShader: `varying vec2 vP; void main(){ vP = position.xy * 2.; vec4 c = modelViewMatrix * vec4(0., 0., 0., 1.); float s = length((modelMatrix * vec4(1., 0., 0., 0.)).xyz); gl_Position = projectionMatrix * (c + vec4(position.xy * s * 4.8, .1, 0.)); }`,
+  fragmentShader: `uniform float time, power; varying vec2 vP;
+    void main(){
+      float d = length(vP), a = atan(vP.y, vP.x), rays = .6 + .4 * sin(a * 9. + time * 3.) * sin(a * 5. - time * 2.);
+      float ring = exp(-pow((d - .42) / .03, 2.)), halo = smoothstep(.4, .44, d) * pow(max(1. - (d - .42) / .58, 0.), 2.4) * rays;
+      gl_FragColor = vec4((vec3(.55, .12, 1.) * halo * 1.4 + vec3(1., .8, 1.) * ring * 1.6) * power, 1.);
+    }`,
+}));
+hakaiGlow.frustumCulled = false; hakai.add(hakaiGlow);
+
+// crimson crystal spikes bursting out of the ground
+const spikeRing = Array.from({ length: 36 }, (_, i) => {
+  const a = i / 36 * Math.PI * 2 + (i % 2) * .08, r = 15 + (i * 37 % 19), tall = 16 + (i * 53 % 22);
+  const m = new THREE.Mesh(outlinedCone(), M.spike ||= toon(0xc2132a));
+  m.position.set(Math.cos(a) * r, 0, Math.sin(a) * r); m.rotation.set(Math.sin(a) * .34, 0, -Math.cos(a) * .34);
+  m.visible = false; m.castShadow = true; m.userData.tall = tall; m.userData.delay = (i * 17 % 30) / 100; scene.add(m);
+  return m;
+});
+function outlinedCone() { return new THREE.ConeGeometry(2.1, 1, 5, 1).translate(0, .5, 0); }
+
+// the last power: white annihilation spreading across everything
+const eraseMat = new THREE.ShaderMaterial({
+  transparent: true, depthTest: false, depthWrite: false, uniforms: { p: { value: 0 }, white: { value: 0 }, aspect: { value: 1 } },
+  vertexShader: `varying vec2 vP; void main(){ vP = position.xy; gl_Position = vec4(position.xy, 0., 1.); }`,
+  fragmentShader: `uniform float p, white, aspect; varying vec2 vP;
+    float h(vec2 v){ return fract(sin(dot(v, vec2(127.1, 311.7))) * 43758.5453); }
+    void main(){
+      vec2 uv = vP * vec2(aspect, 1.) * 3.1, g = floor(uv), f = fract(uv);
+      float cover = 0., edge = 0.;
+      for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) {
+        vec2 o = vec2(float(x), float(y)), c = g + o;
+        float delay = h(c) * .8, r = min(1.15, max(0., p - delay) * 2.4), d = length(o + vec2(h(c + 5.), h(c + 9.)) - f) - r;
+        cover = max(cover, step(d, 0.) * step(.001, r)); edge = max(edge, smoothstep(.09, 0., abs(d)) * step(.001, r));
+      }
+      vec3 col = mix(vec3(1., .86, .5) * 1.5, vec3(1.), cover);
+      gl_FragColor = vec4(mix(col, vec3(1.), white), max(max(cover, edge), white));
+    }`,
+});
+const eraseSheet = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), eraseMat);
+eraseSheet.frustumCulled = false; eraseSheet.renderOrder = 1000; eraseSheet.visible = false; scene.add(eraseSheet);
+
+// bolts of borrowed power
+const boltStar = (() => {
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const x = c.getContext('2d'), g = x.createRadialGradient(32, 32, 0, 32, 32, 32);
+  g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(.4, 'rgba(255,255,255,.45)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+  x.fillStyle = g; x.fillRect(0, 0, 64, 64);
+  x.fillStyle = '#fff'; x.beginPath();
+  [[32, 1], [36, 28], [63, 32], [36, 36], [32, 63], [28, 36], [1, 32], [28, 28]].forEach(([a, b], i) => (i ? x.lineTo(a, b) : x.moveTo(a, b)));
+  x.closePath(); x.fill();
+  return new THREE.CanvasTexture(c);
+})();
+const boltPool = Array.from({ length: 160 }, () => {
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: boltStar, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, toneMapped: false }));
+  s.visible = false; scene.add(s);
+  return { s, v: new THREE.Vector3(), life: 0, max: 1, size: 1 };
+});
+function shootBolt(pos, vel, life, size, color) {
+  const o = boltPool.find(x => !x.s.visible) || boltPool[0];
+  o.s.position.copy(pos); o.v.copy(vel); o.life = o.max = life; o.size = size; o.s.material.color.set(color); o.s.visible = true;
+}
+function updateBolts(dt) {
+  for (const o of boltPool) {
+    if (!o.s.visible) continue;
+    o.life -= dt;
+    if (o.life <= 0) { o.s.visible = false; continue; }
+    o.s.position.addScaledVector(o.v, dt);
+    const k = o.life / o.max;
+    o.s.scale.setScalar(o.size * (.6 + .4 * k)); o.s.material.opacity = Math.min(1, k * 2.2);
+  }
+}
+
+/* ---------- ui ---------- */
+const VIEWS = { front: [0, 9.6, 66], side: [66, 9.6, 0], back: [0, 9.6, -66], iso: [36, 26, 54] };
+let goal = null;
+const setView = name => { goal = new THREE.Vector3(...VIEWS[name]); };
+camera.position.set(...VIEWS.iso);
+document.querySelectorAll('[data-view]').forEach(b => b.onclick = () => setView(b.dataset.view));
+controls.addEventListener('start', () => { goal = null; });
+
+let pixel = false, paused = false, mode = 'idle', act = null, actT = 0, walkW = 0;
+let charging = false, charge = 0, chargeW = 0, releasePower = 0;
+function applySize() {
+  camera.aspect = innerWidth / innerHeight;
+  // keep the whole sword in frame on tall, narrow screens
+  camera.fov = camera.aspect < 1 ? Math.min(60, 26 / camera.aspect) : 26;
+  camera.updateProjectionMatrix();
+  renderer.setPixelRatio(pixel ? 1 / PIXEL_SIZE : Math.min(devicePixelRatio, 2));
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.domElement.style.imageRendering = pixel ? 'pixelated' : 'auto';
+}
+applySize();
+addEventListener('resize', applySize);
+/* ---------- the star form: the whole body becomes a window onto the night sky ---------- */
+const starMats = new Map(); // original material -> its star version
+function starMaterial(tint) {
+  return new THREE.ShaderMaterial({
+    uniforms: { time: godTime, tint: { value: new THREE.Color(tint) } },
+    vertexShader: `varying vec3 vW, vN, vV;
+      void main(){ vec4 w = modelMatrix * vec4(position, 1.); vW = w.xyz; vN = normalize(mat3(modelMatrix) * normal); vV = cameraPosition - w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,
+    fragmentShader: `uniform float time; uniform vec3 tint; varying vec3 vW, vN, vV;
+      float hash(vec3 p){ return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }
+      float stars(vec3 p, float scale, float keep){
+        vec3 c = floor(p * scale), f = fract(p * scale) - .5;
+        float h = hash(c); if (h < keep) return 0.;
+        vec3 o = vec3(hash(c + 1.3), hash(c + 2.7), hash(c + 5.1)) - .5;
+        float d = length(f - o * .6), tw = .55 + .45 * sin(time * (1.5 + h * 5.) + h * 40.);
+        return (smoothstep(.13, 0., d) + smoothstep(.04, 0., abs(f.x - o.x * .6)) * smoothstep(.25, 0., abs(f.y - o.y * .6)) * .35) * tw * (.5 + (h - keep) / (1. - keep) * 3.);
+      }
+      void main(){
+        vec3 p = vW;
+        float n1 = .5 + .5 * sin(p.x * 1.1 + time * .15) * sin(p.y * .9 - time * .12 + p.z * .7);
+        float n2 = .5 + .5 * sin(p.x * 2.3 - p.z * 1.9 + time * .2) * sin(p.y * 2.7 + time * .1);
+        vec3 col = vec3(.03, .015, .08);
+        col += vec3(.45, .12, .62) * n1 * n1 + tint * .55 * n2 * n2 + vec3(.08, .22, .55) * (1. - n1) * n2 * .8;
+        float band = smoothstep(.6, 1., .5 + .5 * sin(p.y * 1.4 + p.x * .8 + time * .1)) * n2;
+        col += vec3(1., .78, .6) * band * .35; // a milky band across the body
+        float s = stars(p, 5., .78) + stars(p + 13.7, 11., .86) * .9 + stars(p + 41.3, 2.4, .9) * 2.2 + stars(p + 7.1, 22., .9) * .5;
+        col += mix(vec3(1., .92, .8), vec3(.75, .85, 1.), hash(floor(p * 7.))) * s;
+        float rim = pow(1. - abs(dot(normalize(vN), normalize(vV))), 2.4);
+        col += tint * rim * 1.5 + vec3(1.) * pow(rim, 7.) * .5;
+        gl_FragColor = vec4(col, 1.);
+      }`,
+  });
+}
+// starlight drifting up off the body
+const DRIFT = 260, driftPos = new Float32Array(DRIFT * 3), driftSeed = Float32Array.from({ length: DRIFT }, () => Math.random());
+const driftGeo = new THREE.BufferGeometry(); driftGeo.setAttribute('position', new THREE.BufferAttribute(driftPos, 3));
+const driftDot = (() => { const c = document.createElement('canvas'); c.width = c.height = 32; const x = c.getContext('2d'), g = x.createRadialGradient(16, 16, 0, 16, 16, 16); g.addColorStop(0, '#fff'); g.addColorStop(.3, 'rgba(255,240,220,.6)'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(0, 0, 32, 32); return new THREE.CanvasTexture(c); })();
+const drift = new THREE.Points(driftGeo, new THREE.PointsMaterial({ size: .3, map: driftDot, color: 0xffe6cc, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+drift.frustumCulled = false; drift.visible = false; scene.add(drift);
+let starForm = false, lastAuraTime = 0;
+function setStarForm(on) {
+  starForm = on;
+  root.traverse(o => {
+    if (!o.isMesh) return;
+    if (on) {
+      const m = o.material;
+      if (!m || !m.isMeshToonMaterial) return;
+      if (!starMats.has(m)) starMats.set(m, starMaterial(m.color.clone().lerp(new THREE.Color(0xffa070), .35)));
+      o.userData.dayMat = m; o.material = starMats.get(m);
+    } else if (o.userData.dayMat) { o.material = o.userData.dayMat; delete o.userData.dayMat; }
+  });
+}
+function driftStars(time) {
+  root.updateMatrixWorld();
+  for (let i = 0; i < DRIFT; i++) {
+    const s = driftSeed[i], k = (time * (.12 + s * .18) + s * 7) % 1, a = s * 91 + time * .3, r = (1.3 + s * 1.8 + k * 1.2) * root.scale.x;
+    driftPos.set([root.position.x + Math.cos(a) * r, root.position.y + k * 9 * root.scale.x, root.position.z + Math.sin(a) * r], i * 3);
+  }
+  driftGeo.attributes.position.needsUpdate = true;
+  drift.material.size = (.26 + .1 * Math.sin(time * 3)) * root.scale.x;
+}
+/* ---------- the body aura: a flame of light rising round the whole figure ---------- */
+const bodyAura = { power: { value: 1 }, star: { value: 0 } };
+const auraBodyMat = layer => new THREE.ShaderMaterial({
+  transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+  uniforms: { time: godTime, power: bodyAura.power, star: bodyAura.star, layer: { value: layer } },
+  vertexShader: `varying vec2 vUv; uniform float layer;
+    void main(){
+      vUv = uv;
+      vec4 c = modelViewMatrix * vec4(0., 0., 0., 1.);
+      float k = length(modelMatrix[0].xyz); // the figure is scaled up as a whole
+      c.xyz += vec3(position.x, position.y, layer > .5 ? .9 : -1.6) * k; // the back layer sits behind the body, the front one just ahead
+      gl_Position = projectionMatrix * c;
+    }`,
+  fragmentShader: `uniform float time, power, star, layer; varying vec2 vUv;
+    float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+    float noise(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f);
+      return mix(mix(hash(i), hash(i + vec2(1, 0)), f.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), f.x), f.y); }
+    float fbm(vec2 p){ float v = 0., a = .5; for (int i = 0; i < 4; i++) { v += a * noise(p); p *= 2.1; a *= .5; } return v; }
+    void main(){
+      vec2 p = vUv; float x = p.x - .5, y = p.y;
+      float rise = time * (1.1 + power * .5);
+      float n = fbm(vec2(x * 4., y * 3. - rise)), n2 = fbm(vec2(x * 9. + 3., y * 6. - rise * 1.7));
+      float width = mix(.46, .06, pow(y, 1.1)) * (.85 + power * .2) + (n - .5) * .24;
+      float body = smoothstep(width, width * .25, abs(x + (n2 - .5) * .12 * y));
+      float tongues = smoothstep(.45, .85, n2) * smoothstep(1., .2, y) * smoothstep(width * 1.4, 0., abs(x));
+      float a = (body * (.55 + .45 * n) + tongues * .6) * smoothstep(0., .08, y) * smoothstep(1., .55, y);
+      vec3 inner = mix(vec3(1., .86, .52), vec3(.86, .82, 1.), star);
+      vec3 outer = mix(vec3(1., .38, .12), vec3(.5, .22, 1.), star);
+      vec3 col = mix(outer, inner, smoothstep(.2, .9, body * n));
+      // in the star form the aura carries stars of its own
+      vec2 g = vec2(x * 40., y * 60. - rise * 4.); float h = hash(floor(g));
+      col += star * vec3(1.) * step(.93, h) * smoothstep(.35, 0., length(fract(g) - .5)) * 2.5 * body;
+      gl_FragColor = vec4(col * a * power * (layer > .5 ? .55 : 1.8), 1.);
+    }`,
+});
+const auraBack = new THREE.Mesh(new THREE.PlaneGeometry(9, 12.5, 1, 1).translate(0, 5.6, 0), auraBodyMat(0));
+const auraFront = new THREE.Mesh(new THREE.PlaneGeometry(9, 12.5, 1, 1).translate(0, 5.6, 0), auraBodyMat(1));
+for (const m of [auraBack, auraFront]) { m.frustumCulled = false; m.renderOrder = 5; root.add(m); m.userData.helper = true; }
+const auraFloor = new THREE.Mesh(new THREE.RingGeometry(1.2, 3.4, 64), new THREE.ShaderMaterial({
+  transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+  uniforms: { time: godTime, power: bodyAura.power, star: bodyAura.star },
+  vertexShader: `varying vec2 vP; void main(){ vP = position.xy; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }`,
+  fragmentShader: `uniform float time, power, star; varying vec2 vP;
+    void main(){ float r = length(vP), k = smoothstep(3.4, 1.6, r) * smoothstep(1.2, 1.7, r);
+      float wave = .6 + .4 * sin(r * 6. - time * 4.);
+      vec3 col = mix(vec3(1., .5, .2), vec3(.6, .35, 1.), star);
+      gl_FragColor = vec4(col * k * wave * power * .9, 1.); }`,
+}));
+auraFloor.rotation.x = -Math.PI / 2; auraFloor.position.y = .04; auraFloor.userData.helper = true; root.add(auraFloor);
+let auraStar = 0;
+function updateBodyAura(dt, power) {
+  auraStar += ((starForm ? 1 : 0) - auraStar) * (1 - Math.exp(-dt * 4));
+  bodyAura.star.value = auraStar;
+  bodyAura.power.value = power;
+  drift.visible = true;
+  drift.material.color.setRGB(1 - auraStar * .3, .85 - auraStar * .1, .65 + auraStar * .35);
+}
+document.getElementById('stars').onclick = e => { setStarForm(!starForm); e.target.classList.toggle('on', starForm); };
+document.getElementById('pause').onclick = e => { paused = !paused; e.target.classList.toggle('on', paused); };
+const modeButtons = document.querySelectorAll('[data-mode]'), actButtons = document.querySelectorAll('[data-act]');
+modeButtons.forEach(b => b.onclick = () => { mode = b.dataset.mode; modeButtons.forEach(o => o.classList.toggle('on', o === b)); });
+const showAct = () => actButtons.forEach(o => o.classList.toggle('on', o.dataset.act === act));
+actButtons.forEach(b => b.onclick = () => { if (act || charging) return; act = b.dataset.act; actT = 0; showAct(); }); // a move always finishes before the next
+
+const chargeButton = document.getElementById('charge'), meter = document.getElementById('meter'), meterFill = meter.firstElementChild;
+chargeButton.onpointerdown = () => { if (act || paused) return; charging = true; charge = 0; chargeButton.classList.add('on'); meter.hidden = false; };
+chargeButton.oncontextmenu = e => e.preventDefault(); // a long press on a phone must not open a menu
+function releaseCharge() {
+  if (!charging) return;
+  charging = false; chargeButton.classList.remove('on'); meter.hidden = true;
+  if (charge < .12) { charge = 0; return; } // a quick tap cancels
+  releasePower = charge; charge = 0; chargeW = 0; // the release's first frame matches the charge stance
+  act = 'release'; actT = 0; showAct();
+}
+for (const type of ['pointerup', 'pointercancel', 'blur']) addEventListener(type, releaseCharge);
+
+/* ---------- loop ---------- */
+const clock = new THREE.Clock();
+let t = 0;
+const WALK_RATE = 4.4, WALK_STRIDE = .62, WALK_SPEED = 2 * WALK_STRIDE * WALK_RATE / Math.PI; // floor speed matches the feet
+
+function track(p, keys) {
+  if (p <= keys[0][0]) return keys[0][1];
+  for (let i = 1; i < keys.length; i++) {
+    const [a, from] = keys[i - 1], [b, to] = keys[i];
+    if (p <= b) { const u = (p - a) / (b - a); return from + (to - from) * u * u * (3 - 2 * u); }
+  }
+  return keys[keys.length - 1][1];
+}
+
+/* Sword channels, in radians unless noted:
+   armX swings the shoulder forward and down, armY across the body, armZ out to the side.
+   wristX tips the blade forward and down. wristZ undoes the resting inward lean: without it
+   the blade points at the body's centre and can never aim at the ground.
+   edge turns the blade about its own length, so a swing leads with the cutting edge, not the flat.
+   leap and crouch are world units, trail and surge are strengths. */
+const STRAIGHT = .888, EDGE = Math.PI / 2, CHARGE_TIME = 1.8;
+const MOVES = {
+  slash: { dur: 1.05, fx: [[.44, 'hit']],
+    armX: [[0, 0], [.3, -.9], [.44, 1.3], [.64, 1.3], [1, 0]], wristX: [[0, 0], [.3, -.55], [.44, .97], [.64, .97], [1, 0]],
+    wristZ: [[0, 0], [.22, STRAIGHT], [.64, STRAIGHT], [1, 0]],
+    pitch: [[0, 0], [.3, -.1], [.44, .14], [.64, .12], [1, 0]], twist: [[0, 0], [.3, -.26], [.44, .18], [.64, .14], [1, 0]],
+    edge: [[0, 0], [.22, EDGE], [.64, EDGE], [1, 0]],
+    surge: [[0, 0], [.24, .4], [.44, 1.4], [.66, .8], [1, 0]], trail: [[.3, 0], [.34, 1], [.5, 1], [.56, 0]] },
+  sweep: { dur: 1.05,
+    armX: [[0, 0], [.3, 1.15], [.7, 1.15], [1, 0]], wristX: [[0, 0], [.3, .42], [.7, .42], [1, 0]],
+    wristZ: [[0, 0], [.25, STRAIGHT], [.7, STRAIGHT], [1, 0]], armY: [[0, 0], [.3, -.55], [.48, .75], [.7, .75], [1, 0]],
+    twist: [[0, 0], [.3, -.95], [.48, 1.05], [.7, .9], [1, 0]],
+    edge: [[0, 0], [.3, 0], [.7, 0], [1, 0]], // already edge-on for a horizontal cut
+    surge: [[0, 0], [.3, .5], [.48, 1.4], [.7, .7], [1, 0]], trail: [[.32, 0], [.36, 1], [.5, 1], [.56, 0]] },
+  rise: { dur: 1.05,
+    armX: [[0, 0], [.3, 1.2], [.46, -.7], [.66, -.7], [1, 0]], wristX: [[0, 0], [.3, 1], [.46, -.55], [.66, -.55], [1, 0]],
+    wristZ: [[0, 0], [.25, STRAIGHT], [.66, STRAIGHT], [1, 0]],
+    pitch: [[0, 0], [.3, .16], [.46, -.2], [.66, -.16], [1, 0]], crouch: [[0, 0], [.3, -.22], [.46, .22], [.66, .1], [1, 0]],
+    leap: [[.3, 0], [.5, .9], [.72, 0]], tuck: [[.3, 0], [.5, 1], [.72, 0]],
+    edge: [[0, 0], [.25, EDGE], [.66, EDGE], [1, 0]],
+    surge: [[0, 0], [.3, .5], [.46, 1.5], [.66, .7], [1, 0]], trail: [[.32, 0], [.35, 1], [.46, 1], [.52, 0]] },
+  spin: { dur: 1.45,
+    armZ: [[0, 0], [.16, 1.3], [.84, 1.3], [1, 0]], wristZ: [[0, 0], [.16, 1.16], [.84, 1.16], [1, 0]],
+    spin: [[0, 0], [.14, -.55], [.86, Math.PI * 4], [1, Math.PI * 4]],
+    leap: [[.08, 0], [.2, .7], [.78, .7], [.9, 0]], tuck: [[.08, 0], [.2, 1], [.78, 1], [.9, 0]],
+    edge: [[0, 0], [.16, EDGE], [.84, EDGE], [1, 0]],
+    surge: [[0, 0], [.18, 1.2], [.82, 1.2], [1, 0]], trail: [[.16, 0], [.2, 1], [.8, 1], [.85, 0]] },
+  slam: { dur: 1.7, fx: [[.56, 'impact']],
+    armX: [[0, 0], [.2, -.8], [.46, -.8], [.56, 1.3], [.76, 1.3], [1, 0]], wristX: [[0, 0], [.2, -.5], [.46, -.5], [.56, 1], [.76, 1], [1, 0]],
+    wristZ: [[0, 0], [.2, STRAIGHT], [.76, STRAIGHT], [1, 0]],
+    leap: [[.18, 0], [.42, 3.2], [.47, 3.2], [.56, 0]], tuck: [[.18, 0], [.34, 1], [.52, 1], [.56, 0]],
+    crouch: [[0, 0], [.18, -.28], [.3, .05], [.56, .02], [.76, .02], [1, 0]], pitch: [[0, 0], [.2, -.12], [.46, -.18], [.56, .14], [.76, .12], [1, 0]],
+    edge: [[0, 0], [.2, EDGE], [.76, EDGE], [1, 0]],
+    surge: [[0, 0], [.3, 1], [.56, 2.4], [.8, .7], [1, 0]], trail: [[.46, 0], [.49, 1], [.56, 1], [.6, 0]] },
+  wave: { dur: 1.1, fx: [[.42, 'wave']],
+    armX: [[0, 0], [.28, -.7], [.42, 1.35], [.62, 1.35], [1, 0]], wristX: [[0, 0], [.28, -.4], [.42, .55], [.62, .55], [1, 0]],
+    wristZ: [[0, 0], [.22, STRAIGHT], [.62, STRAIGHT], [1, 0]], twist: [[0, 0], [.28, -.5], [.42, .45], [.62, .35], [1, 0]],
+    edge: [[0, 0], [.22, EDGE], [.62, EDGE], [1, 0]],
+    surge: [[0, 0], [.3, 1.6], [.42, 2], [.6, .4], [1, 0]], trail: [[.3, 0], [.33, 1], [.46, 1], [.52, 0]] },
+  release: { dur: 1.25, fx: [[.34, 'chargedImpact']], // begins exactly where the charge stance ends
+    armX: [[0, -.5], [.14, -.95], [.34, 1.3], [.62, 1.3], [1, 0]], wristX: [[0, 0], [.14, -.55], [.34, 1], [.62, 1], [1, 0]],
+    wristZ: [[0, STRAIGHT], [.62, STRAIGHT], [1, 0]], pitch: [[0, 0], [.14, -.12], [.34, .14], [.62, .12], [1, 0]],
+    twist: [[0, 0], [.14, -.3], [.34, .18], [.62, .14], [1, 0]], crouch: [[0, -.25], [.14, -.1], [.34, .02], [.62, .02], [1, 0]],
+    edge: [[0, 0], [.14, EDGE], [.62, EDGE], [1, 0]],
+    surge: [[0, 2], [.34, 3], [.6, 1], [1, 0]], trail: [[.16, 0], [.2, 1], [.34, 1], [.4, 0]] },
+  snap: { dur: .95 },
+  roar: { dur: 1.7 },
+};
+function chain(...names) { // joins moves, skipping each one's return to rest so they flow together
+  const total = names.reduce((sum, n) => sum + MOVES[n].dur, 0), out = { dur: total * .85, fx: [] };
+  let start = 0;
+  names.forEach((n, i) => {
+    const m = MOVES[n], span = m.dur / total;
+    for (const [at, fx] of m.fx || []) out.fx.push([start + at * span, fx]);
+    for (const channel of ['armX', 'armY', 'armZ', 'wristX', 'wristZ', 'edge', 'pitch', 'twist', 'crouch', 'leap', 'tuck', 'surge', 'trail']) {
+      (m[channel] || [[0, 0], [1, 0]]).forEach((key, j, keys) => {
+        if ((j === 0 && i > 0) || (j === keys.length - 1 && i < names.length - 1)) return;
+        (out[channel] ||= []).push([start + key[0] * span, key[1]]);
+      });
+    }
+    start += span;
+  });
+  return out;
+}
+MOVES.combo = chain('slash', 'sweep', 'rise');
+
+const Vec3 = (x, y, z) => new THREE.Vector3(x, y, z);
+const hold = (a, b, v = 1) => [[0, 0], [a, v], [b, v], [Math.min(1, b + .1), 0]];
+Object.assign(MOVES, {
+  pGalaxy: { dur: 5.2, sky: POWERS[0], fx: [[.14, 'gSeed'], ...Array.from({ length: 24 }, (_, i) => [.26 + i * .024, 'gStar']), [.72, 'gPeak']],
+    raise: hold(.14, .86), surge: hold(.14, .86, 1.6), sky_: hold(.14, .88), gal: [[.12, 0], [.7, 1], [.9, 1], [1, 0]], c0: hold(.1, .9, 1.4) },
+  pBeam: { dur: 4.2, sky: POWERS[1], fx: [[.22, 'bFire'], ...Array.from({ length: 34 }, (_, i) => [.26 + i * .017, 'bBolt'])],
+    raise: hold(.16, .84), surge: hold(.2, .84, 1.4), sky_: hold(.12, .86, .8), beam: [[.2, 0], [.25, 1.8], [.84, 1.8], [.94, 0]], c1: hold(.1, .9, 1.4) },
+  pHakai: { dur: 5.2, sky: POWERS[2], fx: [[.62, 'hThrow'], [.76, 'hHit']],
+    raise: hold(.14, .78), surge: hold(.16, .8, 1.2), sky_: hold(.1, .9), orb: [[.08, 0], [.58, 7], [.64, 7], [.76, 22], [.84, 40], [.9, 0]], orbZ: [[.62, 0], [.76, 80]], c2: hold(.1, .9, 1.4) },
+  pCrimson: { dur: 5, sky: POWERS[3], fx: [[.36, 'cRise'], [.52, 'cWave'], [.6, 'cWave'], [.68, 'cWave']],
+    raise: hold(.14, .84), surge: hold(.2, .84, 1.5), sky_: hold(.1, .9), spk: [[.34, 0], [.56, 1], [.84, 1], [.96, 0]], c3: hold(.1, .9, 1.4) },
+  pErase: { dur: 6.6, sky: 0xfff0c0, fx: [[.24, 'eSnap'], [.87, 'eRestore']],
+    raise: hold(.14, .78), surge: hold(.14, .78, 1.8), sky_: hold(.08, .88), erase: [[.28, 0], [.82, 1], [.86, 1], [.861, 0]], whiteOut: [[.8, 0], [.86, 1], [.98, 0]], c0: hold(.1, .78), c1: hold(.1, .78), c2: hold(.1, .78), c3: hold(.1, .78), c4: hold(.1, .78, 1.6) },
+});
+
+const tipPoint = () => swordBlade.localToWorld(new THREE.Vector3(0, 3, 0));
+const FX = {
+  hit() { const q = tipPoint(); if (q.y < 3.4) burst(q, 60, 14); camShake = Math.max(camShake, .3); flash = Math.max(flash, 26); },
+  impact() { const q = tipPoint(); shockwave(q, 30, 1.3); burst(q, 240, 24); camShake = 1.2; flash = 110; },
+  wave() { launchWave(1); camShake = Math.max(camShake, .4); flash = Math.max(flash, 40); },
+  chargedImpact() {
+    const q = tipPoint(), k = releasePower;
+    shockwave(q, 28 + 40 * k, 1.2 + k); burst(q, 260 + 500 * k | 0, 24 + 18 * k);
+    if (k > .4) launchWave(1 + k * 1.2);
+    camShake = 1 + 1.2 * k; flash = 90 + 160 * k;
+  },
+};
+
+Object.assign(FX, {
+  gSeed() { const q = galaxyDisc.position; shockwave(Vec3(0, .1, 0), 46, 1.6); burst(q, 420, 40); camShake = 1.3; flash = 170; },
+  gStar() {
+    const a = Math.random() * Math.PI * 2, r = 16 + Math.random() * 70, q = Vec3(Math.cos(a) * r, 16 + Math.sin(a) * r * .28, -14 + Math.sin(a) * r * .75);
+    burst(q, 44, 18); shootBolt(q, Vec3(Math.cos(a) * 24, 10, Math.sin(a) * 24), .9, 6, POWERS[0]); camShake = Math.max(camShake, .4); flash = Math.max(flash, 30);
+  },
+  gPeak() { shockwave(Vec3(0, .1, 0), 130, 2.3); burst(galaxyDisc.position, 700, 58); camShake = 2.4; flash = 340; },
+  bFire() { shockwave(Vec3(0, .1, 6), 34, 1.7); burst(Vec3(0, 11, 8), 300, 42); camShake = 1.6; flash = 200; },
+  bBolt() {
+    const a = Math.random() * Math.PI * 2, q = Vec3(Math.cos(a) * 12, 12 + Math.sin(a) * 10, -3);
+    shootBolt(q, Vec3((Math.random() - .5) * 22, (Math.random() - .5) * 16, 120), 1, 5.4, POWERS[1]); camShake = Math.max(camShake, .5); flash = Math.max(flash, 26);
+  },
+  hThrow() { shockwave(Vec3(0, .1, 12), 34, 1.6); camShake = 1.3; flash = 150; },
+  hHit() { const q = Vec3(0, 27, 92); burst(q, 900, 70); shockwave(Vec3(0, .1, 92), 150, 2.5); camShake = 3.2; flash = 560; },
+  cRise() { shockwave(Vec3(0, .1, 0), 90, 2.2); burst(Vec3(0, .4, 0), 600, 44); camShake = 2.4; flash = 280; },
+  cWave() { launchWave(1.5); shockwave(Vec3(0, .1, 8), 44, 1.6); camShake = Math.max(camShake, 1.3); flash = Math.max(flash, 130); },
+  eSnap() { burst(Vec3(0, 14, 6), 500, 50); shockwave(Vec3(0, .1, 0), 60, 2); camShake = 1.8; flash = 280; },
+  eRestore() { camShake = 2; flash = 240; },
+});
+
+function pose(time, walk = walkW, name = act, p = name ? actT / MOVES[name].dur : 0, cw = chargeW, c = charge) {
+  const on = (n, keys) => (n === name ? track(p, keys) : 0);
+  const m = name ? MOVES[name] : null, ch = key => (m && m[key] ? track(p, m[key]) : 0);
+  const stride = time * WALK_RATE, tuck = ch('tuck');
+
+  root.position.y = ch('leap') * CLAWD_SCALE;
+  root.rotation.y = ch('spin');
+
+  const roar = on('roar', [[0, 0], [.15, 1], [.85, 1], [1, 0]]) + ch('raise');
+  const pitch = ch('pitch') - roar * .24 - cw * .06;
+  const twist = ch('twist') + on('snap', [[0, 0], [.22, .14], [.42, -.26], [.7, -.26], [1, 0]]);
+  const roll = Math.sin(stride) * .035 * walk;
+  const held = cw * c, tremble = (roar * .025 + held * .03) * Math.sin(time * 46);
+
+  // the body sinks into a lunge as the sword comes down, stepping the sword-side foot forward
+  const lunge = Math.max(0, ch('armX')) / 1.3 * .7;
+  const height = Math.min(.1, Math.sin(time * 2) * .03 + Math.abs(Math.sin(stride)) * .1 * walk + roar * .22 + ch('crouch') - cw * .25 - lunge) - .03;
+  pelvis.position.y = height;
+  for (const l of legs) {
+    const a = stride + l.phase, raised = Math.max(0, -Math.sin(a)) * walk;
+    placeLeg(l, HIP_Y + height, WALK_STRIDE * Math.cos(a) * walk + (l.s < 0 ? .7 : -.45) * lunge + tuck * .3, raised * .55 + tuck, raised * .35);
+  }
+  neck.rotation.set(Math.sin(time * 1.1) * .015 - roar * .22, -twist * .35, 0);
+  upper.rotation.set(pitch, twist, roll);
+  upper.position.set(HIP_Y * Math.sin(roll) + tremble, height + HIP_Y * (1 - Math.cos(pitch)), -HIP_Y * Math.sin(pitch));
+
+  swordArm.rotation.x = ch('armX') + Math.sin(stride) * .08 * walk - roar * .25 - cw * .5;
+  swordArm.rotation.y = ch('armY');
+  swordArm.rotation.z = Math.sin(time * 1.3) * .025 - roar * .25 + ch('armZ');
+  swordHand.rotation.set(ch('wristX') * (ch('wristX') > 0 ? 1.25 : 1), 0, -STRAIGHT + ch('wristZ') + cw * STRAIGHT);
+  swordHand.rotateY(ch('edge')); // local, so it spins the sword about its own length whatever the wrist is doing
+  // At rest the sword is held low and ready; attacks raise it out of that grip and bring it back.
+  const swings = m && (m.armX || m.armZ);
+  const grip = (1 - cw) * (swings ? track(p, name === 'release' ? [[0, 0], [.82, 0], [1, 1]] : [[0, 1], [.16, 0], [.84, 0], [1, 1]]) : 1);
+  swordArm.quaternion.multiply(turnBy.copy(NO_TURN).slerp(GRIP.shoulder, grip));
+  swordForearm.quaternion.copy(NO_TURN).slerp(GRIP.elbow, grip);
+  swordHand.quaternion.slerp(GRIP.hand, grip);
+  trailNow = ch('trail');
+
+  clawArm.rotation.x = Math.sin(time * 1.3 + 1) * .02 - Math.sin(stride) * .08 * walk + on('snap', [[0, 0], [.22, -.35], [.42, -.1], [.7, -.1], [1, 0]]);
+  clawArm.rotation.y = on('snap', [[0, 0], [.22, .28], [.42, -.6], [.7, -.6], [1, 0]]);
+  clawArm.rotation.z = roar * .7;
+  lowerJaw.rotation.x = Math.max(
+    Math.max(0, Math.sin(time * 1.1) - .55) * .55,
+    on('snap', [[0, 0], [.22, .85], [.38, .85], [.44, 0], [.56, .6], [.64, 0], [.76, .6], [.84, 0], [1, 0]]),
+    roar * .8);
+
+  for (const { wing, s } of wings) {
+    const open = roar * .6 + held * .4 + Math.min(1.4, ch('surge')) * .25;
+    wing.rotation.set(Math.sin(time * 1.4) * .03 - open * .15, s * -.12 * open, s * -(Math.sin(time * 1.4 + s) * .03 + open * .35));
+  }
+  halo.rotation.z = time * .22 + roar * 2;
+  halo.scale.setScalar(1 + Math.sin(time * 2) * .02 + roar * .25 + held * .2);
+  haloSpark.rotation.z = -time * .1;
+  bookRef.position.y = .75 + Math.sin(time * 1.6) * .08;
+  bookRef.rotation.y = Math.sin(time * .7) * .2;
+  for (const { group, s } of antennae) {
+    group.rotation.x = Math.sin(time * 2.4 + s) * .08 + Math.sin(stride * 2) * .1 * walk - roar * .5;
+    group.rotation.z = Math.sin(time * 1.7 + s * 2) * .06 + s * roar * .3;
+  }
+
+  const flicker = .9 + Math.sin(time * 9) * .05 + Math.sin(time * 23) * .05;
+  glows.forEach(g => { g.material.opacity = flicker; g.scale.setScalar(1 + roar * .7 + held * .5); });
+  emberLight.intensity = 10 * flicker + roar * 22 + trailNow * 18 + held * 26 + flash;
+  const surge = ch('surge') + roar * .7;
+  auraTime.value = time;
+  auraPower.value = (.86 + .14 * Math.sin(time * 5.3)) * (1 + surge + held * 1.5);
+  auraSize.value = CLAWD_SCALE * (1 + surge * (.1 + (name === 'release' ? releasePower * .25 : 0)) + held * .55);
+  auraLight.intensity = 9 * auraPower.value;
+  chargeRing.visible = held > .01;
+  chargeRing.material.uniforms.c.value = held;
+  for (const l of backLegs) {
+    const a = stride + l.phase, raised = Math.max(0, -Math.sin(a)) * walk;
+    const flare = Math.min(1.4, surge) * .09 + roar * .34 + held * .24;
+    const groundFollow = l.planted ? Math.max(0, -height) / 2.6 : 0; // keeps the lowest pair above the floor as the body sinks
+    l.yaw.rotation.y = -l.s * Math.cos(a) * .13 * walk;
+    l.lift.quaternion.setFromAxisAngle(l.axis, Math.sin(time * 1.6 + l.phase) * .035 + raised * .2 + flare + groundFollow + tuck * .34);
+    l.knee.quaternion.setFromAxisAngle(l.axis, -Math.sin(time * 1.6 + l.phase + .7) * .03 - raised * .18 - flare * .55 - tuck * .6);
+  }
+  godTime.value = time;
+  driftStars(time);
+  guardianPower.value = .9 + Math.min(1.4, surge) * .3 + held * .4 + Math.sin(time * 2.4) * .05;
+  updateBodyAura(Math.min(time - lastAuraTime, .05), .95 + Math.min(1.6, surge) * .45 + held * .9 + roar * .6 + Math.sin(time * 3.1) * .06); lastAuraTime = time;
+  coreOrbit.rotation.y = time * .28;
+  cores.forEach((c, i) => {
+    const up = ch('c' + i);
+    c.g.position.y = Math.sin(time * 1.3 + c.seed) * .35;
+    c.mesh.rotation.set(time * .7 + c.seed, time * .9, 0);
+    c.g.scale.setScalar(1 + up * .75 + roar * .1);
+    c.glow.material.opacity = Math.min(1, .75 + up * .3);
+  });
+  powerWheel.rotation.z = time * .09;
+
+  const sky = Math.min(1, ch('sky_'));
+  skyDome.visible = sky > .01; skyMat.uniforms.a.value = sky;
+  if (m && m.sky) skyMat.uniforms.tint.value.set(m.sky);
+  const gal = ch('gal');
+  galaxyDisc.visible = gal > .004; galaxyDisc.scale.setScalar(12 + gal * 260); galaxyDisc.material.uniforms.a.value = Math.min(1, gal * 1.6); galaxyDisc.rotation.z = time * .08;
+  beamPower.value = ch('beam');
+  const orb = ch('orb');
+  hakai.visible = orb > .02; hakai.scale.setScalar(Math.max(.01, orb)); hakai.position.z = 12 + ch('orbZ'); hakaiPower.value = Math.min(1.2, orb * .35);
+  const spk = ch('spk');
+  for (const s of spikeRing) {
+    const grow = Math.max(0, Math.min(1, (spk - s.userData.delay) / .55));
+    s.visible = grow > .01; s.scale.set(1, Math.max(.01, grow * s.userData.tall), 1);
+  }
+  const erase = ch('erase'), whiteOut = ch('whiteOut');
+  eraseSheet.visible = erase > .002 || whiteOut > .002;
+  eraseMat.uniforms.p.value = erase; eraseMat.uniforms.white.value = whiteOut; eraseMat.uniforms.aspect.value = innerWidth / innerHeight;
+
+  waveBanner(time);
+}
+
+/* ---------- GLB export ---------- */
+const exportMats = new Map();
+function exportMaterial(mat) {
+  if (!exportMats.has(mat)) {
+    let out;
+    if (mat.isMeshToonMaterial) out = new THREE.MeshStandardMaterial({ color: mat.color, map: mat.map, roughness: .8, metalness: 0 });
+    else if (mat.isShaderMaterial) out = new THREE.MeshStandardMaterial({ color: 0x140a2c, roughness: .8, metalness: 0 });
+    else { out = mat.clone(); out.side = THREE.FrontSide; }
+    exportMats.set(mat, out);
+  }
+  return exportMats.get(mat);
+}
+function exportGeometry(src, backFacing) {
+  const g = new THREE.BufferGeometry();
+  for (const name of ['position', 'normal', 'uv']) g.setAttribute(name, src.attributes[name].clone());
+  if (src.index) g.setIndex(src.index.clone());
+  if (backFacing) { // glTF has no back-side-only mode, so turn the faces around
+    const n = g.attributes.normal;
+    for (let i = 0; i < n.count; i++) n.setXYZ(i, -n.getX(i), -n.getY(i), -n.getZ(i));
+    const idx = g.index.array;
+    for (let i = 0; i < idx.length; i += 3) { const a = idx[i]; idx[i] = idx[i + 2]; idx[i + 2] = a; }
+  }
+  return g;
+}
+function exportTree(src) {
+  const out = src.isMesh ? new THREE.Mesh(exportGeometry(src.geometry, src.material.side === THREE.BackSide), exportMaterial(src.material)) : new THREE.Group();
+  out.name = src.name;
+  out.position.copy(src.position); out.quaternion.copy(src.quaternion); out.scale.copy(src.scale);
+  for (const child of src.children) {
+    // outlines and additive glows are renderer tricks glTF cannot carry
+    if (child.isLight || child.material === hullMat || child.material === headHull || child.material?.blending === THREE.AdditiveBlending) continue;
+    out.add(exportTree(child));
+  }
+  return out;
+}
+root.name = 'ClaudeFable'; upper.name = 'UpperBody'; swordArm.name = 'SwordArm'; clawArm.name = 'ClawArm'; lowerJaw.name = 'LowerJaw';
+document.getElementById('download').onclick = async e => {
+  const button = e.target, label = 'DOWNLOAD GLB';
+  button.disabled = true; button.textContent = 'EXPORTING…';
+  try {
+    pose(0, 0, null, 0, 0, 0); // always export the neutral stance
+    const glb = await new GLTFExporter().parseAsync(exportTree(root), { binary: true });
+    const url = URL.createObjectURL(new Blob([glb], { type: 'model/gltf-binary' }));
+    const a = document.createElement('a'); a.href = url; a.download = 'claude_fable.glb'; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    button.textContent = label;
+  } catch (err) {
+    console.error(err);
+    button.textContent = 'EXPORT FAILED';
+  }
+  button.disabled = false;
+};
+
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), .1); // a stall slows the action instead of skipping it
+  if (!paused) {
+    const t0 = t, move = act ? MOVES[act] : null, p0 = move ? actT / move.dur : 0;
+    t += dt;
+    walkW += ((mode === 'walk' ? 1 : 0) - walkW) * (1 - Math.exp(-dt * 6));
+    floorTile.offset.y -= WALK_SPEED * CLAWD_SCALE * walkW * dt;
+    if (charging) {
+      charge = Math.min(1, charge + dt / CHARGE_TIME);
+      chargeW += (1 - chargeW) * (1 - Math.exp(-dt * 10));
+      chargeSparks(dt, charge);
+      meterFill.style.width = charge * 100 + '%';
+    } else if (!act) chargeW *= Math.exp(-dt * 10);
+
+    let name = act, p1 = p0, due = [];
+    if (move) {
+      actT += dt; p1 = Math.min(1, actT / move.dur);
+      due = (move.fx || []).filter(([at]) => p0 < at && p1 >= at);
+      if (p1 >= 1) { act = null; actT = 0; showAct(); name = null; p1 = 0; }
+    }
+    // several poses per frame keep the ribbon a smooth curve through fast swings
+    const steps = name ? 3 : 1;
+    for (let i = 1; i <= steps; i++) {
+      const u = i / steps, at = t0 + (t - t0) * u;
+      pose(at, walkW, name, name ? p0 + (p1 - p0) * u : 0);
+      root.updateWorldMatrix(true, true);
+      pushTrail(at, trailNow);
+    }
+    driftEmbers(dt, t);
+    driftAura(dt, t);
+    updateFx(dt);
+    updateBolts(dt);
+    due.forEach(([, fx]) => FX[fx]()); // after updateFx, so a slow frame can't age a new effect away
+    drawTrail(t);
+  } else pose(t);
+  if (goal) {
+    camera.position.lerp(goal, 1 - Math.exp(-dt * 7));
+    if (camera.position.distanceTo(goal) < .02) goal = null;
+  }
+  controls.update();
+  const off = new THREE.Vector3((Math.random() - .5) * camShake, (Math.random() - .5) * camShake, 0);
+  camera.position.add(off);
+  renderer.render(scene, camera);
+  camera.position.sub(off);
+  camShake *= Math.exp(-dt * 8);
+}
+animate();
+</script>
+</body>
+</html>

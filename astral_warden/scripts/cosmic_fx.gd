@@ -36,7 +36,7 @@ static func _fade(material: ShaderMaterial, from: float, to: float, seconds: flo
 
 
 static func _ground(pos: Vector3) -> Vector3:
-	return Vector3(pos.x, Game.terrain.get_height(pos.x, pos.z), pos.z)
+	return Vector3(pos.x, Game.ground_height(pos.x, pos.z), pos.z)
 
 
 ## The column of light that carries the change of form.
@@ -195,11 +195,11 @@ static func sparks(pos: Vector3, count: int, speed: float) -> void:
 
 
 ## A four-pointed star thrown along `velocity`, which is already in metres.
-static func shoot(pos: Vector3, velocity: Vector3, life: float, size: float) -> void:
+static func shoot(pos: Vector3, velocity: Vector3, life: float, size: float, tint := Color("fff0c8")) -> void:
 	var made := _instance(QuadMesh.new(), STAR)
 	var node: MeshInstance3D = made[0]
 	var material: ShaderMaterial = made[1]
-	material.set_shader_parameter("tint", Color("fff0c8"))
+	material.set_shader_parameter("tint", tint)
 	material.set_shader_parameter("spin", randf() * PI)
 	node.global_position = pos
 	node.scale = Vector3(size, size, 1.0)
@@ -211,13 +211,13 @@ static func shoot(pos: Vector3, velocity: Vector3, life: float, size: float) -> 
 
 
 ## Light drawn into a point.
-static func inflow(center: Vector3, amount: int, radius: float, life: float) -> void:
+static func inflow(center: Vector3, amount: int, radius: float, life: float, tint := Color("fff0c8")) -> void:
 	for i in amount:
 		var a := randf() * TAU
 		var e := randf_range(-1.0, 1.0)
 		var c := sqrt(1.0 - e * e)
 		var from := center + Vector3(cos(a) * c, e, sin(a) * c) * radius * randf_range(0.6, 1.2)
-		shoot(from, (center - from) / life, life, 0.3)
+		shoot(from, (center - from) / life, life, 0.3, tint)
 
 
 ## A soft flame. `length` and `radius` are in web units. Returns [node, material]; the caller places it.

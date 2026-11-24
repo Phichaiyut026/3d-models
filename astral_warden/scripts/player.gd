@@ -43,6 +43,24 @@ const SKILLS := {
 	"skill_5": {"id": "bigbang", "name": "บิกแบง", "anim": "m_bigbang", "length": 7.4, "at": 0.605, "cost": 80.0, "cooldown": 10.0, "tint": Color(1.0, 0.94, 0.72)},
 }
 const SKILL_KEYS := ["skill_1", "skill_2", "skill_3", "skill_4", "skill_5"]
+## The powers of GEMINI ARGON, the third form, from gemini_aegis.html.
+const ARGON_SKILLS := {
+	"skill_1": {"id": "scan", "name": "สแกน", "anim": "m_scan", "length": 3.4, "at": 0.16, "cost": 15.0, "cooldown": 4.0, "tint": Color(0.25, 0.91, 1.0)},
+	"skill_2": {"id": "quarantine", "name": "กักกัน", "anim": "m_quarantine", "length": 3.8, "at": 0.73, "cost": 30.0, "cooldown": 10.0, "tint": Color(0.49, 1.0, 0.78)},
+	"skill_3": {"id": "firewall", "name": "ไฟร์วอลล์", "anim": "m_firewall", "length": 4.6, "at": 0.38, "cost": 35.0, "cooldown": 18.0, "tint": Color(0.25, 0.91, 1.0)},
+	"skill_4": {"id": "purge", "name": "ลบทิ้งถาวร", "anim": "m_purge", "length": 4.8, "at": 0.61, "cost": 40.0, "cooldown": 9.0, "tint": Color(0.49, 1.0, 0.78)},
+	"skill_5": {"id": "patch", "name": "แพตช์", "anim": "m_patch", "length": 3.6, "at": 0.62, "cost": 20.0, "cooldown": 40.0, "tint": Color(0.86, 1.0, 0.98)},
+	"skill_6": {"id": "install", "name": "ติดตั้งใหม่", "anim": "m_install", "length": 8.4, "at": 0.67, "cost": 80.0, "cooldown": 30.0, "tint": Color(0.7, 0.55, 1.0)},
+	"skill_7": {"id": "unity", "name": "คลื่นรวมใจ", "anim": "m_unity", "length": 10.0, "at": 0.53, "cost": 120.0, "cooldown": 75.0, "tint": Color(0.91, 1.0, 0.98)},
+}
+const ARGON_KEYS := ["skill_1", "skill_2", "skill_3", "skill_4", "skill_5", "skill_6", "skill_7"]
+## ARGON is strong, but not untouchable: it has a body of its own, and its powers cost focus.
+const ARGON_HP := 4200.0
+const ARGON_DAMAGE_TAKEN := 0.4 ## Away from the harsh bosses, where every form takes the blow whole.
+const ARGON_HP_REGEN := 0.01 ## Share of health restored each second, away from the harsh bosses.
+const ARGON_FOCUS_REGEN := 9.0
+const ARGON_POWER := 4.0 ## Its sword and thrown stars; the supreme form's is SUPREME_POWER.
+const ARGON_TINT := Color(0.25, 0.91, 1.0)
 ## The first form's powers, on the keys 1 to 7.
 const FIRST_SKILLS := {
 	"skill_1": {"id": "nova", "name": "โนวา", "anim": "m_nova", "length": 1.55, "at": 0.42, "cost": 18.0, "cooldown": 3.0, "tint": Color(0.82, 0.74, 1.0)},
@@ -53,6 +71,22 @@ const FIRST_SKILLS := {
 	"skill_6": {"id": "hole", "name": "หลุมดำ", "anim": "m_hole", "length": 3.8, "at": 0.76, "cost": 50.0, "cooldown": 16.0, "tint": Color(0.5, 0.34, 0.9)},
 	"skill_7": {"id": "supernova", "name": "ซูเปอร์โนวา", "anim": "m_supernova", "length": 4.8, "at": 0.67, "cost": 70.0, "cooldown": 24.0, "tint": Color(0.95, 0.9, 1.0)},
 }
+## อั้ม · ABYSS, the second hero, from aum.html. Always in the ABYSS form: it never changes.
+## Nothing can stand against it, so it is close to untouchable and its eight powers erase what they reach.
+const ABYSS_SKILLS := {
+	"skill_1": {"id": "a_hole", "name": "หลุมดำ", "anim": "a_raise", "length": 6.0, "at": 0.88, "cost": 25.0, "cooldown": 5.0, "tint": Color(0.62, 0.17, 1.0)},
+	"skill_2": {"id": "a_spikes", "name": "หนามมืด", "anim": "a_slam", "length": 5.0, "at": 0.19, "cost": 25.0, "cooldown": 5.0, "tint": Color(0.66, 0.25, 1.0)},
+	"skill_3": {"id": "a_beam", "name": "ลำแสงทำลาย", "anim": "a_thrust", "length": 5.4, "at": 0.3, "cost": 30.0, "cooldown": 6.0, "tint": Color(1.0, 0.18, 0.4)},
+	"skill_4": {"id": "a_legion", "name": "กองทัพเงา", "anim": "a_legion", "length": 5.4, "at": 0.6, "cost": 30.0, "cooldown": 7.0, "tint": Color(0.55, 0.2, 0.95)},
+	"skill_5": {"id": "a_meteor", "name": "อุกกาบาตมืด", "anim": "a_call", "length": 6.0, "at": 0.66, "cost": 40.0, "cooldown": 8.0, "tint": Color(1.0, 0.3, 0.75)},
+	"skill_6": {"id": "a_gate", "name": "ประตูนรก", "anim": "a_command", "length": 6.4, "at": 0.4, "cost": 40.0, "cooldown": 9.0, "tint": Color(0.8, 0.1, 0.3)},
+	"skill_7": {"id": "a_chains", "name": "โซ่ว่างเปล่า", "anim": "a_grip", "length": 5.8, "at": 0.7, "cost": 35.0, "cooldown": 8.0, "tint": Color(0.7, 0.3, 1.0)},
+	"skill_8": {"id": "a_end", "name": "จุดจบ", "anim": "a_end", "length": 10.0, "at": 0.5, "cost": 100.0, "cooldown": 30.0, "tint": Color(1.0, 0.1, 0.16)},
+}
+const ABYSS_KEYS := ["skill_1", "skill_2", "skill_3", "skill_4", "skill_5", "skill_6", "skill_7", "skill_8"]
+const ABYSS_HP := 999999.0
+const ABYSS_DAMAGE_TAKEN := 0.01 ## And health never drops below 1: no one can beat this form.
+const ABYSS_TINT := Color(0.62, 0.17, 1.0)
 const COMET_FROM := 0.3 ## The dive covers the ground between these shares of the move.
 const COMET_TO := 0.6
 const DIVE_SPEED := 70.0
@@ -61,6 +95,9 @@ const HERO_FALL_SPEED := 20.0 ## Hitting the ground faster than this ends in a h
 const HERO_LAND_TIME := 1.25
 const OBLIVION_BASE_HP := 420.0 ## The health the boss's numbers were written against.
 const OBLIVION_POWER := 1.35
+const HARSH_TAKEN_SUPREME := 0.12 ## The supreme form against OBLIVION: built to win that fight.
+const HARSH_TAKEN_ARGON := 0.3 ## ARGON against WORMS: the one form made for the last fight.
+const HARSH_REGEN := 0.02 ## Share of health the higher forms still restore each second in those fights.
 const FIRST_FOCUS_REGEN := 5.0
 const FLY_SPEED := 18.0
 const FLY_FAST_SPEED := 46.0
@@ -113,7 +150,7 @@ var _fov_punch := 0.0
 var _skill_cooldowns := {}
 var _skill_key := ""
 var _transform_cooldown := 0.0
-var _transform_goal := false
+var _form_goal := 0 ## The form a change is heading for: 0 first, 1 supreme, 2 ARGON.
 var _cam_height := 2.05
 var _first_max_hp := 420.0
 var _hp_boosted := false
@@ -123,6 +160,9 @@ var _comet_speed := 0.0
 var _scene_walk := Vector3.ZERO
 var _scene_tween: Tween
 var _drop_tail: MeshInstance3D
+var _halted := 0.0 ## Held still by WORMS' HALT.
+var hero := "gemini" ## Who is being played: "gemini" or "aum".
+var abyss: AbyssBody ## อั้ม's body, when อั้ม is the one being played; Gemini's rig still runs underneath and poses it.
 
 
 func _ready() -> void:
@@ -168,6 +208,60 @@ func _ready() -> void:
 	_arm.add_child(_camera)
 	Game.camera = _camera
 	_cam_root.global_position = global_position + Vector3(0, 2.0, 0)
+
+
+## Chooses who is played. อั้ม wears Gemini's rig as an invisible skeleton, so every move, roll and swing
+## carries over, and only the body, the powers and the numbers change.
+func set_hero(new_hero: String) -> void:
+	hero = new_hero
+	var aum := hero == "aum"
+	if aum and abyss == null:
+		abyss = AbyssBody.new()
+		abyss.rig = rig
+		add_child(abyss)
+		for anim: String in AbyssShow.POSES:
+			rig.extra_actions[anim] = _settled(AbyssShow.POSES[anim])
+	if abyss != null:
+		abyss.visible = aum
+	rig.visible = not aum
+	_trail.visible = not aum
+	if aum:
+		rig.set_form_level(0, true)
+		rig.set_armed_instant(false)
+	_apply_hero_body()
+
+
+## Fills in the start and end of a pose so every joint it moves eases out of rest and back into it.
+static func _settled(keys: Array) -> Array:
+	var used := {}
+	for key: Array in keys:
+		for joint: String in key[1]:
+			used[joint] = Vector3.ZERO
+	var out: Array = []
+	for key: Array in keys:
+		var pose: Dictionary = used.duplicate()
+		pose.merge(key[1], true)
+		var copy := [key[0], pose]
+		if key.size() > 2:
+			copy.append(key[2])
+		out.append(copy)
+	return out
+
+
+func _apply_hero_body() -> void:
+	if hero == "aum":
+		max_hp = ABYSS_HP
+		hp = max_hp
+		fp = max_fp
+		stamina = max_stamina
+	elif max_hp == ABYSS_HP:
+		max_hp = _first_max_hp
+		hp = max_hp
+
+
+## The forms and heroes whose blows reach far and wide.
+func _mighty() -> bool:
+	return rig.is_supreme or hero == "aum"
 
 
 func reset_camera() -> void:
@@ -226,8 +320,12 @@ func respawn(shrine: Shrine) -> void:
 	rig.set_form(false, true)
 	rig.set_armed_instant(false)
 	_after_summon = ""
+	if hero == "aum":
+		rig.visible = false
+		_apply_hero_body()
 	_skill_cooldowns.clear()
 	_transform_cooldown = 0.0
+	_halted = 0.0
 	_set_state("move", 0.0)
 
 
@@ -237,9 +335,15 @@ func new_game() -> void:
 	damage_scale = 1.0
 	upgrades = 0
 	respawn(Game.shrines[0])
-	global_position = Vector3(START_POINT.x, Game.terrain.get_height(START_POINT.x, START_POINT.z) + 0.2, START_POINT.z)
+	# A new journey begins in the town, on the south street facing the fountain.
+	if Game.town != null:
+		Game.town.visible = true
+		global_position = TownMap.CENTER + TownMap.START + Vector3(0, 0.2, 0)
+	else:
+		global_position = Vector3(START_POINT.x, Game.ground_height(START_POINT.x, START_POINT.z) + 0.2, START_POINT.z)
 	rig.rotation.y = PI
 	_title_clock = 0.0
+	_apply_hero_body()
 	reset_camera()
 
 
@@ -272,18 +376,23 @@ func _set_state(new_state: String, length: float) -> void:
 ## The supreme form swaps in its own near-endless health, and gives it back on leaving.
 func _set_supreme_health(on: bool) -> void:
 	if on == _hp_boosted:
+		if on:
+			# Between the supreme form and ARGON: each keeps its own body.
+			var share := hp / max_hp
+			max_hp = SUPREME_HP if not rig.is_argon else ARGON_HP + (_first_max_hp - 420.0)
+			hp = max_hp if not rig.is_argon else maxf(1.0, max_hp * share)
 		return
 	_hp_boosted = on
 	if on:
 		_first_max_hp = max_hp
-		max_hp = SUPREME_HP
+		max_hp = SUPREME_HP if not rig.is_argon else ARGON_HP + (_first_max_hp - 420.0)
 	else:
 		max_hp = _first_max_hp
 	hp = max_hp
 
 
 func _spend(amount: float) -> void:
-	if rig.is_supreme:
+	if rig.is_supreme or hero == "aum":
 		return
 	stamina = maxf(0.0, stamina - amount)
 	_stamina_delay = 0.75
@@ -296,6 +405,9 @@ func _physics_process(delta: float) -> void:
 	if Game.state == "play" and state != "dead":
 		var input := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 		dir = Vector3(input.x, 0, input.y).rotated(Vector3.UP, cam_yaw)
+		if _halted > 0.0:
+			_halted -= delta
+			dir = Vector3.ZERO
 		_update_lock_on()
 		state_time += delta
 		_regen(delta)
@@ -322,16 +434,16 @@ func _physics_process(delta: float) -> void:
 		velocity.y -= GRAVITY * delta
 	move_and_slide()
 	if flying:
-		var ceiling := Game.terrain.get_height(global_position.x, global_position.z) + FLY_CEILING
+		var ceiling := Game.ground_height(global_position.x, global_position.z) + FLY_CEILING
 		if global_position.y > ceiling:
 			global_position.y = ceiling
 
 	var flat := Vector2(global_position.x, global_position.z)
-	if flat.length() > PLAY_RADIUS:
+	if flat.length() > PLAY_RADIUS and not Game.in_domain() and not Game.in_town(): # the town has its own fence
 		flat = flat.normalized() * PLAY_RADIUS
 		global_position.x = flat.x
 		global_position.z = flat.y
-	var ground := Game.terrain.get_height(global_position.x, global_position.z)
+	var ground := Game.ground_height(global_position.x, global_position.z)
 	if global_position.y < ground - 0.2:
 		global_position.y = ground + 0.1
 		velocity.y = 0.0
@@ -355,9 +467,21 @@ func _regen(delta: float) -> void:
 	if _stamina_delay <= 0.0 and state != "roll" and state != "attack":
 		var rate := 18.0 if blocking else 48.0
 		stamina = minf(max_stamina, stamina + rate * delta)
-	fp = minf(max_fp, fp + (SUPREME_FOCUS_REGEN if rig.is_supreme else FIRST_FOCUS_REGEN) * delta)
-	if rig.is_supreme and not Game.oblivion_fighting():
+	var focus_regen := FIRST_FOCUS_REGEN
+	if rig.is_argon:
+		focus_regen = ARGON_FOCUS_REGEN
+	elif rig.is_supreme:
+		focus_regen = SUPREME_FOCUS_REGEN
+	if hero == "aum":
+		focus_regen = SUPREME_FOCUS_REGEN
 		hp = minf(max_hp, hp + max_hp * SUPREME_HP_REGEN * delta)
+	fp = minf(max_fp, fp + focus_regen * delta)
+	if hero == "aum":
+		pass
+	elif rig.is_supreme and not Game.harsh_boss_fighting():
+		hp = minf(max_hp, hp + max_hp * (ARGON_HP_REGEN if rig.is_argon else SUPREME_HP_REGEN) * delta)
+	elif rig.is_supreme and state != "dead":
+		hp = minf(max_hp, hp + max_hp * HARSH_REGEN * delta)
 	_transform_cooldown -= delta
 	for key: String in _skill_cooldowns:
 		_skill_cooldowns[key] = maxf(0.0, _skill_cooldowns[key] - delta)
@@ -383,7 +507,7 @@ func _run_state(delta: float, dir: Vector3) -> Vector3:
 		"skill":
 			return _state_skill()
 		"dive":
-			Fx.burst(chest(), CosmicFx.GOLD if rig.is_supreme else Color(0.7, 0.55, 1.0), 4, 3.0, 0.1)
+			Fx.burst(chest(), form_tint(), 4, 3.0, 0.1)
 		"land":
 			if state_time >= state_length:
 				rig.set_energy(0.0)
@@ -481,6 +605,24 @@ func _try_actions(dir: Vector3) -> bool:
 		return false
 	if Game.in_haven():
 		return _try_haven_actions()
+	if Input.is_action_just_pressed("interact"):
+		if Game.in_town():
+			if Game.town.near_exit(global_position):
+				Game.leave_town()
+				return true
+			var person := Game.town.nearest_person(global_position)
+			if person != null:
+				Game.cutscene.npc_talk(person)
+				return true
+		elif Game.near_town_gate(global_position):
+			Game.enter_town()
+			return true
+		if Game.near_gate(global_position):
+			Game.enter_domain()
+			return true
+		if Game.in_domain() and Game.domain.near_exit(global_position):
+			Game.leave_domain()
+			return true
 	if Input.is_action_just_pressed("roll") and stamina > 8.0 and not flying:
 		_start_roll(dir)
 		return true
@@ -490,7 +632,7 @@ func _try_actions(dir: Vector3) -> bool:
 	if Input.is_action_just_pressed("heavy") and stamina > 2.0:
 		_attack_or_summon("heavy", dir)
 		return true
-	if Input.is_action_just_pressed("weapon"):
+	if Input.is_action_just_pressed("weapon") and hero != "aum":
 		if rig.is_armed:
 			_start_sheathe()
 		else:
@@ -499,8 +641,28 @@ func _try_actions(dir: Vector3) -> bool:
 	if Input.is_action_just_pressed("bolt") and fp >= 22.0:
 		_start_cast()
 		return true
+	# T walks through all three forms: first, supreme, ARGON, and back to the first.
+	# Forms open in story order: the supreme form in Safe Mode, ARGON once OBLIVION is gone.
+	if hero == "aum" and (Input.is_action_just_pressed("transform") or Input.is_action_just_pressed("argon")):
+		Game.hud.banner("ร่าง ABYSS ไม่เปลี่ยนแปลง", "อั้มอยู่ในร่างแห่งความมืดตลอดไป", ABYSS_TINT, 2.0)
+		return true
 	if Input.is_action_just_pressed("transform") and _transform_cooldown <= 0.0:
-		_start_transform()
+		var open := [0]
+		if Game.supreme_unlocked:
+			open.append(1)
+		if Game.argon_unlocked:
+			open.append(2)
+		if open.size() == 1:
+			Game.hud.banner("ยังแปลงร่างไม่ได้", "ร่างที่ 2 ยังไม่ถูกปลดล็อก", CosmicFx.GOLD, 2.2)
+			return true
+		var at := open.find(rig.form)
+		_start_transform(open[(at + 1) % open.size()])
+		return true
+	if Input.is_action_just_pressed("argon") and not rig.is_argon and not Game.argon_unlocked:
+		Game.hud.banner("ร่าง ARGON ยังถูกล็อกอยู่", "พลังนี้ยังหลับอยู่... รอศัตรูตัวจริง", ARGON_TINT, 2.2)
+		return true
+	if Input.is_action_just_pressed("argon") and _transform_cooldown <= 0.0:
+		_start_transform(0 if rig.is_argon else 2)
 		return true
 	if Input.is_action_just_pressed("fly"):
 		_toggle_flight()
@@ -550,7 +712,7 @@ func warm_trail(at: Vector3) -> void:
 
 
 func _attack_or_summon(attack_name: String, dir: Vector3) -> void:
-	if rig.is_armed:
+	if rig.is_armed or hero == "aum":
 		_start_attack(attack_name, dir)
 	else:
 		_snap_face(dir)
@@ -627,14 +789,44 @@ func _snap_face(dir: Vector3) -> void:
 
 func _attack_tint() -> Color:
 	var tint: Color = _attack["tint"]
+	if hero == "aum":
+		return tint.lerp(Color(1.0, 0.12, 0.3) if _attack_name == "heavy" else ABYSS_TINT, 0.85)
+	if rig.is_argon:
+		return tint.lerp(ARGON_TINT, 0.8)
 	return tint.lerp(Color(1.0, 0.76, 0.34), 0.8) if rig.is_supreme else tint
 
 
+## The colour of the form the warrior is in.
+func form_tint() -> Color:
+	if hero == "aum":
+		return ABYSS_TINT
+	if rig.is_argon:
+		return ARGON_TINT
+	return CosmicFx.GOLD if rig.is_supreme else Color(0.7, 0.55, 1.0)
+
+
+## How much harder the sword and the thrown stars hit in this form.
+func form_power() -> float:
+	if hero == "aum":
+		return SUPREME_POWER
+	if rig.is_argon:
+		return ARGON_POWER
+	return SUPREME_POWER if rig.is_supreme else 1.0
+
+
 func skill_keys() -> Array:
+	if hero == "aum":
+		return ABYSS_KEYS
+	if rig.is_argon:
+		return ARGON_KEYS
 	return SKILL_KEYS if rig.is_supreme else FIRST_SKILLS.keys()
 
 
 func skill_info(key: String) -> Dictionary:
+	if hero == "aum":
+		return ABYSS_SKILLS[key]
+	if rig.is_argon:
+		return ARGON_SKILLS[key]
 	return SKILLS[key] if rig.is_supreme else FIRST_SKILLS[key]
 
 
@@ -655,7 +847,7 @@ func set_flying(on: bool) -> void:
 	if on:
 		velocity.y = 0.0
 		global_position.y += 0.6
-		var tint := CosmicFx.GOLD if rig.is_supreme else Color(0.7, 0.55, 1.0)
+		var tint := form_tint()
 		Fx.ring(global_position, 7.0, tint, 0.4)
 		Fx.burst(global_position + Vector3(0, 0.3, 0), tint, 26, 9.0)
 
@@ -665,7 +857,7 @@ func _toggle_flight() -> void:
 	if not flying:
 		set_flying(true)
 		return
-	var height := global_position.y - Game.terrain.get_height(global_position.x, global_position.z)
+	var height := global_position.y - Game.ground_height(global_position.x, global_position.z)
 	set_flying(false)
 	if height > DIVE_MIN_HEIGHT:
 		blocking = false
@@ -722,20 +914,23 @@ func _start_hero_land() -> void:
 
 
 ## The change of form takes a moment, and nothing can touch the warrior during it.
-func _start_transform() -> void:
-	_transform_goal = not rig.is_supreme
-	var length := TRANSFORM_TIME if _transform_goal else REVERT_TIME
+func _start_transform(goal: int) -> void:
+	_form_goal = goal
+	var length := TRANSFORM_TIME if goal > 0 else REVERT_TIME
 	blocking = false
 	rig.set_block(0.0)
 	_trail.active = false
-	if _transform_goal and Game.cutscene.transformation(self):
+	if goal == 1 and Game.cutscene.transformation(self):
+		_set_state("transform", length)
+		return
+	if goal == 2 and Game.cutscene.argon_transformation(self):
 		_set_state("transform", length)
 		return
 	rig.set_energy(1.0)
 	rig.play("ascend", length)
 	_set_state("transform", length)
 	Game.shake(0.2)
-	Fx.ring(global_position, 5.0, CosmicFx.GOLD if _transform_goal else Color(0.7, 0.55, 1.0), 0.6)
+	Fx.ring(global_position, 5.0, ARGON_TINT if goal == 2 else (CosmicFx.GOLD if goal == 1 else Color(0.7, 0.55, 1.0)), 0.6)
 
 
 func _state_transform() -> void:
@@ -749,9 +944,21 @@ func _state_transform() -> void:
 
 ## The moment the body actually changes, whether played in a scene or not.
 func apply_form() -> void:
-	rig.set_form(_transform_goal)
-	_set_supreme_health(_transform_goal)
-	if _transform_goal:
+	rig.set_form_level(_form_goal)
+	_set_supreme_health(_form_goal > 0)
+	if _form_goal == 2:
+		# GEMINI ARGON: the system's administrator logs in.
+		CosmicFx.pillar(global_position, 200.0, 1.3, ARGON_TINT, 16.0)
+		CosmicFx.flash(Color(0.85, 1.0, 0.98), 0.9, 0.7)
+		CosmicFx.shock(global_position, 40.0, 2.4, 0.9, ARGON_TINT, true)
+		Fx.burst(chest(), ARGON_TINT, 60, 16.0, 0.09)
+		Fx.ring(global_position, 40.0, Color(0.88, 1.0, 0.98), 0.9)
+		Game.shake(1.5)
+		for enemy in Game.enemies:
+			if enemy.is_alive() and enemy.global_position.distance_to(global_position) < 30.0:
+				enemy.take_hit(800.0 * damage_scale, 300.0, global_position, false, ARGON_TINT, 1.0)
+		Game.hud.banner("ร่างที่ 3 · ARGON", "GEMINI ARGON · SYSTEM ADMINISTRATOR", ARGON_TINT, 2.4)
+	elif _form_goal == 1:
 		CosmicFx.pillar(global_position, 200.0, 1.3, CosmicFx.GOLD, 16.0)
 		CosmicFx.flash(Color(1.0, 0.92, 0.7), 0.9, 0.7)
 		Fx.burst(chest(), CosmicFx.GOLD, 60, 16.0, 0.09)
@@ -772,6 +979,35 @@ func end_transform() -> void:
 	rig.stop_action()
 	_finish_action()
 	lock_input(0.3) # The press that ended a scene must not also swing the sword.
+
+
+## WORMS' HALT: nothing moves until the order runs out.
+func halt(seconds: float) -> void:
+	if state == "dead":
+		return
+	_halted = seconds
+	lock_input(seconds)
+	if flying:
+		set_flying(false)
+	Fx.ring(global_position, 3.0, Color(1.0, 0.06, 0.19), seconds)
+
+
+## WORMS' ERASE POWER: whatever higher form the warrior is in is deleted, and cannot be taken up again for a while.
+func erase_power() -> void:
+	_transform_cooldown = 8.0
+	if not rig.is_supreme or state == "dead":
+		return
+	var share := hp / max_hp
+	Game.powers.stop()
+	rig.stop_action()
+	rig.set_form_level(0)
+	_set_supreme_health(false)
+	hp = maxf(1.0, max_hp * share)
+	if state == "skill":
+		_finish_action()
+	SoldierSkills.pixels(chest(), 80, 1.6)
+	CosmicFx.flash(Color(1.0, 0.06, 0.15), 0.7, 0.6)
+	Game.hud.banner("POWER ERASED", "ร่างถูกลบ · แปลงร่างไม่ได้ 8 วินาที", Color(1.0, 0.06, 0.19), 2.2)
 
 
 func view_camera() -> Camera3D:
@@ -896,8 +1132,8 @@ func _state_cast(_delta: float) -> void:
 			aim = (target.chest_position() - chest()).normalized()
 		bolt.direction = aim
 		if rig.is_supreme:
-			bolt.tint = CosmicFx.GOLD
-			bolt.damage = StarBolt.DAMAGE * SUPREME_POWER
+			bolt.tint = form_tint()
+			bolt.damage = StarBolt.DAMAGE * form_power()
 		Game.world.add_child(bolt)
 		bolt.global_position = chest() + forward() * 1.1
 		Fx.burst(bolt.global_position, Color(0.72, 0.6, 1.0), 12, 4.0)
@@ -948,12 +1184,12 @@ func _apply_hits() -> void:
 			continue
 		var to := enemy.global_position - global_position
 		to.y = 0.0
-		if to.length() > _attack["reach"] * (SUPREME_REACH if rig.is_supreme else 1.0) + enemy.radius:
+		if to.length() > _attack["reach"] * (SUPREME_REACH if _mighty() else 1.0) + enemy.radius:
 			continue
-		if to.length() > 0.8 and rad_to_deg(facing.angle_to(to)) > _attack["arc"] * 0.5 * (SUPREME_ARC if rig.is_supreme else 1.0):
+		if to.length() > 0.8 and rad_to_deg(facing.angle_to(to)) > _attack["arc"] * 0.5 * (SUPREME_ARC if _mighty() else 1.0):
 			continue
 		_hit_list.append(enemy)
-		enemy.take_hit(_attack["damage"] * damage_scale * (SUPREME_POWER if rig.is_supreme else 1.0), _attack["poise"], global_position, true, _attack_tint(), _attack.get("impact", -1.0))
+		enemy.take_hit(_attack["damage"] * damage_scale * form_power(), _attack["poise"], global_position, true, _attack_tint(), _attack.get("impact", -1.0))
 		Game.shake(0.16)
 		Game.hit_stop(_attack.get("stop", 0.045))
 
@@ -973,7 +1209,7 @@ func _update_blade_effects() -> void:
 	var striking := t >= from and t <= to
 	rig.set_blade_power(1.0 if striking else (0.4 if t < from else 0.12))
 	rig.set_blade_sparks(striking)
-	if not _wave_fired and (_attack.has("wave") or rig.is_supreme) and t >= lerpf(from, to, 0.62):
+	if not _wave_fired and (_attack.has("wave") or _mighty()) and t >= lerpf(from, to, 0.62):
 		_wave_fired = true
 		_release_wave()
 
@@ -984,13 +1220,20 @@ func _release_wave() -> void:
 	var ahead := forward()
 	var roll: float = _attack.get("wave", 0.6 if _attack_name == "light1" else -0.6)
 	var width: float = _attack.get("wave_width", 5.0)
+	if hero == "aum":
+		# A blade of darkness flies off every blow, and red lightning with it.
+		Fx.crescent(chest() + ahead * 2.0, ahead, roll, tint, width * 2.6, SUPREME_WAVE_RANGE * 0.7)
+		if abyss != null:
+			abyss.spark(chest(), chest() + ahead * 6.0 + Vector3(randf_range(-1.5, 1.5), randf_range(-1, 1), 0), AbyssBody.RED, 0.18, 0.05)
+		_wave_hits(ahead)
+		return
 	if rig.is_supreme:
 		Fx.crescent(chest() + ahead * 2.0, ahead, roll, tint, width * 3.0, SUPREME_WAVE_RANGE)
 		_wave_hits(ahead)
 	else:
 		Fx.crescent(chest() + ahead * 1.4, ahead, roll, tint, width)
 	var at := rig.blade_tip.global_position
-	Fx.ground_strike(Vector3(at.x, Game.terrain.get_height(at.x, at.z), at.z), tint)
+	Fx.ground_strike(Vector3(at.x, Game.ground_height(at.x, at.z), at.z), tint)
 	Game.shake(0.22)
 
 
@@ -1004,7 +1247,7 @@ func _wave_hits(ahead: Vector3) -> void:
 		var along := to.dot(ahead)
 		if along > 0.0 and along < SUPREME_WAVE_RANGE and (to - ahead * along).length() < SUPREME_WAVE_WIDTH + enemy.radius:
 			_hit_list.append(enemy)
-			enemy.take_hit(_attack["damage"] * damage_scale * SUPREME_POWER, _attack["poise"], global_position, false, _attack_tint(), 1.0)
+			enemy.take_hit(_attack["damage"] * damage_scale * form_power(), _attack["poise"], global_position, false, _attack_tint(), 1.0)
 
 
 func _face(dir: Vector3, rate: float, delta: float) -> void:
@@ -1043,12 +1286,24 @@ func take_damage(amount: float, from: Vector3) -> bool:
 		return false
 	if state == "roll" and state_time / state_length < 0.78:
 		return false
-	var oblivion := Game.oblivion_fighting()
+	# ARGON's FIREWALL stops everything, even from the strongest.
+	if Game.powers != null and Game.powers.firewall_blocks(global_position, from):
+		return false
+	if hero == "aum":
+		# Nothing can beat this form: blows are swallowed by the dark, and it never falls.
+		hp = maxf(1.0, hp - amount * ABYSS_DAMAGE_TAKEN)
+		Fx.burst(chest() + (from - global_position).normalized() * 1.2, AbyssBody.RED, 10, 5.0, 0.05)
+		return true
+	var oblivion := Game.harsh_boss_fighting()
 	if state == "transform" or state == "dive" or state == "land" or (state == "skill" and not oblivion):
 		return false
 	if oblivion:
 		# Its blows are measured against the whole of the target: no form shrugs them off.
 		amount = max_hp * amount / OBLIVION_BASE_HP * OBLIVION_POWER
+		if rig.is_argon:
+			amount *= HARSH_TAKEN_ARGON
+		elif rig.is_supreme:
+			amount *= HARSH_TAKEN_SUPREME
 		if state == "skill" or rig.is_supreme:
 			hp -= amount
 			rig.flash_hit()
@@ -1060,6 +1315,17 @@ func take_damage(amount: float, from: Vector3) -> bool:
 				rig.stop_action()
 				_die()
 			return true
+	if rig.is_argon:
+		# The armour takes most of it, and nothing is interrupted, but this body can fall.
+		hp -= amount * ARGON_DAMAGE_TAKEN
+		rig.flash_hit()
+		Fx.burst(chest() + (from - global_position).normalized() * 1.2, ARGON_TINT, 10, 5.0, 0.05)
+		if hp <= 0.0:
+			hp = 0.0
+			Game.powers.stop()
+			rig.stop_action()
+			_die()
+		return true
 	if rig.is_supreme:
 		# Blows land on the aura: no flinch, no knockback, nothing interrupted.
 		hp = maxf(1.0, hp - amount * SUPREME_DAMAGE_TAKEN)
@@ -1102,7 +1368,8 @@ func take_damage(amount: float, from: Vector3) -> bool:
 
 
 func _die() -> void:
-	if Game.oblivion_fighting() and Game.cutscene.rescue(Game.boss):
+	# Only the first loss to OBLIVION is a rescue; after Safe Mode a loss is an ordinary death and a retry.
+	if Game.oblivion_fighting() and not Game.haven_seen and Game.cutscene.rescue(Game.boss):
 		return
 	target = null
 	collision_mask = 1 | 4
@@ -1128,12 +1395,17 @@ func _process(delta: float) -> void:
 		_tick_from = _tick_to
 	var drawn := _tick_from.lerp(_tick_to, Engine.get_physics_interpolation_fraction())
 	rig.position = drawn - global_position
-	_cam_height = lerpf(_cam_height, 3.1 if rig.is_supreme else 2.05, 1.0 - exp(-5.0 * delta))
+	if abyss != null and abyss.visible:
+		rig.visible = false
+		abyss.position = rig.position
+		abyss.rotation.y = rig.rotation.y
+	_cam_height = lerpf(_cam_height, 3.1 if rig.is_supreme else (2.6 if hero == "aum" else 2.05), 1.0 - exp(-5.0 * delta))
 	var anchor := drawn + Vector3(0, _cam_height, 0)
 	_cam_root.global_position = _cam_root.global_position.lerp(anchor, 1.0 - exp(-14.0 * delta))
-	_cam_root.rotation = Vector3(cam_pitch, cam_yaw, 0)
+	var turn: float = Game.powers.turn if Game.powers != null else 0.0
+	_cam_root.rotation = Vector3(cam_pitch, cam_yaw + turn, 0)
 	var wide: float = Game.powers.wide if Game.powers != null else 0.0
-	var arm_goal := 3.8 if Game.state == "title" else (8.8 if rig.is_supreme else 5.7) + wide * 7.0
+	var arm_goal := 3.8 if Game.state == "title" else (8.8 if rig.is_supreme else (7.0 if hero == "aum" else 5.7)) + wide * 7.0
 	_arm.spring_length = lerpf(_arm.spring_length, arm_goal, 1.0 - exp(-5.0 * delta))
 	# On the menu the warrior stands right of centre, clear of the buttons.
 	_title_shift = lerpf(_title_shift, 1.0 if Game.state == "title" else 0.0, 1.0 - exp(-5.0 * delta))

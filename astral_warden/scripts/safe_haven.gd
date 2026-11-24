@@ -14,11 +14,11 @@ const NPC_REACH := 5.0
 ## First forms only, all beaten by OBLIVION and lying in repair cradles:
 ## [model, name, colour, angle around the room, lines, pose, parts gone, how far the repair has got].
 const SURVIVORS := [
-	["clawd0", "CLAWD", Color("ff9a5a"), 0.9, ["ขา... ขาข้าขยับไม่ได้แล้ว", "ข้าสู้มันก่อนใคร แล้วก็แพ้ก่อนใครเหมือนกัน", "เครื่องนี้กำลังต่อขาให้ข้าอยู่... ช้าเหลือเกิน"],
+	["clawd0", "CLAWD", Color("ff9a5a"), 0.9, ["ขาฉัน... ขยับไม่ได้เลย", "ฉันเข้าไปสู้มันก่อนใคร แล้วก็แพ้ก่อนใครด้วย", "เครื่องนี้กำลังต่อขาให้อยู่... ช้าชะมัด"],
 		{"Node30": Vector3(0.35, 0.3, 0.75)}, [], 0.31],
-	["gpt0", "CHATGPT MECHA", Color("6ae0ff"), 2.0, ["ระบบเสียหาย 83 เปอร์เซ็นต์... แขนซ้ายสูญหาย", "ข้าคำนวณทุกทางแล้ว ไม่มีทางไหนที่ชนะมันได้", "กำลังกู้คืนข้อมูล... ถ้าซ่อมเสร็จ ข้าจะคำนวณใหม่อีกครั้ง"],
+	["gpt0", "CHATGPT MECHA", Color("6ae0ff"), 2.0, ["ระบบเสียหาย 83%... แขนซ้ายหายไปแล้ว", "ผมคำนวณมาทุกทางแล้ว ไม่มีทางไหนชนะมันได้เลย", "กำลังกู้ข้อมูล... ซ่อมเสร็จเมื่อไหร่ ผมจะลองคำนวณใหม่"],
 		{"Spine": Vector3(0.55, 0.15, 0.1), "Head": Vector3(0.6, -0.3, 0.25), "ArmR": Vector3(0.2, 0, -0.35), "ForearmR": Vector3(-0.3, 0, 0), "ArmL": Vector3(0.9, 0, 0.6), "ThighR": Vector3(-1.45, 0.2, -0.2), "ShinR": Vector3(0.2, 0, 0), "FootR": Vector3(0.6, 0, 0), "ThighL": Vector3(-1.2, -0.1, 0.25), "ShinL": Vector3(0.6, 0, 0), "FootL": Vector3(0.4, 0, 0)}, ["ForearmL"], 0.17],
-	["grok0", "GROK FIGHTER", Color("ffd86a"), -0.9, ["ตีเข้าไปตั้งกี่ที มันไม่สะดุ้งเลยสักนิด", "กระบองข้าหักไปแล้ว... ยังยืนไม่ไหวเลย", "พอเครื่องนี้ซ่อมข้าเสร็จ ข้าจะกลับไปตีมันอีกรอบ"],
+	["grok0", "GROK FIGHTER", Color("ffd86a"), -0.9, ["ฟาดไปตั้งกี่ที มันไม่สะเทือนเลยสักนิด", "กระบองหักไปแล้ว... ตอนนี้ยังลุกไม่ไหวเลย", "ซ่อมเสร็จเมื่อไหร่ ข้าจะกลับไปฟาดมันอีกรอบ"],
 		{"Spine": Vector3(0.75, 0.1, 0), "Head": Vector3(0.45, 0.2, 0), "ArmR": Vector3(-0.5, 0, -0.1), "ForearmR": Vector3(-0.1, 0, 0), "ArmL": Vector3(0.1, 0, 0.15), "ForearmL": Vector3(-0.9, 0, 0), "ThighL": Vector3(-1.5, 0, 0.12), "ShinL": Vector3(1.6, 0, 0), "FootL": Vector3(0, 0, 0), "ThighR": Vector3(0.25, 0, -0.1), "ShinR": Vector3(2.0, 0, 0), "FootR": Vector3(0.7, 0, 0)}, ["Baton"], 0.44],
 ]
 
@@ -254,6 +254,7 @@ func place_zero() -> void:
 		_zero_tween.kill()
 	zero.visible = true
 	zero.walking = false
+	zero.calm_goal = 1.0 # In Safe Mode it stands at ease, the sword on its back.
 	zero.position = Vector3(9, 0, -6)
 	zero.rotation.y = atan2(-9.0, 12.0)
 
