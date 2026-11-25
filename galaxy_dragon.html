@@ -1,0 +1,1282 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Galaxy Dragon</title>
+<style>
+  html,body{margin:0;height:100%;overflow:hidden;background:#04030c;font-family:ui-monospace,Menlo,monospace;color:#e9e6ff}
+  canvas{display:block}
+  #title{position:fixed;left:20px;top:16px;font:800 24px/1.15 system-ui,"Segoe UI",Tahoma,sans-serif;letter-spacing:.04em;pointer-events:none;color:#f1eeff}
+  #title b{color:#c3a0ff;text-shadow:0 0 14px #7c4dff}
+  #title small{display:block;font:500 12px/1.6 system-ui,"Segoe UI",Tahoma,sans-serif;opacity:.75;letter-spacing:0;color:#a9b8ff}
+  #bar{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:6px;width:max-content;max-width:calc(100vw - 32px)}
+  #bar .row{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
+  button{font:600 12px ui-monospace,Menlo,monospace;padding:9px 12px;background:#0e0a24;color:#e6e2ff;border:1px solid #8b5cf666;border-radius:4px;cursor:pointer}
+  button:hover{background:#1c1442}
+  button.on{background:#5b2fd0;border-color:#b79bff;color:#fff}
+  button.skill{border-color:#6fb7ffaa;background:#0b1430}
+  button.skill b{color:#9fc8ff;margin-right:6px}
+  button.skill.on{background:#2f56d0;border-color:#9fc8ff}
+  button:disabled{opacity:.4;cursor:default}
+  .gap{width:10px}
+  #flash{position:fixed;inset:0;background:#e6dcff;opacity:0;pointer-events:none;z-index:2}
+  #cap{position:fixed;top:72px;left:50%;transform:translateX(-50%);text-align:center;font:800 30px/1.1 system-ui,"Segoe UI",sans-serif;letter-spacing:.2em;color:#d7c2ff;text-shadow:0 0 18px #8b5cf6,0 0 40px #4f8bff;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap;z-index:3}
+  #cap small{display:block;font:600 13px/1.6 system-ui,"Segoe UI",Tahoma,sans-serif;letter-spacing:.06em;color:#b9d2ff;margin:8px auto 0;text-shadow:none;white-space:normal;max-width:min(560px,90vw)}
+  #cap.on{opacity:1}
+  @media (max-width:640px){button{padding:6px 7px;font-size:11px}.gap{width:2px}#bar{gap:4px;bottom:10px}#title{font-size:18px}#cap{font-size:20px}}
+</style>
+<script type="importmap">
+{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}
+</script>
+</head>
+<body>
+<div id="title"><b>มังกรกาแลคซี่</b> · GALAXY DRAGON<small>บอส · สูง 20 เมตร · โมเดลปั้นใน Blender · ลากเพื่อหมุน · เลื่อนเพื่อซูม · กด 1–6 ใช้สกิล</small></div>
+<div id="flash"></div>
+<div id="cap"></div>
+<div id="bar">
+ <div class="row">
+  <button class="skill" data-act="breath" title="ลมหายใจคอสมิก"><b>1</b>COSMIC BREATH</button>
+  <button class="skill" data-act="shield" title="บาเรียดาราจักร"><b>2</b>GALAXY BARRIER</button>
+  <button class="skill" data-act="meteor" title="เรียกฝนดาวตก"><b>3</b>METEOR SHOWER</button>
+  <button class="skill" data-act="portal" title="ประตูมิติความว่างเปล่า"><b>4</b>VOID PORTAL</button>
+  <button class="skill" data-act="strike" title="การจู่โจมเนบิวลา"><b>5</b>NEBULA STRIKE</button>
+  <button class="skill" data-act="nova" title="ซูเปอร์โนวา"><b>6</b>SUPERNOVA NOVA</button>
+ </div>
+ <div class="row">
+  <button data-view="front">FRONT</button>
+  <button data-view="side">SIDE</button>
+  <button data-view="back">BACK</button>
+  <button data-view="iso">ISO</button>
+  <span class="gap"></span>
+  <button id="fly" title="บินขึ้น / ร่อนลง (F)">FLY ✦</button>
+  <span class="gap"></span>
+  <button id="scale" class="on" title="แสดงคนเทียบขนาดและไม้บรรทัด 20 เมตร">SCALE 1.8 M</button>
+  <span class="gap"></span>
+  <button id="download" title="โมเดลที่ปั้นและริกใน Blender">DOWNLOAD GLB</button>
+ </div>
+</div>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+const MODEL_URL = 'blender/galaxy_dragon.glb'; // sculpted + rigged by blender/build_galaxy_dragon.py
+
+/* ---------- helpers ---------- */
+const TAU = Math.PI * 2;
+const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
+const clamp01 = x => Math.min(1, Math.max(0, x));
+const smooth = (a, b, x) => { const k = clamp01((x - a) / (b - a)); return k * k * (3 - 2 * k); };
+const env = (q, a, b, c, d) => smooth(a, b, q) * (1 - smooth(c, d, q));
+const elasticOut = x => x <= 0 ? 0 : x >= 1 ? 1 : Math.pow(2, -10 * x) * Math.sin((x * 10 - .75) * TAU / 3) + 1;
+const r2 = () => Math.random() * 2 - 1;
+let seed = 7;
+const rnd = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+
+/* ---------- scene ---------- */
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x070418, .0052);
+const camera = new THREE.PerspectiveCamera(34, (innerWidth || 1) / (innerHeight || 1), .1, 2200);
+camera.position.set(36, 22, 46);
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+const MAX_PR = Math.min(devicePixelRatio, 1.5);
+let pixelRatio = MAX_PR;
+renderer.setPixelRatio(pixelRatio);
+renderer.setSize(innerWidth || 1, innerHeight || 1);
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap;
+document.body.appendChild(renderer.domElement);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true; controls.target.set(0, 10.5, 0);
+controls.minDistance = 6; controls.maxDistance = 300; controls.maxPolarAngle = Math.PI * .58;
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(new THREE.Vector2((innerWidth || 1) / 2, (innerHeight || 1) / 2), .75, .5, .65);
+composer.addPass(bloom);
+composer.addPass(new OutputPass());
+function resize() {
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  renderer.setPixelRatio(pixelRatio); composer.setPixelRatio(pixelRatio);
+  renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight);
+}
+addEventListener('resize', resize);
+// adaptive resolution: drop the pixel ratio when frames run long, raise it again when there is headroom
+let perfT = 0, perfN = 0;
+function watchPerf(rawDt) {
+  perfT += rawDt; perfN++;
+  if (perfT < 1.5) return;
+  const avg = perfT / perfN; perfT = perfN = 0;
+  if (document.hidden) return;
+  const next = avg > 1 / 40 ? Math.max(.6, pixelRatio - .2) : avg < 1 / 57 ? Math.min(MAX_PR, pixelRatio + .1) : pixelRatio;
+  if (Math.abs(next - pixelRatio) > .01) { pixelRatio = next; resize(); }
+}
+
+scene.add(new THREE.HemisphereLight(0x8c84ff, 0x0b0820, 1.0));
+const key = new THREE.DirectionalLight(0xdfe4ff, 2.0);
+key.position.set(-20, 40, 34); key.castShadow = true; key.shadow.mapSize.set(1024, 1024);
+Object.assign(key.shadow.camera, { left: -40, right: 40, top: 40, bottom: -10, far: 140 });
+key.shadow.bias = -.0008; key.shadow.normalBias = .06;
+scene.add(key);
+const rimA = new THREE.DirectionalLight(0xb35cff, 3.2); rimA.position.set(-18, 14, -22); scene.add(rimA);
+const rimB = new THREE.DirectionalLight(0x4fc8ff, 2.6); rimB.position.set(20, 12, -18); scene.add(rimB);
+
+/* ---------- textures ---------- */
+function canvasTex(w, h, draw) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  draw(c.getContext('2d'), w, h);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+const glowTex = canvasTex(128, 128, (g, w) => {
+  const r = g.createRadialGradient(w / 2, w / 2, 0, w / 2, w / 2, w / 2);
+  r.addColorStop(0, 'rgba(255,255,255,1)'); r.addColorStop(.25, 'rgba(255,255,255,.5)'); r.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = r; g.fillRect(0, 0, w, w);
+});
+const swirlTex = canvasTex(256, 256, (g, w) => {
+  g.globalCompositeOperation = 'lighter';
+  const blob = (x, y, r, col, a) => { const gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, `rgba(${col},${a})`); gr.addColorStop(1, `rgba(${col},0)`); g.fillStyle = gr; g.fillRect(x - r, y - r, r * 2, r * 2); };
+  const cols = ['170,90,255', '230,110,255', '110,150,255', '255,170,240'], R = w * .48;
+  for (let a = 0; a < 2; a++) for (let i = 0; i < 260; i++) {
+    const k = i / 260, th = k * 4.2 + a * Math.PI, r = R * k;
+    blob(w / 2 + Math.cos(th) * r + (rnd() - .5) * R * .14, w / 2 + Math.sin(th) * r + (rnd() - .5) * R * .14, R * (.05 + .1 * (1 - k)) * (.6 + rnd()), cols[(rnd() * 4) | 0], .09 * (1 - k * .6));
+  }
+  blob(w / 2, w / 2, R * .42, '190,140,255', .55); blob(w / 2, w / 2, R * .16, '255,235,255', .95);
+});
+const ringTex = canvasTex(512, 512, (g, w) => {
+  const c = w / 2;
+  for (let i = 0; i < 150; i++) {
+    const rr = 170 + i / 150 * 84, a = .05 + .2 * (Math.sin(i * .37) * .5 + .5) * (Math.sin(i * .11 + 1) * .5 + .5);
+    g.strokeStyle = `hsla(${255 + 45 * Math.sin(i * .19)},90%,72%,${a})`; g.lineWidth = 1.6;
+    g.beginPath(); g.arc(c, c, rr, 0, TAU); g.stroke();
+  }
+  for (let i = 0; i < 900; i++) { const a = rnd() * TAU, rr = 172 + rnd() * 80; g.fillStyle = `rgba(235,235,255,${.4 + rnd() * .6})`; g.fillRect(c + Math.cos(a) * rr, c + Math.sin(a) * rr, 1.5, 1.5); }
+});
+
+const gTime = { value: 0 };
+const NOISE = `
+float gh(vec3 p){ p = fract(p * .3183099 + .1); p *= 17.; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+float gn(vec3 x){ vec3 i = floor(x), f = fract(x); f = f * f * (3. - 2. * f);
+  return mix(mix(mix(gh(i), gh(i + vec3(1,0,0)), f.x), mix(gh(i + vec3(0,1,0)), gh(i + vec3(1,1,0)), f.x), f.y),
+             mix(mix(gh(i + vec3(0,0,1)), gh(i + vec3(1,0,1)), f.x), mix(gh(i + vec3(0,1,1)), gh(i + vec3(1,1,1)), f.x), f.y), f.z); }
+float gfbm(vec3 p){ float a = .5, s = 0.; for (int i = 0; i < 5; i++){ s += a * gn(p); p = p * 2.03 + vec3(1.7, 9.2, 3.1); a *= .5; } return s; }`;
+const additive = (color, opacity = 1) => new THREE.MeshBasicMaterial({ color, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+function sprite(parent, pos, size, color, opacity = .8) {
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false }));
+  s.position.set(...pos); s.scale.setScalar(size); parent.add(s); return s;
+}
+
+/* ---------- stage ---------- */
+const sky = new THREE.Mesh(new THREE.SphereGeometry(1000, 48, 32), new THREE.ShaderMaterial({
+  side: THREE.BackSide, depthWrite: false, uniforms: { uT: gTime },
+  vertexShader: `varying vec3 vD; void main(){ vD = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }`,
+  fragmentShader: `varying vec3 vD; uniform float uT; ${NOISE}
+  void main(){
+    vec3 d = vD; float n = gfbm(d * 2.2 + vec3(0., 0., uT * .005)); float m = gfbm(d * 4.5 + n * 1.8);
+    vec3 c = vec3(.012, .008, .035);
+    c += mix(vec3(.12, .04, .3), vec3(.35, .1, .45), m) * smoothstep(.48, .85, n) * .9;
+    c += vec3(.05, .12, .35) * smoothstep(.55, .9, m) * .5;
+    vec3 cp = d * 180.; vec3 ci = floor(cp); float h = gh(ci);
+    c += vec3(.9, .9, 1.) * step(.985, h) * smoothstep(.35, .0, length(fract(cp) - .5)) * (.5 + .5 * sin(uT * 2. + h * 90.));
+    gl_FragColor = vec4(c, 1.);
+  }`,
+}));
+{ // the nebula sky is drawn once into a cube map instead of every frame
+  const skyScene = new THREE.Scene(); skyScene.add(sky);
+  const cubeRT = new THREE.WebGLCubeRenderTarget(1024);
+  new THREE.CubeCamera(1, 2000, cubeRT).update(renderer, skyScene);
+  scene.background = cubeRT.texture;
+}
+const ground = new THREE.Mesh(new THREE.CircleGeometry(160, 96), new THREE.MeshStandardMaterial({ color: 0x0a0820, roughness: 1, metalness: 0 }));
+ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+const floorGlow = new THREE.Mesh(new THREE.PlaneGeometry(36, 36), new THREE.MeshBasicMaterial({ map: glowTex, color: 0x6a3cff, transparent: true, opacity: .45, blending: THREE.AdditiveBlending, depthWrite: false }));
+floorGlow.rotation.x = -Math.PI / 2; floorGlow.position.y = .03; scene.add(floorGlow);
+[12, 20, 30].forEach((r, i) => { const m = new THREE.Mesh(new THREE.RingGeometry(r, r + .08, 128), additive(0x7a5cff, .16 - i * .04)); m.rotation.x = -Math.PI / 2; m.position.y = .04; scene.add(m); });
+
+const scaleGrp = new THREE.Group(); scene.add(scaleGrp);
+{
+  const mat = new THREE.MeshStandardMaterial({ color: 0x15141c, roughness: .8 });
+  const human = new THREE.Group(); human.position.set(-9.5, 0, 7); scaleGrp.add(human);
+  const part = (geo, pos) => { const m = new THREE.Mesh(geo, mat); m.position.set(...pos); m.castShadow = true; human.add(m); };
+  [-1, 1].forEach(s => { part(new THREE.CapsuleGeometry(.1, .7, 4, 8), [s * .12, .5, 0]); part(new THREE.CapsuleGeometry(.06, .55, 4, 8), [s * .3, 1.17, 0]); });
+  part(new THREE.CapsuleGeometry(.2, .35, 4, 10), [0, 1.22, 0]); part(new THREE.SphereGeometry(.12, 12, 10), [0, 1.68, 0]);
+  const label = (text, pos, h = 1.1) => {
+    const c = document.createElement('canvas'), g = c.getContext('2d'), font = '600 48px system-ui, "Segoe UI", Tahoma, sans-serif';
+    g.font = font; c.width = Math.ceil(g.measureText(text).width) + 20; c.height = 64;
+    g.font = font; g.fillStyle = '#cfd2ff'; g.textBaseline = 'middle'; g.fillText(text, 10, 34);
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true, depthWrite: false }));
+    s.scale.set(h * c.width / 64, h, 1); s.position.set(...pos); scaleGrp.add(s);
+  };
+  const rulerMat = new THREE.MeshBasicMaterial({ color: 0x9a98c8 });
+  const bar = new THREE.Mesh(new THREE.BoxGeometry(.07, 20, .07), rulerMat); bar.position.set(-15, 10, 0); scaleGrp.add(bar);
+  for (let y = 0; y <= 20; y += 5) { const t = new THREE.Mesh(new THREE.BoxGeometry(y % 10 ? .4 : .8, .07, .07), rulerMat); t.position.set(-15, y, 0); scaleGrp.add(t); }
+  label('20 m', [-16.9, 20, 0]); label('10 m', [-16.9, 10, 0]); label('0', [-16.2, .4, 0]); label('1.8 m', [-9.5, 2.6, 7], .8);
+}
+
+/* ---------- particles ---------- */
+const PN = 2600,pPos = new Float32Array(PN * 3).fill(-999), pCol = new Float32Array(PN * 3);
+const pGeo = new THREE.BufferGeometry();
+pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3)); pGeo.setAttribute('color', new THREE.BufferAttribute(pCol, 3));
+const sparks = new THREE.Points(pGeo, new THREE.PointsMaterial({ map: glowTex, size: .8, vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+sparks.frustumCulled = false; scene.add(sparks);
+const PART = Array.from({ length: PN }, () => ({ life: 0, max: 1, p: V(), v: V(), c: new THREE.Color(), g: 0, drag: 0, to: null }));
+let pNext = 0;
+function emit(pos, vel, color, life, g = 0, drag = 0, to = null) {
+  const o = PART[pNext]; pNext = (pNext + 1) % PN;
+  o.p.copy(pos); o.v.copy(vel); o.c.set(color); o.life = o.max = life; o.g = g; o.drag = drag; o.to = to; o.parked = false;
+}
+const _d = V();
+function updateParticles(dt) {
+  for (let i = 0; i < PN; i++) {
+    const o = PART[i];
+    if (o.life <= 0 && o.parked) continue;
+    o.parked = o.life <= 0;
+    if (o.life > 0) {
+      o.life -= dt;
+      if (o.to) { _d.copy(o.to).sub(o.p); if (_d.length() < .6) o.life = 0; o.v.lerp(_d.multiplyScalar(4), 1 - Math.exp(-dt * 3)); }
+      o.v.y -= o.g * dt; o.v.multiplyScalar(Math.exp(-o.drag * dt)); o.p.addScaledVector(o.v, dt);
+    }
+    if (o.life > 0) {
+      const k = o.life / o.max;
+      pPos[i * 3] = o.p.x; pPos[i * 3 + 1] = o.p.y; pPos[i * 3 + 2] = o.p.z;
+      pCol[i * 3] = o.c.r * k; pCol[i * 3 + 1] = o.c.g * k; pCol[i * 3 + 2] = o.c.b * k;
+    } else { pPos[i * 3 + 1] = -999; pCol[i * 3] = pCol[i * 3 + 1] = pCol[i * 3 + 2] = 0; }
+  }
+  pGeo.attributes.position.needsUpdate = true; pGeo.attributes.color.needsUpdate = true;
+}
+const DUST = 600, dPos = new Float32Array(DUST * 3);
+for (let i = 0; i < DUST; i++) { const a = Math.random() * TAU, r = 6 + Math.random() * 45; dPos.set([Math.cos(a) * r, Math.random() * 36, Math.sin(a) * r], i * 3); }
+const dGeo = new THREE.BufferGeometry(); dGeo.setAttribute('position', new THREE.BufferAttribute(dPos, 3));
+const dust = new THREE.Points(dGeo, new THREE.PointsMaterial({ map: glowTex, size: .28, color: 0xb9a8ff, transparent: true, opacity: .8, depthWrite: false, blending: THREE.AdditiveBlending }));
+dust.frustumCulled = false; scene.add(dust);
+
+/* ---------- the dragon: sculpted and rigged in Blender ---------- */
+const dragon = new THREE.Group(); scene.add(dragon);
+// pivot at body height so the dragon can pitch level and bank while flying (identity on the ground)
+const tilt = new THREE.Group(); tilt.position.y = 10; tilt.rotation.order = 'ZYX'; dragon.add(tilt);
+const home = V(), BONE = {}, FX = {}, crystalMats = [], skinMats = [];
+let ready = false;
+const capEl = document.getElementById('cap');
+let capTimer = 0;
+function showCap(main, sub, secs = 2.8) { capEl.innerHTML = `${main}<small>${sub}</small>`; capEl.classList.add('on'); capTimer = secs; }
+const skillBtns = document.querySelectorAll('[data-act]');
+skillBtns.forEach(b => b.disabled = true);
+showCap('LOADING', 'กำลังโหลดโมเดลมังกร…', Infinity);
+const draco = new DRACOLoader().setDecoderPath('https://unpkg.com/three@0.160.0/examples/jsm/libs/draco/gltf/');
+new GLTFLoader().setDRACOLoader(draco).load(MODEL_URL, g => {
+  const model = g.scene; tilt.add(model); model.position.y = -10;
+  model.traverse(o => {
+    if (!o.isMesh) return;
+    o.frustumCulled = false; // skinned bounds don't follow the pose
+    const m = o.material, n = m.name || '';
+    // only the big shapes cast shadows; small parts would just add shadow-pass draw calls
+    o.castShadow = /Skin|Membrane|WingBone/.test(n); o.receiveShadow = /Skin|Belly|Plates/.test(n);
+    if (m.transmission) m.transmission = 0; // transmission re-renders the whole scene every frame
+    // Blender's strengths are tuned for Eevee; tame them for this bloom pass
+    const cap = { Core: 2.2, Eye: 5, WingEdge: 1.1, Vein: 1.3, Membrane: 1.0, MouthGlow: 1.5 };
+    for (const k in cap) if (n.includes(k)) m.emissiveIntensity = Math.min(m.emissiveIntensity, cap[k]);
+    if (/Crystal/.test(n)) { m.userData.base = m.emissiveIntensity; crystalMats.push(m); }
+    if (/Skin|Belly|ScalePlates|WingBone/.test(n)) { m.userData.base = m.emissiveIntensity; skinMats.push(m); }
+    if (/Membrane/.test(n)) m.side = THREE.DoubleSide;
+    if (/Core/.test(n)) { m.blending = THREE.AdditiveBlending; m.depthWrite = false; }
+  });
+  model.updateMatrixWorld(true);
+  const mqi = model.getWorldQuaternion(new THREE.Quaternion()).invert();
+  model.traverse(o => {
+    if (o.isBone) {
+      const W = o.getWorldQuaternion(new THREE.Quaternion()).premultiply(mqi);
+      const PWi = o.parent.getWorldQuaternion(new THREE.Quaternion()).premultiply(mqi).invert();
+      BONE[o.name] = { bone: o, restQ: o.quaternion.clone(), restP: o.position.clone(), W, Wi: W.clone().invert(), PWi };
+    }
+    if (/^fx/.test(o.name)) FX[o.name] = o;
+  });
+  // glows that ride on the bones
+  if (FX.fxCore) { FX.coreGlow = sprite(FX.fxCore, [0, 0, 0], 5, 0xc070ff, .7); FX.coreLight = new THREE.PointLight(0xb070ff, 30, 16, 2); FX.fxCore.add(FX.coreLight); }
+  if (FX.fxMouth) FX.mouthGlow = sprite(FX.fxMouth, [0, 0, 0], .01, 0xd9b8ff, 0);
+  ['L', 'R'].forEach(s => { if (FX['fxHand' + s]) FX['aura' + s] = sprite(FX['fxHand' + s], [0, 0, 0], 3.6, 0x8f6bff, .4); });
+  if (FX.fxTail) FX.tailGlow = sprite(FX.fxTail, [0, 0, 0], 3.5, 0x7fb6ff, .5);
+  setupSpineGlow(model);
+  setupTailStraight();
+  const missing = ['hips', 'chest', 'head', 'jaw', 'shoulderL', 'wingL', 'wingF0L', 'tail9'].filter(n => !BONE[n]);
+  if (missing.length) console.warn('rig bones missing:', missing);
+  warmup();
+  ready = true;
+  // console hook: __gd.play('nova', 4.4) jumps a skill to a moment, for checking poses and effects
+  window.__gd = {
+    bench(n = 40) { const gl = renderer.getContext(); gl.finish(); const t0 = performance.now(); for (let i = 0; i < n; i++) frame(1 / 60); gl.finish(); return +((performance.now() - t0) / n).toFixed(2) + ' ms/frame @pr ' + pixelRatio; },
+    fly(at = 0) { toggleFly(); for (let s = 0; s < at; s += 1 / 30) frame(1 / 30); return FLY.state; },
+    step(at = 0) { for (let s = 0; s < at; s += 1 / 30) frame(1 / 30); return FLY.state; },
+    play(name, at = 0) { startSkill(name); camera.position.copy(camGoal); controls.target.copy(tgtGoal); camGoal = tgtGoal = null; for (let s = 0; s < at; s += 1 / 30) frame(1 / 30); } };
+  skillBtns.forEach(b => b.disabled = false);
+  capEl.classList.remove('on'); capTimer = 0;
+}, undefined, err => {
+  console.error(err);
+  showCap('MODEL NOT LOADED', 'เปิดหน้านี้ผ่าน http server (model-showcase) แทนการดับเบิลคลิกไฟล์ และต้องมีไฟล์ blender/galaxy_dragon.glb', Infinity);
+});
+
+/* ---------- spine charge: the back crystals light up in a wave from the tail tip to the head ----------
+   Each crystal vertex gets aSpine = its place along the tail→back→neck→head line (0..1), or -1 if it isn't on that line. */
+const spineU = { uFront: { value: -1 }, uGlow: { value: 0 }, uT: gTime };
+let spineNodes = [], spineS = [];
+// Cosmic Breath timeline (seconds): charge up the back → beam rakes the ground → drag it up into the sky → hold → fade
+const BREATH_T = { charge: 2.8, ground: 1.6, raise: .9, hold: 3.0, fade: .7 };
+const BREATH_DUR = Object.values(BREATH_T).reduce((a, b) => a + b, 0);
+const BREATH_FIRE = BREATH_T.charge / BREATH_DUR;                                         // beam starts
+const BREATH_UP0 = (BREATH_T.charge + BREATH_T.ground) / BREATH_DUR;                      // starts lifting
+const BREATH_UP1 = (BREATH_T.charge + BREATH_T.ground + BREATH_T.raise) / BREATH_DUR;     // pointing at the sky
+const BREATH_END = 1 - BREATH_T.fade / BREATH_DUR;                                        // beam starts to die
+const BREATH_POWER = 2; // beam width and brightness multiplier
+function setupSpineGlow(model) {
+  spineNodes = [FX.fxTail, ...Array.from({ length: 10 }, (_, k) => BONE['tail' + (9 - k)] && BONE['tail' + (9 - k)].bone),
+    ...['hips', 'spine', 'chest', 'neck', 'head'].map(n => BONE[n] && BONE[n].bone), FX.fxMouth].filter(Boolean);
+  if (spineNodes.length < 6) return;
+  const pts = spineNodes.map(o => o.getWorldPosition(V()));
+  let acc = 0; spineS = [0];
+  for (let i = 1; i < pts.length; i++) { acc += pts[i].distanceTo(pts[i - 1]); spineS.push(acc); }
+  spineS = spineS.map(s => s / acc);
+  const _p = V(), _ab = V(), _ap = V();
+  model.traverse(o => {
+    if (!o.isMesh || !/Crystal/.test(o.material.name || '')) return;
+    const pos = o.geometry.attributes.position, sp = new Float32Array(pos.count);
+    for (let i = 0; i < pos.count; i++) {
+      _p.fromBufferAttribute(pos, i).applyMatrix4(o.matrixWorld);
+      let best = 1e9, bestS = -1;
+      for (let k = 1; k < pts.length; k++) {
+        _ab.subVectors(pts[k], pts[k - 1]); _ap.subVectors(_p, pts[k - 1]);
+        const f = clamp01(_ap.dot(_ab) / _ab.lengthSq()), d = _ap.addScaledVector(_ab, -f).lengthSq();
+        if (d < best) { best = d; bestS = spineS[k - 1] + (spineS[k] - spineS[k - 1]) * f; }
+      }
+      sp[i] = /Wing/.test(o.name) || best > 3.2 * 3.2 ? -1 : bestS; // shoulders, arms and wings stay out of the wave
+    }
+    o.geometry.setAttribute('aSpine', new THREE.BufferAttribute(sp, 1));
+    const m = o.material;
+    if (m.userData.spineGlow) return;
+    m.userData.spineGlow = true;
+    m.onBeforeCompile = sh => {
+      Object.assign(sh.uniforms, spineU);
+      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float aSpine; varying float vSpine;')
+        .replace('#include <begin_vertex>', '#include <begin_vertex>\nvSpine = aSpine;');
+      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vSpine; uniform float uFront, uGlow, uT;')
+        .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+        if (vSpine >= 0. && uGlow > 0.) {
+          float lit = smoothstep(uFront + .01, uFront - .06, vSpine);
+          float edge = exp(-pow((vSpine - uFront) * 20., 2.));
+          float pulse = .7 + .3 * sin(uT * 16. - vSpine * 40.);
+          totalEmissiveRadiance += (vec3(.5, .75, 1.) * lit * 2.6 * pulse + vec3(.95, .85, 1.) * edge * 7.) * uGlow;
+        }`);
+    };
+    m.needsUpdate = true;
+  });
+}
+const _sa = V(), _sb = V();
+function spinePoint(s, out) { // where along the (posed) spine a given 0..1 is right now
+  for (let k = 1; k < spineNodes.length; k++) if (s <= spineS[k] || k === spineNodes.length - 1) {
+    const f = clamp01((s - spineS[k - 1]) / (spineS[k] - spineS[k - 1]));
+    return out.copy(spineNodes[k - 1].getWorldPosition(_sa)).lerp(spineNodes[k].getWorldPosition(_sb), f);
+  }
+  return out.set(0, 0, 0);
+}
+
+/* Compile every effect's shader and upload its textures up front, so the first use of a skill doesn't stall */
+function warmup() {
+  const hidden = [];
+  scene.traverse(o => { if (!o.visible) { hidden.push(o); o.visible = true; } });
+  renderer.compile(scene, camera);
+  [glowTex, swirlTex, ringTex].forEach(t => renderer.initTexture(t));
+  hidden.forEach(o => o.visible = false);
+}
+
+/* Rotations are given in the character frame (y up, facing +z) about each joint, layered on the rest pose:
+   bone.quaternion = rest * (W⁻¹ r W), where W is the bone's rest orientation in the model. */
+const _e = new THREE.Euler(), _r = new THREE.Quaternion(), _q2 = new THREE.Quaternion();
+function rotQ(name, q) { const b = BONE[name]; if (!b) return; b.bone.quaternion.copy(b.restQ).multiply(_q2.copy(b.Wi).multiply(q).multiply(b.W)); }
+function rot(name, x, y, z) { rotQ(name, _r.setFromEuler(_e.set(x, y, z))); }
+function shift(name, x, y, z) { const b = BONE[name]; if (!b) return; b.bone.position.copy(b.restP).add(_d.set(x, y, z).applyQuaternion(b.PWi)); }
+const WING_REST = [.1, .55, .12]; // the mount angles the wings were built with
+const MOUNT = {}, MOUNTi = {};
+[['L', 1], ['R', -1]].forEach(([g, s]) => { MOUNT[g] = new THREE.Quaternion().setFromEuler(new THREE.Euler(WING_REST[0], s * WING_REST[1], s * WING_REST[2])); MOUNTi[g] = MOUNT[g].clone().invert(); });
+const _wq = new THREE.Quaternion(), _wq2 = new THREE.Quaternion(), _ax = V(0, 0, 1);
+function wing(g, s, dx, dy, dz, fold) {
+  _wq.setFromEuler(_e.set(WING_REST[0] + dx, s * (WING_REST[1] + dy), s * (WING_REST[2] + dz))).multiply(MOUNTi[g]);
+  rotQ('wing' + g, _wq);
+  // fold: the forearm tucks and the fingers close toward the last one, turning in the wing's own plane
+  const inPlane = a => _wq2.copy(MOUNT[g]).multiply(_r.setFromAxisAngle(_ax, a)).multiply(MOUNTi[g]);
+  rotQ('wingFore' + g, inPlane(s * fold * .5));
+  for (let i = 0; i < 5; i++) rotQ(`wingF${i}${g}`, inPlane(-s * fold * (4 - i) * .3));
+}
+
+/* ---------- skills ---------- */
+const MOVES = {
+  breath: { dur: BREATH_DUR, name: 'COSMIC BREATH', th: 'สกิล 1 · ลมหายใจคอสมิก — คริสตัลบนหลังสว่างไล่จากหางขึ้นหัว ยิงลำแสงกวาดพื้น แล้วลากขึ้นฟ้าค้างไว้', cam: [[100, 22, 2], [0, 11, 16]] },
+  shield: { dur: 6.5, name: 'GALAXY BARRIER', th: 'สกิล 2 · บาเรียดาราจักร — โล่เนบิวลาดูดซับความเสียหาย เพิ่มพลังป้องกัน และปล่อยคลื่นแรงโน้มถ่วง', cam: [[0, 16, 72], [0, 11, 0]] },
+  meteor: { dur: 7.2, name: 'METEOR SHOWER CALL', th: 'สกิล 3 · เรียกฝนดาวตก — อุกกาบาตเพลิงและเศษอวกาศถล่มพื้นที่ ทำให้มึนงงและติดไฟ', cam: [[78, 14, 98], [0, 26, 22]] },
+  portal: { dur: 6, name: 'VOID PORTAL', th: 'สกิล 4 · ประตูมิติความว่างเปล่า — ฉีกมิติเพื่อเทเลพอร์ต ทิ้งกระแสน้ำวนคอสมิกที่ดูดศัตรูเข้าหาศูนย์กลาง', cam: [[0, 20, 84], [0, 11, 0]] },
+  strike: { dur: 3.8, name: 'NEBULA STRIKE', th: 'สกิล 5 · การจู่โจมเนบิวลา — พุ่งด้วยความเร็วคอสมิก ฟาดกรงเล็บพลังเนบิวลาทะลวงเกราะ', cam: [[92, 16, 20], [0, 11, 17]] },
+  nova: { dur: 8.5, name: 'SUPERNOVA NOVA', th: 'สกิล 6 · ซูเปอร์โนวา — ปลดปล่อยพลังคอสมิกขั้นสูงสุด ระเบิดทำลายล้างทุกสิ่งในรัศมีมหาศาล', cam: [[0, 30, 150], [0, 20, 0]] },
+};
+let act = null, actT = 0, camShake = 0, flash = 0, spawnAcc = 0;
+const fired = new Set();
+const once = k => !fired.has(k) && !!fired.add(k);
+let camGoal = null, tgtGoal = null;
+const portalTo = V();
+function startSkill(name) {
+  if (!ready) return;
+  if (FLY.state !== 'ground') { // skills are cast from the ground: land first, then cast
+    FLY.pending = name;
+    if (FLY.state === 'flying') startLanding();
+    return;
+  }
+  act = name; actT = 0; fired.clear(); spawnAcc = 0;
+  const m = MOVES[name];
+  showCap(m.name, m.th);
+  camGoal = V(...m.cam[0]).add(home); tgtGoal = V(...m.cam[1]).add(home);
+  if (name === 'portal') { // hop to the side, or back home if already away
+    portalTo.set(home.x ? 0 : (Math.random() < .5 ? -18 : 18), 0, home.x ? 0 : -6);
+    camGoal.x = tgtGoal.x = (home.x + portalTo.x) / 2;
+  }
+  skillBtns.forEach(b => b.classList.toggle('on', b.dataset.act === act));
+}
+
+/* ---------- flight: take off, circle the arena, land ---------- */
+const FLY = { state: 'ground', t: 0, theta: Math.PI, phase: 0, rate: 3, w: 0, crouch: 0, raise: 0, flare: 0, glide: 0, yaw: 0, pitch: 0, roll: 0,
+  center: V(), from: V(), fromVel: V(), fromYaw: 0, pending: null };
+const FLY_R = 42, FLY_ALT = 26, FLY_SPEED = .3, TAKEOFF = 2.4, LANDING = 3.2, FLY_PITCH = 1.1;
+const flyBtn = document.getElementById('fly');
+function setFlyBtn() { flyBtn.textContent = FLY.state === 'ground' ? 'FLY ✦' : 'LAND ✦'; flyBtn.classList.toggle('on', FLY.state !== 'ground'); }
+function toggleFly() {
+  if (!ready || act) return;
+  if (FLY.state === 'ground') { FLY.state = 'takeoff'; FLY.t = 0; FLY.theta = Math.PI; FLY.center.set(home.x + FLY_R, 0, home.z); camGoal = tgtGoal = null; showCap('TAKE OFF', 'มังกรกาแลคซี่ทะยานขึ้นสู่ท้องฟ้า', 1.8); }
+  else if (FLY.state === 'flying') startLanding();
+  setFlyBtn();
+}
+function startLanding() {
+  FLY.state = 'landing'; FLY.t = 0;
+  FLY.from.copy(dragon.position); FLY.fromYaw = FLY.yaw;
+  FLY.fromVel.set(Math.sin(FLY.yaw), 0, Math.cos(FLY.yaw)).multiplyScalar(FLY_R * FLY_SPEED * 1.6);
+  showCap('LANDING', 'ร่อนลงสู่พื้น', 1.8); setFlyBtn();
+}
+const circlePos = (th, out) => out.set(FLY.center.x + Math.cos(th) * FLY_R, 0, FLY.center.z + Math.sin(th) * FLY_R);
+const _fp = V(), _fv = V(), _b0 = V(), _b1 = V(), _b2 = V();
+const wrapAngle = a => Math.atan2(Math.sin(a), Math.cos(a));
+function updateFly(dt) {
+  const F = FLY;
+  F.crouch = F.raise = F.flare = F.glide = 0;
+  let pos = null, yawT = F.yaw, rate = 3;
+  if (F.state === 'ground') { F.w = 0; F.pitch = F.roll = 0; F.yaw = 0; }
+  else if (F.state === 'takeoff') {
+    F.t += dt; const q = F.t / TAKEOFF;
+    F.crouch = env(q, 0, .14, .28, .4); F.raise = env(q, 0, .16, .3, .42);
+    const launch = smooth(.3, 1, q), climb = 1 - Math.pow(1 - launch, 2);
+    F.w = smooth(.3, .8, q); rate = 4.4;
+    F.theta -= dt * FLY_SPEED * smooth(.3, 1, q);
+    pos = circlePos(F.theta, _fp); pos.y = FLY_ALT * climb;
+    yawT = Math.atan2(Math.sin(F.theta), -Math.cos(F.theta)); // heading along the circle (θ decreasing; 0 = facing +z at the start)
+    if (q > .3 && once('liftoff')) { // the first downstroke blasts the ground
+      camShake = Math.max(camShake, 1.2); flash = Math.max(flash, .2);
+      spawnImpact(home.x, home.z, 50, 30); shockRing(V(home.x, .5, home.z), UP, 44, 1, 0xd8c8ff); scorch(home.x, home.z, 30, 0x7a5cff, 4);
+      for (let i = 0; i < 40; i++) { const a = Math.random() * TAU, r = 4 + Math.random() * 12; spawnDebris(V(home.x + Math.cos(a) * r, .5, home.z + Math.sin(a) * r), V(Math.cos(a) * (10 + Math.random() * 14), 6 + Math.random() * 10, Math.sin(a) * (10 + Math.random() * 14)), .3 + Math.random(), 3); }
+    }
+    if (q >= 1) { F.state = 'flying'; fired.delete('liftoff'); }
+  } else if (F.state === 'flying') {
+    F.w = 1; rate = 3;
+    F.theta -= dt * FLY_SPEED;
+    pos = circlePos(F.theta, _fp); pos.y = FLY_ALT + Math.sin(simT * .5) * 2;
+    yawT = Math.atan2(Math.sin(F.theta), -Math.cos(F.theta));
+  } else if (F.state === 'landing') {
+    F.t += dt; const q = Math.min(1, F.t / LANDING), e = smooth(0, 1, q);
+    // glide in on a curve that ends at home, facing forward
+    _b0.copy(F.from).add(F.fromVel); _b1.set(home.x, 9, home.z - 20); _b2.set(home.x, 0, home.z);
+    const u = 1 - e;
+    pos = _fp.copy(F.from).multiplyScalar(u * u * u).addScaledVector(_b0, 3 * u * u * e).addScaledVector(_b1, 3 * u * e * e).addScaledVector(_b2, e * e * e);
+    const d = _fv.copy(_b0).sub(F.from).multiplyScalar(3 * u * u).addScaledVector(_b1.clone().sub(_b0), 6 * u * e).addScaledVector(_b2.clone().sub(_b1), 3 * e * e);
+    yawT = q < .8 ? Math.atan2(d.x, d.z) : 0;
+    F.w = 1 - smooth(.78, 1, q); F.glide = env(q, .05, .25, .55, .7); F.flare = env(q, .55, .72, .86, 1);
+    F.crouch = env(q, .84, .9, .94, 1) * .8; rate = 3.4;
+    if (q > .86 && once('touchdown')) {
+      camShake = Math.max(camShake, 1.4); spawnImpact(home.x, home.z, 40, 26); shockRing(V(home.x, .5, home.z), UP, 36, .9, 0xd8c8ff); scorch(home.x, home.z, 24, 0x7a5cff, 4);
+      for (let i = 0; i < 24; i++) spawnDebris(V(home.x + r2() * 6, .5, home.z + r2() * 6), V(r2() * 14, 5 + Math.random() * 9, r2() * 14), .3 + Math.random() * .8, 3);
+    }
+    if (F.t >= LANDING) {
+      F.state = 'ground'; fired.delete('touchdown'); setFlyBtn();
+      if (F.pending) { const p = F.pending; F.pending = null; startSkill(p); }
+    }
+  }
+  // wing beat: a quick downstroke, a slower upstroke
+  F.rate += (rate - F.rate) * (1 - Math.exp(-dt * 3));
+  if (F.w > 0) F.phase += dt * F.rate * (1 - F.glide * .9) * (Math.cos(F.phase) < 0 ? 1.35 : .75);
+  if (pos) {
+    F.yaw += wrapAngle(yawT - F.yaw) * (1 - Math.exp(-dt * 3));
+    pos.y += -Math.sin(F.phase) * .9 * F.w * (1 - F.glide);
+    dragon.position.copy(pos); dragon.rotation.y = F.yaw; dragon.scale.setScalar(1);
+    // pitch level to fly, bank into the turn, flare back before touching down
+    F.pitch = FLY_PITCH * F.w - .45 * F.flare;
+    F.roll += ((F.state === 'flying' ? -.38 : 0) * F.w - F.roll) * (1 - Math.exp(-dt * 2));
+    tilt.rotation.set(F.pitch, 0, F.roll);
+    if (F.w > .3) { // a trail of stardust from the tail and body
+      if (FX.fxTail) emit(FX.fxTail.getWorldPosition(_w), V(r2(), r2(), r2()), Math.random() < .5 ? 0x9fd0ff : 0xc8a0ff, 1.6, 0, .3);
+      if (BONE.hips) emit(BONE.hips.bone.getWorldPosition(_w).add(V(r2() * 2, r2() * 2, r2() * 2)), V(r2(), r2(), r2()), 0xb48cff, 1.2, 0, .3);
+    }
+  } else tilt.rotation.set(0, 0, 0);
+}
+
+/* tail: rotations that straighten the curled-on-the-ground tail into a line streaming behind the body */
+const TAIL_STRAIGHT = [];
+function setupTailStraight() {
+  const p = k => (k < 10 ? BONE['tail' + k] && BONE['tail' + k].bone : FX.fxTail);
+  if (!p(0) || !p(10)) return;
+  const dirs = [];
+  for (let k = 0; k < 10; k++) dirs.push(p(k + 1).getWorldPosition(V()).sub(p(k).getWorldPosition(V())).normalize());
+  TAIL_STRAIGHT.push(new THREE.Quaternion().setFromUnitVectors(dirs[0], V(0, -1, -.3).normalize()));
+  for (let k = 1; k < 10; k++) TAIL_STRAIGHT.push(new THREE.Quaternion().setFromUnitVectors(dirs[k], dirs[k - 1]));
+}
+
+/* ---------- pose: idle + every skill, layered ---------- */
+const R = {};
+const add = (n, x, y, z) => { const r = R[n] || (R[n] = [0, 0, 0]); r[0] += x; r[1] += y; r[2] += z; };
+const W8 = {};
+function pose(t) {
+  for (const k in R) R[k][0] = R[k][1] = R[k][2] = 0;
+  const m = act && MOVES[act], q = m ? actT / m.dur : 0, is = n => act === n;
+  const br = Math.sin(t * 1.1);
+  const F0 = BREATH_FIRE;
+  const wB = is('breath') ? env(q, 0, .04, BREATH_END + .02, 1) : 0, cB = is('breath') ? env(q, F0 - .1, F0 - .05, F0 - .015, F0 + .02) : 0;
+  const fB = is('breath') ? env(q, F0 - .02, F0 + .02, BREATH_END, BREATH_END + .06) : 0;
+  const uB = is('breath') ? smooth(BREATH_UP0, BREATH_UP1, q) * (1 - smooth(BREATH_END, 1, q)) : 0; // aiming at the sky
+  const gB = fB * (1 - uB);                                                                           // aiming at the ground
+  const hB = is('breath') ? env(q, .03, .1, F0 - .14, F0 - .06) : 0; // hunch and gather while the back lights up
+  const wS = is('shield') ? env(q, 0, .12, .86, 1) : 0;
+  const wM = is('meteor') ? env(q, 0, .1, .88, 1) : 0, rM = is('meteor') ? env(q, .06, .14, .36, .5) : 0;
+  const wP = is('portal') ? env(q, 0, .15, .62, .8) : 0;
+  const aN = is('strike') ? env(q, 0, .1, .16, .22) : 0, dN = is('strike') ? env(q, .16, .22, .62, .85) : 0;
+  const wR = is('strike') ? env(q, .14, .22, .34, .46) : 0, swR = is('strike') ? smooth(.24, .34, q) : 0;
+  const wL = is('strike') ? env(q, .3, .38, .5, .62) : 0, swL = is('strike') ? smooth(.4, .5, q) : 0;
+  const wX = is('nova') ? env(q, 0, .1, .9, 1) : 0, riseX = is('nova') ? smooth(0, .4, q) * (1 - smooth(.72, .97, q)) : 0;
+  const curlX = is('nova') ? env(q, .14, .3, .47, .52) : 0, burstX = is('nova') ? env(q, .5, .53, .62, .8) : 0;
+  Object.assign(W8, { cB, fB, riseX });
+
+  const crouch = wP + aN * .7 + FLY.crouch + uB * .35; // braced legs while the beam pushes at the sky
+  shift('hips', 0, br * .05 - fB * .15 - crouch * 1.3, 0);
+  add('spine', br * .01 + gB * .12 - uB * .1 - wM * .08 + crouch * .2 - aN * .25 + dN * .4 - wX * .1, 0, 0);
+  add('chest', br * .015 - cB * .2 + gB * .2 - uB * .22 - wM * .18 + dN * .22 - wX * .15 + curlX * .25 - burstX * .3, 0, 0);
+  add('neck', -cB * .25 + gB * .15 - uB * .4 - wM * .35 - dN * .3 - wX * .2, 0, 0);
+  const sweepB = is('breath') ? Math.sin(clamp01((q - F0 - .02) / (BREATH_UP0 - F0 - .02)) * TAU * .75) * .32 * gB : 0; // rake the beam across the ground
+  add('chest', hB * .14, 0, 0); add('head', hB * .18, 0, 0); add('spine', hB * .06, 0, 0);
+  add('neck', 0, sweepB * .6, 0);
+  add('head', Math.sin(t * .7) * .04 - cB * .3 + gB * .32 - uB * .55 + uB * Math.sin(t * 9) * .02 - wM * .45 - wS * .1 - dN * .2 - wX * .3 + curlX * .3 - burstX * .4,
+    Math.sin(t * .4) * .12 * (1 - wB) * (1 - wM) * (1 - wX) * (1 - dN) + sweepB, 0);
+  add('jaw', -.15 + Math.max(0, Math.sin(t * .5)) * .05 + cB * .25 + fB * .5 + uB * .15 + rM * .5 + wM * .1 + dN * .3 + burstX * .5 + wP * .2, 0, 0);
+  [['L', 1], ['R', -1]].forEach(([g, s]) => {
+    const sw = g === 'R' ? swR : swL, ww = g === 'R' ? wR : wL;
+    add('shoulder' + g,
+      wB * .35 - wS * .25 - wM * .25 - wP * .5 - ww * .5 - curlX * .9 + wX * .35,
+      -s * 1.5 * sw * ww,
+      s * (Math.sin(t * 1.1 + s) * .02 + wB * .25 + uB * .55 + wS * .95 + wM * 1.85 + ww * 1.3 + dN * .3 - curlX * .7 + wX * (1 - curlX)));
+    add('elbow' + g, br * .03 + wS * .25 - wM * .35 - wP * .6 - ww * .3 - curlX * .8 + wX * .3, 0, 0);
+    add('hand' + g, -ww * .4, 0, 0);
+    add('thigh' + g, -crouch * .6 - riseX * .35 + dN * .25, 0, 0);
+    add('shin' + g, crouch * .95 + riseX * .7 - dN * .1, 0, 0);
+    add('ankle' + g, -crouch * .45 - riseX * .4, 0, 0);
+    add('foot' + g, riseX * .5, 0, 0);
+  });
+  // flight: head up against the level body, arms tucked, legs trailing, the spine riding each wing beat
+  const wF = FLY.w, ph = FLY.phase, beat = 1 - FLY.glide;
+  if (wF > 0) {
+    add('spine', Math.sin(ph + 1) * .06 * wF * beat, 0, 0); add('chest', Math.sin(ph + 1.4) * .05 * wF * beat, 0, 0);
+    add('neck', -.45 * wF, 0, 0); add('head', -.35 * wF - Math.sin(ph + 2) * .06 * wF * beat, 0, 0); add('jaw', .06 * wF, 0, 0);
+    [['L', 1], ['R', -1]].forEach(([g, s]) => {
+      add('shoulder' + g, -.75 * wF + FLY.flare * .5, 0, -s * .1 * wF);
+      add('elbow' + g, -1.1 * wF + FLY.flare * .6, 0, 0); add('hand' + g, -.4 * wF, 0, 0);
+      add('thigh' + g, .65 * wF - FLY.flare * .9, 0, 0); add('shin' + g, .55 * wF - FLY.flare * .3, 0, 0);
+      add('ankle' + g, .5 * wF - FLY.flare * .3, 0, 0); add('foot' + g, .35 * wF, 0, 0);
+    });
+  }
+  for (const k in R) rot(k, ...R[k]);
+  // wings. On the ground: idle sway and the skill poses. In flight the body is pitched level, so the beat
+  // swings about the spine axis (the mount's sweep): fast downstroke, slow upstroke with the fingers folding in.
+  const flap = Math.sin(t * 1.3) * .07 * (1 - wS) * (1 - wP) * (1 - wF) + Math.sin(t * 7) * .38 * riseX + rM * .06 * Math.sin(t * 14);
+  const up = Math.sin(ph), flyFold = Math.max(0, Math.cos(ph)) * .5 * beat;
+  const flyY = wF * (-.4 + .7 * up * beat - .05 * FLY.glide), flyZ = FLY.raise * .75 + FLY.flare * .35;
+  [['L', 1], ['R', -1]].forEach(([g, s]) => wing(g, s,
+    -wS * .2 - wP * .25 + FLY.flare * .2,
+    -wS * 1.05 - wB * .1 - uB * .3 - wM * .25 - wP * 1.0 + dN * .55 - wX * .3 + flyY,
+    flap + wS * .3 + wB * .2 + uB * .45 + Math.sin(t * 11) * .03 * uB + wM * .5 + wP * .1 - dN * .15 + wX * .5 + flyZ,
+    wP * .55 + dN * .6 + curlX * .3 + wF * flyFold));
+  // tail: straightened into a streaming line in flight, swaying with the beat
+  const amp = 1 + wM * .8 + fB * .5 + dN * 1.2 + riseX;
+  for (let k = 0; k < 10; k++) {
+    _tq.setFromEuler(_e.set(riseX * (k < 3 ? .12 : 0) + Math.sin(ph - k * .55) * .06 * wF, Math.sin(t * .9 - k * .65) * .045 * amp * (.4 + k / 10) * (1 - wF * .5), 0));
+    if (wF > 0 && TAIL_STRAIGHT[k]) _tq.premultiply(_tq2.identity().slerp(TAIL_STRAIGHT[k], wF));
+    rotQ('tail' + k, _tq);
+  }
+}
+const _tq = new THREE.Quaternion(), _tq2 = new THREE.Quaternion();
+
+/* ---------- shared spectacle: debris, lightning, shock rings, scorch marks, light pillar, slash arcs ---------- */
+const DEB = 280, DB = [];
+const debris = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 0), new THREE.MeshStandardMaterial({ color: 0x1a1530, emissive: 0x6a3cff, emissiveIntensity: .12, roughness: .9, flatShading: true }), DEB);
+debris.instanceMatrix.setUsage(THREE.DynamicDrawUsage); debris.frustumCulled = false; scene.add(debris);
+for (let i = 0; i < DEB; i++) DB.push({ life: 0, p: V(), v: V(), s: 1, ax: V(1, 0, 0), ang: 0, spin: 0, mode: 0, c: null, r: 0, a: 0, h: 0, idle: false });
+let dNext = 0;
+const _m4 = new THREE.Matrix4(), _qq = new THREE.Quaternion(), _sc = V();
+/* mode 0: thrown (gravity, bounces) · 1: orbits a centre while rising · 2: spirals into a centre */
+function spawnDebris(pos, vel, size, life, mode = 0, center = null) {
+  const o = DB[dNext]; dNext = (dNext + 1) % DEB;
+  o.p.copy(pos); o.v.copy(vel); o.s = size; o.life = life; o.mode = mode; o.c = center; o.idle = false;
+  o.ax.set(r2(), r2(), r2()).normalize(); o.ang = Math.random() * TAU; o.spin = 2 + Math.random() * 6;
+  if (center) { o.r = Math.hypot(pos.x - center.x, pos.z - center.z); o.a = Math.atan2(pos.z - center.z, pos.x - center.x); o.h = pos.y; }
+  return o;
+}
+function updateDebris(dt) {
+  for (let i = 0; i < DEB; i++) {
+    const o = DB[i];
+    if (o.life <= 0) { if (o.idle) continue; o.idle = true; debris.setMatrixAt(i, _m4.makeScale(0, 0, 0)); continue; }
+    o.life -= dt;
+    if (o.mode === 0) {
+      o.v.y -= 24 * dt; o.p.addScaledVector(o.v, dt);
+      if (o.p.y < o.s * .5) { o.p.y = o.s * .5; o.v.multiplyScalar(.45); o.v.y = Math.abs(o.v.y) * .35; o.spin *= .6; }
+    } else if (o.mode === 1) {
+      o.a += dt * 16 / Math.max(6, o.r); o.h += o.v.y * dt;
+      o.p.set(o.c.x + Math.cos(o.a) * o.r, o.h, o.c.z + Math.sin(o.a) * o.r);
+    } else {
+      o.r = Math.max(0, o.r - dt * (5 + 40 / Math.max(1, o.r))); o.a += dt * 50 / Math.max(2, o.r);
+      o.h += (o.c.y - o.h) * (1 - Math.exp(-dt * 2.5));
+      o.p.set(o.c.x + Math.cos(o.a) * o.r, o.h + Math.sin(o.a) * o.r * .5, o.c.z);
+      if (o.r < .6) o.life = 0;
+    }
+    o.ang += o.spin * dt;
+    debris.setMatrixAt(i, _m4.compose(o.p, _qq.setFromAxisAngle(o.ax, o.ang), _sc.setScalar(o.s * Math.min(1, o.life * 2))));
+  }
+  debris.instanceMatrix.needsUpdate = true;
+}
+
+const BOLTS = Array.from({ length: 28 }, () => {
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(16 * 3), 3));
+  const l = new THREE.Line(g, new THREE.LineBasicMaterial({ color: 0xd8c8ff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+  l.frustumCulled = false; l.visible = false; scene.add(l);
+  return { l, life: 0, max: 1 };
+});
+let bNext = 0;
+function bolt(a, b, color = 0xe0d0ff, life = .12, jag = .16) {
+  const o = BOLTS[bNext]; bNext = (bNext + 1) % BOLTS.length;
+  const arr = o.l.geometry.attributes.position.array, L = a.distanceTo(b);
+  for (let i = 0; i < 16; i++) {
+    const f = i / 15, w = Math.sin(f * Math.PI) * L * jag;
+    arr[i * 3] = a.x + (b.x - a.x) * f + r2() * w; arr[i * 3 + 1] = a.y + (b.y - a.y) * f + r2() * w; arr[i * 3 + 2] = a.z + (b.z - a.z) * f + r2() * w;
+  }
+  o.l.geometry.attributes.position.needsUpdate = true;
+  o.l.material.color.set(color); o.life = o.max = life; o.l.visible = true;
+}
+
+const RINGS = Array.from({ length: 16 }, () => {
+  const m = new THREE.Mesh(new THREE.TorusGeometry(1, .03, 6, 120), additive(0xd0b8ff, 0)); m.visible = false; scene.add(m);
+  return { m, t: 1, dur: 1, size: 10, inward: false };
+});
+let rgNext = 0;
+const _zAx = V(0, 0, 1);
+function shockRing(pos, normal, size, dur = .8, color = 0xd0b8ff, inward = false) {
+  const o = RINGS[rgNext]; rgNext = (rgNext + 1) % RINGS.length;
+  o.m.position.copy(pos); o.m.quaternion.setFromUnitVectors(_zAx, _d.copy(normal).normalize());
+  o.t = 0; o.dur = dur; o.size = size; o.inward = inward; o.m.material.color.set(color); o.m.visible = true;
+}
+
+const SCORCH = Array.from({ length: 56 }, () => {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: glowTex, color: 0xb070ff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
+  m.rotation.x = -Math.PI / 2; m.visible = false; scene.add(m);
+  return { m, t: 1, dur: 4, op: 1 };
+});
+let scNext = 0;
+function scorch(x, z, size, color = 0xb070ff, dur = 4, stretch = 1, angle = Math.random() * TAU, op = 1) {
+  const o = SCORCH[scNext]; scNext = (scNext + 1) % SCORCH.length;
+  o.m.position.set(x, .05 + scNext * .0004, z); o.m.scale.set(size * stretch, size, 1); o.m.rotation.z = angle;
+  o.m.material.color.set(color); o.t = 0; o.dur = dur; o.op = op; o.m.visible = true;
+}
+
+const pillarMat = new THREE.ShaderMaterial({
+  uniforms: { uT: gTime, uFade: { value: 0 } },
+  vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }`,
+  fragmentShader: `varying vec2 vUv; uniform float uT, uFade;
+  void main(){ float s = sin(vUv.x * 25.13 + vUv.y * 30. - uT * 14.) * .5 + .5;
+    vec3 c = mix(vec3(.55, .3, 1.), vec3(1., .95, 1.), s * .7) * .85;
+    gl_FragColor = vec4(c * uFade * pow(1. - vUv.y, 1.4) * (.55 + .45 * s), 1.); }`,
+  transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
+});
+const pillar = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1, 32, 1, true).translate(0, .5, 0), pillarMat); pillar.visible = false; scene.add(pillar);
+let pillarT = 1, pillarDur = 1, pillarR = 4, pillarH = 120;
+function lightPillar(x, z, r, h, dur) { pillar.position.set(x, 0, z); pillarR = r; pillarH = h; pillarT = 0; pillarDur = dur; pillar.visible = true; }
+
+const SLASH = Array.from({ length: 8 }, () => {
+  const g = new THREE.Group(); g.visible = false; scene.add(g);
+  const outer = new THREE.Mesh(new THREE.RingGeometry(.8, 1, 72, 1, -1.25, 2.5), additive(0xff7ae6, 0));
+  const inner = new THREE.Mesh(new THREE.RingGeometry(.9, .97, 72, 1, -1.1, 2.2), additive(0xffffff, 0));
+  g.add(outer, inner);
+  return { g, outer, inner, t: 1, size: 12 };
+});
+let slNext = 0;
+function slashArc(pos, tilt, size, color) {
+  const o = SLASH[slNext]; slNext = (slNext + 1) % SLASH.length;
+  o.g.position.copy(pos); o.g.quaternion.copy(camera.quaternion); o.g.rotateZ(tilt); o.t = 0; o.size = size; o.outer.material.color.set(color); o.g.visible = true;
+}
+
+function updateSpectacle(dt) {
+  updateDebris(dt);
+  BOLTS.forEach(o => { if (o.life <= 0) return; o.life -= dt; o.l.material.opacity = Math.max(0, o.life / o.max); if (o.life <= 0) o.l.visible = false; });
+  RINGS.forEach(o => {
+    if (o.t >= 1) return;
+    o.t = Math.min(1, o.t + dt / o.dur);
+    const e = 1 - Math.pow(1 - o.t, 3), k = o.inward ? 1 - e : e;
+    o.m.scale.setScalar(o.size * k + .01); o.m.material.opacity = o.inward ? e : 1 - o.t;
+    if (o.t >= 1) o.m.visible = false;
+  });
+  SCORCH.forEach(o => {
+    if (o.t >= 1) return;
+    o.t = Math.min(1, o.t + dt / o.dur);
+    o.m.material.opacity = o.op * Math.min(1, o.t * 12) * Math.pow(1 - o.t, 1.5) * .85;
+    if (o.t >= 1) o.m.visible = false;
+  });
+  if (pillarT < 1) {
+    pillarT = Math.min(1, pillarT + dt / pillarDur);
+    const k = smooth(0, .12, pillarT) * (1 - smooth(.6, 1, pillarT));
+    pillar.scale.set(pillarR * (.4 + .6 * k), pillarH, pillarR * (.4 + .6 * k)); pillarMat.uniforms.uFade.value = k;
+    if (pillarT >= 1) pillar.visible = false;
+  }
+  SLASH.forEach(o => {
+    if (o.t >= 1) return;
+    o.t = Math.min(1, o.t + dt / .55);
+    const e = 1 - Math.pow(1 - o.t, 2.5);
+    o.g.scale.setScalar(o.size * (.6 + .6 * e));
+    o.outer.material.opacity = (1 - o.t) * 1.2; o.inner.material.opacity = (1 - o.t) * 1.4;
+    if (o.t >= 1) o.g.visible = false;
+  });
+}
+const camDir = () => camera.getWorldDirection(V()).negate();
+
+/* ---------- skill 1: cosmic breath ---------- */
+const beamVert = `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }`;
+const beamMat = (a, b) => new THREE.ShaderMaterial({
+  uniforms: { uT: gTime, uLen: { value: 1 }, uFade: { value: 0 }, uA: { value: new THREE.Color(a) }, uB: { value: new THREE.Color(b) } },
+  vertexShader: beamVert,
+  fragmentShader: `varying vec2 vUv; uniform float uT, uLen, uFade; uniform vec3 uA, uB;
+  void main(){
+    float y = vUv.y * uLen;
+    float sw = sin(vUv.x * 18.85 + y * .45 - uT * 28.) * .5 + .5, sw2 = sin(vUv.x * 31.4 - y * .3 - uT * 17.) * .5 + .5;
+    vec3 c = mix(uA, uB, sw) * 1.6 + vec3(1., .85, 1.) * pow(sw * sw2, 3.) * 1.5;
+    float a = uFade * (.65 + .55 * sw * sw2) * smoothstep(0., 2., y) * (1. - smoothstep(uLen - 3., uLen, y));
+    gl_FragColor = vec4(c * a, 1.);
+  }`,
+  transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
+});
+const beam = new THREE.Group(); beam.visible = false; scene.add(beam);
+const beamOuter = new THREE.Mesh(new THREE.CylinderGeometry(5.4, 1.4, 1, 40, 1, true).translate(0, .5, 0), beamMat(0x7a3cff, 0x5fd0ff));
+const beamCore = new THREE.Mesh(new THREE.CylinderGeometry(1.8, .55, 1, 24, 1, true).translate(0, .5, 0), beamMat(0xffc8ff, 0xffffff));
+beam.add(beamOuter, beamCore);
+const beamRings = Array.from({ length: 6 }, () => { const m = new THREE.Mesh(new THREE.TorusGeometry(1, .07, 8, 48), additive(0xc9a8ff, .8)); m.rotation.x = Math.PI / 2; beam.add(m); return m; });
+const impactGlow = sprite(scene, [0, 0, 0], 16, 0xb48cff, 0); impactGlow.visible = false;
+const skyBurst = sprite(scene, [0, 0, 0], 1, 0xd8c0ff, 0); skyBurst.visible = false;
+
+/* ---------- skill 2: galaxy barrier ---------- */
+const fresVert = `varying vec3 vN, vV, vP; void main(){ vP = position; vN = normalMatrix * normal; vec4 mv = modelViewMatrix * vec4(position, 1.); vV = -mv.xyz; gl_Position = projectionMatrix * mv; }`;
+const shield = new THREE.Group(); shield.visible = false; scene.add(shield);
+const shieldMat = new THREE.ShaderMaterial({
+  uniforms: { uT: gTime, uFade: { value: 0 } }, vertexShader: fresVert,
+  fragmentShader: `varying vec3 vN, vV, vP; uniform float uT, uFade; ${NOISE}
+  void main(){
+    float fres = pow(1. - abs(dot(normalize(vN), normalize(vV))), 2.2);
+    float n = gfbm(vP * 2.2 + vec3(uT * .2, 0., uT * .1)), m = gfbm(vP * 5. - n * 2.);
+    vec3 col = mix(vec3(.3, .15, .9), vec3(.9, .35, 1.), m);
+    col = mix(col, vec3(.3, .8, 1.), smoothstep(.55, .85, n) * .6);
+    float band = smoothstep(.06, 0., abs(vP.y - (fract(uT * .35) * 2. - 1.))) * .5;
+    vec3 cp = vP * 40.; float h = gh(floor(cp));
+    float star = step(.96, h) * smoothstep(.3, 0., length(fract(cp) - .5));
+    float a = uFade * (fres * 1.2 + .06 + smoothstep(.55, .9, n) * .22 + band);
+    gl_FragColor = vec4(col * a + vec3(1.) * star * uFade * .8, 1.);
+  }`,
+  transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
+});
+const shieldMesh = new THREE.Mesh(new THREE.SphereGeometry(1, 64, 48), shieldMat); shield.add(shieldMesh);
+const ringPivot = new THREE.Group(); ringPivot.rotation.set(-Math.PI / 2 + .38, 0, .15); shield.add(ringPivot);
+const ringMat = new THREE.MeshBasicMaterial({ map: ringTex, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+const ring = new THREE.Mesh(new THREE.RingGeometry(1.15, 1.75, 160, 1), ringMat); ring.scale.setScalar(15); ringPivot.add(ring);
+const RP = 1600, rpPos = new Float32Array(RP * 3);
+for (let i = 0; i < RP; i++) { const a = Math.random() * TAU, r = 16 + Math.random() * 11; rpPos.set([Math.cos(a) * r, Math.sin(a) * r, (Math.random() - .5) * .8], i * 3); }
+const rpGeo = new THREE.BufferGeometry(); rpGeo.setAttribute('position', new THREE.BufferAttribute(rpPos, 3));
+const ringPtsMat = new THREE.PointsMaterial({ map: glowTex, size: .5, color: 0xd8c8ff, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending });
+const ringPts = new THREE.Points(rpGeo, ringPtsMat); ringPivot.add(ringPts);
+
+/* ---------- skill 3: meteor shower ---------- */
+const skyRift = new THREE.Group(); skyRift.visible = false; scene.add(skyRift);
+const riftMat = new THREE.MeshBasicMaterial({ map: swirlTex, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+const riftA = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), riftMat);
+const riftB = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), riftMat.clone()); riftB.material.color.set(0x7fb0ff);
+skyRift.add(riftA, riftB);
+// three kinds of falling star, as on the sheet: violet, molten orange, teal
+const METEOR_KINDS = [[0xa77dff, [.55, .3, 1.]], [0xff7a3a, [1., .45, .15]], [0x3affd8, [.2, .9, .85]]].map(([em, tc]) => ({
+  em, rock: new THREE.MeshStandardMaterial({ color: 0x2a1e5a, emissive: em, emissiveIntensity: 1.6, flatShading: true }),
+  trail: new THREE.ShaderMaterial({
+    vertexShader: beamVert,
+    fragmentShader: `varying vec2 vUv; void main(){ float a = pow(1. - vUv.y, 1.6); vec3 c = mix(vec3(${tc.join(',')}), vec3(1., .95, 1.), pow(1. - vUv.y, 4.)) * 1.8; gl_FragColor = vec4(c * a, 1.); }`,
+    transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
+  }),
+}));
+const rockGeo = new THREE.IcosahedronGeometry(1, 0), trailGeo = new THREE.ConeGeometry(1, 1, 12, 1, true).translate(0, .5, 0);
+const UP = V(0, 1, 0);
+const meteors = Array.from({ length: 48 }, () => {
+  const g = new THREE.Group(); g.visible = false; scene.add(g);
+  const rock = new THREE.Mesh(rockGeo, METEOR_KINDS[0].rock); rock.scale.setScalar(1.1); g.add(rock);
+  const tr = new THREE.Mesh(trailGeo, METEOR_KINDS[0].trail); tr.scale.set(1.3, 20, 1.3); g.add(tr);
+  const head = sprite(g, [0, 0, 0], 7, 0xd9c2ff, 1);
+  return { g, rock, tr, head, on: false, p: V(), v: V(), big: false, kind: METEOR_KINDS[0] };
+});
+const impacts = Array.from({ length: 28 }, () => {
+  const ringM = new THREE.Mesh(new THREE.RingGeometry(.8, 1, 64), additive(0xb98cff, 0)); ringM.rotation.x = -Math.PI / 2; ringM.visible = false; scene.add(ringM);
+  const fl = sprite(scene, [0, 0, 0], 1, 0xd6c0ff, 0); fl.visible = false;
+  return { ringM, fl, t: 1, size: 14 };
+});
+let impNext = 0;
+function spawnImpact(x, z, size = 14, sparksN = 14) {
+  const o = impacts[impNext]; impNext = (impNext + 1) % impacts.length;
+  o.t = 0; o.size = size; o.ringM.position.set(x, .06, z); o.fl.position.set(x, 2, z);
+  o.ringM.visible = o.fl.visible = true;
+  for (let i = 0; i < sparksN; i++) emit(V(x, .5, z), V(r2() * 9, 6 + Math.random() * 12, r2() * 9), Math.random() < .5 ? 0xc9a0ff : 0x8fd8ff, 1 + Math.random() * .6, 20, .4);
+  camShake = Math.min(1.6, camShake + size / 50);
+}
+function spawnMeteor(big = false) {
+  const m = meteors.find(o => !o.on); if (!m) return;
+  const a = Math.random() * TAU, rr = big ? 0 : Math.sqrt(Math.random()) * 20;
+  m.p.copy(skyRift.position).add(V(Math.cos(a) * rr, Math.sin(a) * rr * .5, 0));
+  const target = big ? V(home.x, 0, home.z + 34) : V(home.x + r2() * 40, 0, home.z + 6 + Math.random() * 58);
+  m.v.copy(target).sub(m.p).normalize().multiplyScalar(big ? 42 : 60 + Math.random() * 25);
+  m.big = big; m.kind = big ? METEOR_KINDS[0] : METEOR_KINDS[(Math.random() * 3) | 0];
+  m.rock.material = m.kind.rock; m.tr.material = m.kind.trail; m.head.material.color.set(m.kind.em).lerp(new THREE.Color(0xffffff), .5);
+  m.g.scale.setScalar(big ? 5.5 : .7 + Math.random() * 1.1);
+  m.on = true; m.g.visible = true; m.g.position.copy(m.p);
+  m.g.quaternion.setFromUnitVectors(UP, _d.copy(m.v).normalize().negate());
+}
+function meteorLands(m) {
+  const { x, z } = m.p, s = m.g.scale.x;
+  spawnImpact(x, z, 10 + s * 8, 10);
+  scorch(x, z, 6 + s * 5, m.kind.em, 6);
+  for (let i = 0; i < 3 + s * 2; i++) spawnDebris(V(x, 1, z), V(r2() * 12, 8 + Math.random() * 14, r2() * 12), .3 + Math.random() * .7 * s, 3.5);
+  if (!m.big) return;
+  // the finale: the sky's largest stone lands in front of the dragon
+  flash = Math.max(flash, .45); camShake = 2;
+  lightPillar(x, z, 7, 140, 2.2);
+  spawnImpact(x, z, 90, 40); scorch(x, z, 46, 0xb070ff, 9); scorch(x, z, 26, 0xff8a4a, 7);
+  shockRing(V(x, 2, z), UP, 70, 1.4, 0xffd0a0); shockRing(V(x, 12, z), V(0, .2, 1), 40, 1.1, 0xd0b8ff);
+  for (let i = 0; i < 60; i++) spawnDebris(V(x + r2() * 4, 2, z + r2() * 4), V(r2() * 30, 15 + Math.random() * 30, r2() * 30), .5 + Math.random() * 1.8, 5);
+  for (let i = 0; i < 140; i++) { const d = V(r2(), Math.random(), r2()).normalize(); emit(V(x, 2, z), d.multiplyScalar(25 + Math.random() * 40), Math.random() < .5 ? 0xffb070 : 0xc9a0ff, 1.8, 10, .7); }
+}
+
+/* ---------- skill 4: void portal ---------- */
+function makeVortex() {
+  const g = new THREE.Group(); g.visible = false; scene.add(g);
+  const hole = new THREE.Mesh(new THREE.CircleGeometry(.62, 64), new THREE.MeshBasicMaterial({ color: 0x000000, alphaMap: glowTex, transparent: true, opacity: 1, depthWrite: false }));
+  const swirl = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 2.4), new THREE.MeshBasicMaterial({ map: swirlTex, color: 0xc9a0ff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+  const swirl2 = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 1.8), new THREE.MeshBasicMaterial({ map: swirlTex, color: 0x7f9dff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+  const rim = new THREE.Mesh(new THREE.RingGeometry(.3, .34, 96), additive(0xe0c8ff, .9));
+  swirl.renderOrder = swirl2.renderOrder = 1; hole.renderOrder = 2; rim.renderOrder = 3;
+  g.add(swirl, swirl2, hole, rim);
+  return { g, swirl, swirl2, rim };
+}
+const vortexA = makeVortex(), vortexB = makeVortex();
+function updateVortex(v, size, dt, t) {
+  v.g.visible = size > .01;
+  if (!v.g.visible) return;
+  v.g.quaternion.copy(camera.quaternion); v.g.scale.setScalar(size);
+  v.swirl.rotation.z -= dt * 2.4; v.swirl2.rotation.z += dt * 3.3;
+  v.rim.material.opacity = .6 + .3 * Math.sin(t * 20);
+}
+
+/* ---------- skill 5: nebula strike (claw ribbons) ---------- */
+function makeRibbon(colA, colB) {
+  const N = 26, pos = new Float32Array(N * 6), col = new Float32Array(N * 6), idx = [];
+  for (let i = 0; i < N - 1; i++) { const a = i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('color', new THREE.BufferAttribute(col, 3)); geo.setIndex(idx);
+  const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+  mesh.frustumCulled = false; scene.add(mesh);
+  return { geo, pos, col, N, hist: [], A: new THREE.Color(colA), B: new THREE.Color(colB), off: 0 };
+}
+// three trails per hand, one for each claw
+const ribbons = { L: [-1, 0, 1].map(k => Object.assign(makeRibbon(0xff7ae6, 0x6fd6ff), { off: k * .7 })), R: [-1, 0, 1].map(k => Object.assign(makeRibbon(0xc77dff, 0x7fe0ff), { off: k * .7 })) };
+const _h = V(), _el = V(), _c = new THREE.Color(), FAR = V(0, -999, 0);
+function updateRibbon(rb, g, on, t) {
+  if (on && FX['fxHand' + g] && BONE['elbow' + g]) {
+    FX['fxHand' + g].getWorldPosition(_h); BONE['elbow' + g].bone.getWorldPosition(_el);
+    const dir = _h.clone().sub(_el).normalize();
+    const side = dir.clone().cross(_zAx); if (side.lengthSq() < .01) side.set(1, 0, 0); side.normalize().multiplyScalar(rb.off);
+    rb.hist.unshift({ a: _h.clone().add(side).addScaledVector(dir, -.4), b: _h.clone().add(side.multiplyScalar(1.6)).addScaledVector(dir, 4.2), t });
+  }
+  while (rb.hist.length > rb.N || (rb.hist.length && t - rb.hist[rb.hist.length - 1].t > .35)) rb.hist.pop();
+  for (let i = 0; i < rb.N; i++) {
+    const h = rb.hist[Math.min(i, rb.hist.length - 1)];
+    const k = h ? Math.max(0, 1 - (t - h.t) / .35) * (1 - i / rb.N) : 0;
+    const a = h ? h.a : FAR, b = h ? h.b : FAR;
+    rb.pos.set([a.x, a.y, a.z, b.x, b.y, b.z], i * 6);
+    _c.copy(rb.A).lerp(rb.B, i / rb.N).multiplyScalar(k * 1.6);
+    rb.col.set([_c.r * .4, _c.g * .4, _c.b * .4, _c.r, _c.g, _c.b], i * 6);
+  }
+  rb.geo.attributes.position.needsUpdate = true; rb.geo.attributes.color.needsUpdate = true;
+}
+
+/* ---------- skill 6: supernova ---------- */
+const novaMat = new THREE.ShaderMaterial({
+  uniforms: { uT: gTime, uFade: { value: 0 } }, vertexShader: fresVert,
+  fragmentShader: `varying vec3 vN, vV, vP; uniform float uT, uFade; ${NOISE}
+  void main(){
+    float fres = pow(1. - abs(dot(normalize(vN), normalize(vV))), 1.6);
+    float n = gfbm(vP * 3. + uT * .8);
+    vec3 col = mix(vec3(1., .95, 1.), vec3(.62, .28, 1.), fres);
+    col = mix(col, vec3(.35, .7, 1.), smoothstep(.55, .85, n) * .5);
+    gl_FragColor = vec4(col * uFade * (.3 + fres * 1.4 + n * .35), 1.);
+  }`,
+  transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
+});
+const novaShell = new THREE.Mesh(new THREE.SphereGeometry(1, 64, 48), novaMat); novaShell.visible = false; scene.add(novaShell);
+const starBall = sprite(scene, [0, 0, 0], 1, 0xf3e8ff, 0), starHalo = sprite(scene, [0, 0, 0], 1, 0x9a5cff, 0);
+const novaCloud = sprite(scene, [0, 0, 0], 1, 0x8a4cff, 0); // the nebula left hanging after the blast
+const novaLight = new THREE.PointLight(0xd8c0ff, 0, 220, 1.6); scene.add(novaLight);
+
+/* ---------- effects per frame ---------- */
+const mouthW = V(), headFwd = V(), coreW = V(), _w = V(), _m2 = V();
+function updateSkills(dt, t) {
+  const m = act && MOVES[act], q = m ? actT / m.dur : 0, is = n => act === n;
+  if (FX.fxMouth && FX.fxMouthFwd) { FX.fxMouth.getWorldPosition(mouthW); FX.fxMouthFwd.getWorldPosition(_m2); headFwd.copy(_m2).sub(mouthW).normalize(); }
+  if (FX.fxCore) FX.fxCore.getWorldPosition(coreW);
+
+  // 1 cosmic breath
+  const F0 = BREATH_FIRE, cB = W8.cB, fB = is('breath') ? env(q, F0, F0 + .03, BREATH_END, BREATH_END + .05) : 0;
+  const uB = is('breath') ? smooth(BREATH_UP0, BREATH_UP1, q) * (1 - smooth(BREATH_END, 1, q)) : 0;
+  // the charge climbs the back: tail tip → spine → neck → crown, then the beam goes
+  const front = is('breath') ? (q < F0 ? -.04 + 1.12 * smooth(.05, F0 - .04, q) : 1.3) : -1;
+  spineU.uFront.value = front;
+  spineU.uGlow.value = is('breath') ? smooth(.02, .06, q) * (1 - smooth(BREATH_END, 1, q)) * (q > F0 ? 1.4 + .35 * Math.sin(t * 22) : 1) : 0;
+  if (is('breath') && q < F0 && front > 0 && front < 1 && spineNodes.length) {
+    const p = spinePoint(front, V());
+    for (let i = 0; i < 5; i++) emit(p.clone().add(V(r2(), Math.random(), r2()).multiplyScalar(1.6)), V(r2() * 2, 3 + Math.random() * 5, r2() * 2), Math.random() < .5 ? 0x9fd8ff : 0xd8c0ff, .7, -1, .8);
+    if (Math.random() < dt * 14) bolt(p, p.clone().add(V(r2() * 3, 1 + Math.random() * 3, r2() * 3)), 0xcfe6ff, .1, .3);
+    const step = Math.floor(front * 8); // a thump each time the glow climbs another segment
+    if (once('climb' + step)) { camShake = Math.max(camShake, .25 + front * .25); shockRing(p, camDir(), 5 + front * 4, .4, 0x9fd0ff); }
+  }
+  if (FX.mouthGlow) { FX.mouthGlow.material.opacity = Math.min(1, cB * .9 + fB); FX.mouthGlow.scale.setScalar(.01 + cB * 4.5 * (1 + .15 * Math.sin(t * 40)) + fB * 6); }
+  if (is('breath') && q > F0 - .14 && q < F0 + .01) for (let i = 0; i < 5; i++) {
+    const d = V(r2(), r2(), r2()).normalize().multiplyScalar(5 + Math.random() * 6);
+    emit(mouthW.clone().add(d), d.clone().multiplyScalar(-.3), Math.random() < .5 ? 0xb07cff : 0x7fd8ff, 1.2, 0, 0, mouthW);
+    if (Math.random() < .35) bolt(mouthW.clone().add(d.multiplyScalar(1.4)), mouthW, 0xcfe0ff, .09, .22); // energy arcing into the jaws
+  }
+  if (is('breath') && q > F0 - .1 && q < F0 && Math.random() < dt * 6) shockRing(mouthW, camDir(), 6, .35, 0xb79bff, true);
+  const P = BREATH_POWER;
+  if (is('breath') && q > F0 && once('breathFire')) { flash = Math.max(flash, .5); camShake = Math.max(camShake, 1.1); shockRing(mouthW, headFwd, 14 * P, .5, 0xe0d0ff); spawnImpact(home.x, home.z, 30, 0); }
+  if (is('breath') && q > BREATH_UP0 && once('skyCam')) { // pull back and look up to follow the beam into the sky
+    camGoal = V(home.x + 135, 12, home.z - 15); tgtGoal = V(home.x, 30, home.z + 22);
+    shockRing(V(home.x, .5, home.z), UP, 40, 1, 0xd8c8ff);
+  }
+  if (is('breath') && q > BREATH_UP1 && once('skyHit')) { flash = Math.max(flash, .45); camShake = Math.max(camShake, 1.4); }
+  beam.visible = fB > .001; impactGlow.visible = false; skyBurst.visible = false;
+  if (beam.visible) {
+    beam.position.copy(mouthW); beam.quaternion.setFromUnitVectors(UP, headFwd);
+    const maxLen = 100 + 280 * uB; // dragged up, the beam reaches far into the sky
+    let len = maxLen; if (headFwd.y < -.02) len = Math.min(maxLen, mouthW.y / -headFwd.y);
+    len = Math.max(.5, len * smooth(F0, F0 + .05, q));
+    const wob = 1 + .1 * Math.sin(t * 50) + .06 * Math.sin(t * 23);
+    beamOuter.scale.set(P * wob, len, P * wob); beamCore.scale.set(P, len, P);
+    [beamOuter, beamCore].forEach(b => { b.material.uniforms.uLen.value = len; b.material.uniforms.uFade.value = fB * (b === beamOuter ? .8 : 1.3); }); // twice as thick; brighter but not blown out
+    beamRings.forEach((r, i) => { const y = (t * 55 + i * len / beamRings.length) % len; r.position.y = y; r.scale.setScalar((1.4 + 4 * y / len) * 1.3 * P); r.material.opacity = .9 * fB; });
+    for (let i = 0; i < 10; i++) emit(_w.copy(mouthW).addScaledVector(headFwd, Math.random() * Math.min(len, 120)).add(V(r2(), r2(), r2()).multiplyScalar(3 * P)), headFwd.clone().multiplyScalar(40), Math.random() < .5 ? 0xd9b8ff : 0x8fe0ff, .6);
+    for (let i = 0; i < 4; i++) { // lightning crawling along the beam
+      const f0 = Math.random() * .8, a = mouthW.clone().addScaledVector(headFwd, f0 * Math.min(len, 140)), b = mouthW.clone().addScaledVector(headFwd, (f0 + .15) * Math.min(len, 140));
+      bolt(a.add(V(r2(), r2(), r2()).multiplyScalar((2 + 4 * f0) * P)), b.add(V(r2(), r2(), r2()).multiplyScalar((3 + 4 * f0) * P)), Math.random() < .5 ? 0xe8dcff : 0x9fe0ff, .08, .25);
+    }
+    if (Math.random() < dt * 7) shockRing(mouthW.clone().addScaledVector(headFwd, 3), headFwd, 9 * P, .4, 0xc9b0ff);
+    const hit = _w.copy(mouthW).addScaledVector(headFwd, len);
+    if (hit.y < .8) {
+      impactGlow.visible = true; impactGlow.position.copy(hit).setY(1.5);
+      impactGlow.scale.setScalar((22 + Math.sin(t * 30) * 4) * 1.3); impactGlow.material.opacity = .8 * fB;
+      for (let i = 0; i < 12; i++) emit(V(hit.x + r2() * 5, .4, hit.z + r2() * 5), V(r2() * 16, 10 + Math.random() * 22, r2() * 16), Math.random() < .5 ? 0xc9a0ff : 0x8fd8ff, 1.2, 20, .4);
+      for (let i = 0; i < 2; i++) spawnDebris(V(hit.x + r2() * 5, 1, hit.z + r2() * 5), V(r2() * 14, 12 + Math.random() * 18, r2() * 14), .3 + Math.random() * 1.1, 3);
+      if (Math.random() < dt * 26) scorch(hit.x, hit.z, (7 + Math.random() * 3) * 1.6, Math.random() < .5 ? 0xb070ff : 0x5fa8ff, 6); // a glowing trench along the sweep
+      if (Math.random() < dt * 5) shockRing(V(hit.x, .3, hit.z), UP, 16 * P, .6, 0xc8a8ff);
+      camShake = Math.max(camShake, .8 * fB);
+    }
+    if (uB > .05) {
+      // the top of the beam tears a glowing hole in the sky
+      const top = mouthW.clone().addScaledVector(headFwd, len);
+      skyBurst.visible = true; skyBurst.position.copy(top);
+      skyBurst.scale.setScalar((70 + 14 * Math.sin(t * 13)) * uB); skyBurst.material.opacity = uB * fB;
+      if (Math.random() < dt * 4) shockRing(top, headFwd, 90 * uB, 1.2, Math.random() < .5 ? 0xd8c8ff : 0x8fd8ff);
+      if (Math.random() < dt * 12) bolt(top.clone().add(V(r2(), r2(), r2()).multiplyScalar(30)), top.clone().add(V(r2(), r2(), r2()).multiplyScalar(60)), 0xe8dcff, .2, .2);
+      // the ground around the dragon gives way under the strain
+      if (Math.random() < dt * 10) { const a = Math.random() * TAU, r = 6 + Math.random() * 18; scorch(home.x + Math.cos(a) * r, home.z + Math.sin(a) * r, 4 + Math.random() * 4, 0x7a5cff, 3, 3, a, .8); }
+      if (Math.random() < dt * 14) { const a = Math.random() * TAU, r = 8 + Math.random() * 22; spawnDebris(V(home.x + Math.cos(a) * r, .5, home.z + Math.sin(a) * r), V(r2(), 6 + Math.random() * 10, r2()), .3 + Math.random() * 1.2, 2.5); }
+      if (Math.random() < dt * 2.5) shockRing(V(home.x, .4, home.z), UP, 30 + Math.random() * 20, 1, 0xb48cff);
+      for (let i = 0; i < 3; i++) emit(V(home.x + r2() * 20, .5, home.z + r2() * 20), V(r2(), 8 + Math.random() * 10, r2()), Math.random() < .5 ? 0xb07cff : 0x7fd8ff, 1.4, -2, .3);
+      camShake = Math.max(camShake, .7 * uB * fB);
+    }
+  }
+
+  // 2 galaxy barrier, with gravity pulses rolling over the ground
+  shield.visible = is('shield');
+  if (shield.visible) {
+    shield.position.copy(home).setY(10);
+    const sc = shield.position;
+    if (once('shieldUp')) {
+      flash = Math.max(flash, .3); camShake = Math.max(camShake, .4);
+      shockRing(V(home.x, 10, home.z), UP, 34, .8, 0xd8c8ff);
+      for (let i = 0; i < 44; i++) { // the ground breaks loose and starts to orbit
+        const a = Math.random() * TAU, r = 18 + Math.random() * 10;
+        spawnDebris(V(home.x + Math.cos(a) * r, .5, home.z + Math.sin(a) * r), V(0, 1.5 + Math.random() * 3.5, 0), .4 + Math.random() * 1.3, MOVES.shield.dur * (1 - q) - .2, 1, V(home.x, 0, home.z));
+      }
+    }
+    [.3, .5, .7].forEach((at, i) => { if (q > at && once('pulse' + i)) { spawnImpact(home.x, home.z, 46, 0); shockRing(sc, UP, 30, 1, 0xb48cff); shockRing(sc, V(1, .4, .3), 24, 1, 0x8fd0ff); camShake = Math.max(camShake, .5); } });
+    const grow = smooth(.04, .22, q), fade = 1 - smooth(.85, 1, q);
+    const pulse = [.3, .5, .7].reduce((s, at) => s + Math.exp(-Math.pow((q - at) * 40, 2)), 0);
+    const domeR = 15 * elasticOut(grow) * (1 + .025 * Math.sin(t * 9) + .08 * pulse);
+    shieldMesh.scale.setScalar(Math.max(.01, domeR));
+    if (grow > .5) for (let i = 0; i < 2; i++) { // arcs crawling over the dome
+      const a = V(r2(), Math.random() * .9 + .1, r2()).normalize(), b = a.clone().add(V(r2(), r2(), r2()).multiplyScalar(.35)).normalize();
+      bolt(a.multiplyScalar(domeR).add(sc), b.multiplyScalar(domeR).add(sc), Math.random() < .5 ? 0xe6d6ff : 0x8fd8ff, .1, .12);
+    }
+    shieldMat.uniforms.uFade.value = fade * grow;
+    ringPivot.scale.setScalar(Math.max(.001, smooth(.12, .35, q)));
+    ring.rotation.z += dt * .6; ringPts.rotation.z -= dt * .35;
+    ringMat.opacity = .9 * fade; ringPtsMat.opacity = fade;
+  }
+
+  // 3 meteor shower
+  const open = is('meteor') ? smooth(.1, .25, q) * (1 - smooth(.85, .98, q)) : 0;
+  skyRift.visible = open > .001;
+  if (skyRift.visible) {
+    skyRift.position.set(home.x, 52, home.z + 18); skyRift.lookAt(home.x + 30, 0, home.z + 80);
+    riftA.scale.setScalar(70 * open + .01); riftB.scale.setScalar(48 * open + .01);
+    riftA.rotation.z += dt * .8; riftB.rotation.z -= dt * 1.3;
+    riftMat.opacity = open; riftB.material.opacity = open * .8;
+  }
+  if (is('meteor') && q > .14 && once('roar')) {
+    flash = Math.max(flash, .4); spawnImpact(home.x, home.z, 34);
+    if (FX.fxMouth) { shockRing(mouthW, headFwd, 12, .6, 0xe0d0ff); shockRing(mouthW, headFwd, 20, .9, 0xb48cff); }
+    for (let i = 0; i < 6; i++) bolt(V(home.x + r2() * 30, 52 + r2() * 6, home.z + 18 + r2() * 20), V(home.x + r2() * 30, 52 + r2() * 6, home.z + 18 + r2() * 20), 0xd8c8ff, .25, .2);
+  }
+  if (is('meteor') && q > .2 && q < .72) { spawnAcc += dt * 15; while (spawnAcc > 1) { spawnAcc--; spawnMeteor(); } }
+  if (is('meteor') && q > .66 && once('bigOne')) spawnMeteor(true);
+  if (skyRift.visible && Math.random() < dt * 8) { const c = skyRift.position; bolt(V(c.x + r2() * 25, c.y + r2() * 8, c.z + r2() * 20), V(c.x + r2() * 25, c.y + r2() * 8, c.z + r2() * 20), Math.random() < .5 ? 0xe0d0ff : 0x8fd8ff, .15, .2); }
+  meteors.forEach(o => {
+    if (!o.on) return;
+    o.p.addScaledVector(o.v, dt); o.g.position.copy(o.p);
+    o.rock.rotation.x += dt * 4; o.rock.rotation.y += dt * 3;
+    for (let i = 0; i < (o.big ? 8 : 1); i++) emit(o.p.clone().add(V(r2(), r2(), r2()).multiplyScalar(o.g.scale.x)), V(r2() * 2, r2() * 2, r2() * 2), Math.random() < .5 ? 0xc8b0ff : o.kind.em, o.big ? 1.2 : .5);
+    if (o.big) camShake = Math.max(camShake, .4);
+    if (o.p.y <= .5) { o.on = false; o.g.visible = false; meteorLands(o); }
+  });
+
+  // 4 void portal: sink into a rift, step out of another, the first keeps pulling things in
+  let scale = 1, spin = 0;
+  if (is('portal')) {
+    const vanish = smooth(.28, .4, q), back = smooth(.48, .62, q);
+    if (q < .44) vortexA.g.position.copy(home).setY(9);
+    else if (once('teleport')) { home.copy(portalTo); flash = Math.max(flash, .5); camShake = Math.max(camShake, .8); }
+    vortexB.g.position.copy(portalTo).setY(9);
+    const sA = 13 * smooth(.12, .3, q) * (1 - smooth(.86, 1, q)) * (1 + .04 * Math.sin(t * 6));
+    const sB = 11 * smooth(.38, .48, q) * (1 - smooth(.6, .75, q));
+    updateVortex(vortexA, sA, dt, t); updateVortex(vortexB, sB, dt, t);
+    scale = q < .44 ? 1 - .985 * vanish : .015 + .985 * back;
+    spin = (q < .44 ? vanish : 1 - back) * 2.2;
+    const cA = vortexA.g.position, right = V(1, 0, 0).applyQuaternion(camera.quaternion), up = V(0, 1, 0).applyQuaternion(camera.quaternion);
+    if (q > .14 && once('riftOpen')) {
+      flash = Math.max(flash, .3); camShake = Math.max(camShake, .6);
+      for (let i = 0; i < 50; i++) { // rubble torn off the ground spirals into the rift
+        const a = Math.random() * TAU, r = 10 + Math.random() * 22;
+        spawnDebris(V(cA.x + Math.cos(a) * r, .5 + Math.random() * 3, cA.z + Math.sin(a) * r), V(), .3 + Math.random() * 1.2, 4.5, 2, cA);
+      }
+    }
+    [[vortexA, sA], [vortexB, sB]].forEach(([v, s]) => { // lightning on the rims
+      if (s < 1) return;
+      for (let i = 0; i < 2; i++) {
+        const a = Math.random() * TAU, a2 = a + r2() * .8, rr = s * .36, c = v.g.position;
+        const p1 = c.clone().addScaledVector(right, Math.cos(a) * rr).addScaledVector(up, Math.sin(a) * rr);
+        const p2 = c.clone().addScaledVector(right, Math.cos(a2) * rr * 1.5).addScaledVector(up, Math.sin(a2) * rr * 1.5);
+        bolt(p1, p2, Math.random() < .5 ? 0xe6d0ff : 0x9fc8ff, .1, .25);
+      }
+    });
+    if (sA > 3 && Math.random() < dt * 4) shockRing(cA, camDir(), sA * 1.6, .7, 0xb48cff, true); // space folding inward
+    if (q > .48 && once('reappear')) {
+      flash = Math.max(flash, .5); camShake = Math.max(camShake, 1);
+      shockRing(V(portalTo.x, .5, portalTo.z), UP, 42, 1, 0xd8c8ff); shockRing(vortexB.g.position, camDir(), 26, .7, 0xffffff);
+      scorch(portalTo.x, portalTo.z, 26, 0x7a5cff, 6);
+      for (let i = 0; i < 24; i++) spawnDebris(V(portalTo.x + r2() * 3, 2, portalTo.z + r2() * 3), V(r2() * 22, 8 + Math.random() * 16, r2() * 22), .4 + Math.random(), 3.5);
+    }
+    if (sA > 1) {
+      const c = vortexA.g.position;
+      for (let i = 0; i < 6; i++) {
+        const a = Math.random() * TAU, r = 14 + Math.random() * 14;
+        emit(V(c.x + Math.cos(a) * r, Math.max(.3, c.y + Math.sin(a) * r * .6), c.z + r2() * 4), V(-Math.sin(a), Math.cos(a) * .6, 0).multiplyScalar(14), Math.random() < .5 ? 0xb07cff : 0x6fb8ff, 1.6, 0, .2, c);
+      }
+    }
+  } else { updateVortex(vortexA, 0, dt, t); updateVortex(vortexB, 0, dt, t); }
+  if (FLY.state === 'ground') { dragon.scale.setScalar(scale); dragon.rotation.y = spin; }
+
+  // 5 nebula strike: dash in, slash right then left, glide back
+  const dash = is('strike') ? smooth(.18, .32, q) - smooth(.62, .95, q) : 0;
+  if (is('strike')) {
+    const front = V(home.x, 0, home.z + 36);
+    if (q > .18 && once('dash')) {
+      camShake = Math.max(camShake, .6); flash = Math.max(flash, .15);
+      shockRing(V(home.x, 10, home.z + 2), _zAx, 18, .5, 0xff9ae6); spawnImpact(home.x, home.z, 26, 16); // sonic boom at take-off
+    }
+    const slash = (sx, tilt, col) => {
+      camShake = Math.max(camShake, 1.1); flash = Math.max(flash, .25);
+      const at = V(front.x + sx, 10, front.z + 2);
+      slashArc(at, tilt, 15, col); slashArc(at.clone().add(V(0, 0, .5)), tilt + .12, 11, 0x7fe0ff);
+      spawnImpact(front.x + sx, front.z + 4, 24, 24);
+      for (let k = -1; k <= 1; k++) scorch(front.x + sx + k * 1.6, front.z + 5, 3.2, col, 5, 6, Math.PI / 2 + tilt * .6, 1.2); // three claw gashes
+      for (let i = 0; i < 18; i++) spawnDebris(V(front.x + sx + r2() * 4, 1, front.z + 4 + r2() * 4), V(r2() * 16, 10 + Math.random() * 16, 6 + Math.random() * 14), .3 + Math.random(), 3.5);
+      for (let i = 0; i < 5; i++) bolt(at.clone().add(V(r2() * 8, r2() * 8, 0)), at.clone().add(V(r2() * 12, r2() * 12, 4)), col, .18, .2);
+    };
+    if (q > .3 && once('slashR')) slash(-3, -.75, 0xff7ae6);
+    if (q > .46 && once('slashL')) slash(3, .75, 0xc77dff);
+    if (q > .18 && q < .42) for (let i = 0; i < 14; i++) emit(V(dragon.position.x + r2() * 7, 1 + Math.random() * 18, dragon.position.z - 2 - Math.random() * 10), V(r2() * .5, r2() * .5, -45 - Math.random() * 20), Math.random() < .5 ? 0xff7ae6 : 0x7fb6ff, .45, 0, .5); // speed lines
+    if (q > .18 && q < .4 && Math.random() < dt * 10) scorch(dragon.position.x + r2() * 2, dragon.position.z, 5, 0x9a5cff, 2.5, 2.5, Math.PI / 2, .7);
+  }
+  ['R', 'L'].forEach(g => ribbons[g].forEach(rb => updateRibbon(rb, g, is('strike') && (g === 'R' ? q > .22 && q < .42 : q > .36 && q < .56), t)));
+
+  // 6 supernova: rise, gather a star at the chest, burst
+  const nova = is('nova');
+  const gather = nova ? smooth(.1, .48, q) * (1 - smooth(.5, .53, q)) : 0;
+  if (nova) {
+    if (q > .08 && q < .5) for (let i = 0; i < 8; i++) {
+      const d = V(r2(), r2() * .7, r2()).normalize().multiplyScalar(20 + Math.random() * 18);
+      emit(coreW.clone().add(d), d.clone().cross(UP).multiplyScalar(.5), Math.random() < .5 ? 0xe0c0ff : 0x7fd0ff, 1.4, 0, 0, coreW);
+    }
+    const hc = V(home.x, 0, home.z);
+    if (q > .06 && once('lift')) { // everything nearby rises into orbit around the dragon
+      shockRing(V(home.x, .5, home.z), UP, 30, 1, 0xb48cff);
+      for (let i = 0; i < 70; i++) {
+        const a = Math.random() * TAU, r = 12 + Math.random() * 24;
+        spawnDebris(V(home.x + Math.cos(a) * r, .5, home.z + Math.sin(a) * r), V(0, 2 + Math.random() * 4.5, 0), .4 + Math.random() * 1.6, MOVES.nova.dur * .46, 1, hc);
+      }
+    }
+    if (q > .12 && once('pillar')) lightPillar(home.x, home.z, 5, 160, MOVES.nova.dur * .42);
+    if (q > .1 && q < .5) {
+      if (Math.random() < dt * 5) shockRing(coreW, camDir(), 26, .6, 0xc8b0ff, true); // space collapsing into the star
+      for (let i = 0; i < 2; i++) { const o = DB[(Math.random() * DEB) | 0]; if (o.life > 0 && o.mode === 1) bolt(coreW, o.p, Math.random() < .5 ? 0xe6d6ff : 0x8fd8ff, .1, .18); }
+    }
+    if (q > .52 && once('burst')) {
+      flash = .9; camShake = 2.4;
+      spawnImpact(home.x, home.z, 70, 40); spawnImpact(home.x, home.z, 120, 0);
+      shockRing(coreW, UP, 110, 1.6, 0xe8dcff); shockRing(coreW, _zAx, 80, 1.3, 0xb48cff); shockRing(coreW, V(1, .5, .2), 95, 1.5, 0x8fd8ff);
+      scorch(home.x, home.z, 70, 0x9a5cff, 9); scorch(home.x, home.z, 34, 0xffffff, 6, 1, 0, .6);
+      DB.forEach(o => { if (o.life > 0 && o.mode === 1) { o.mode = 0; o.v.copy(o.p).sub(coreW).setY(0).normalize().multiplyScalar(35 + Math.random() * 30).setY(10 + Math.random() * 16); o.life = 4; } });
+      for (let i = 0; i < 40; i++) spawnDebris(coreW.clone().add(V(r2(), r2(), r2()).multiplyScalar(3)), V(r2(), r2() * .6, r2()).normalize().multiplyScalar(40 + Math.random() * 30), .4 + Math.random() * 1.4, 4);
+      for (let i = 0; i < 220; i++) { const d = V(r2(), r2() * .6, r2()).normalize(); emit(coreW, d.multiplyScalar(40 + Math.random() * 60), Math.random() < .5 ? 0xffffff : 0xb98cff, 1.8, 4, .8); }
+      for (let i = 0; i < 12; i++) bolt(coreW, coreW.clone().add(V(r2(), r2() * .7, r2()).normalize().multiplyScalar(25 + Math.random() * 25)), 0xffffff, .3, .2);
+    }
+    if (q > .64 && once('aftershock')) { camShake = Math.max(camShake, 1.4); spawnImpact(home.x, home.z, 140, 30); shockRing(V(home.x, 1, home.z), UP, 150, 1.8, 0x9a7cff); }
+  }
+  novaCloud.position.copy(coreW); novaCloud.scale.setScalar(50 + 60 * (nova ? smooth(.52, 1, q) : 0));
+  novaCloud.material.opacity = nova ? env(q, .53, .6, .8, 1) * .45 : 0;
+  starBall.position.copy(coreW); starHalo.position.copy(coreW);
+  starBall.scale.setScalar(.01 + 7 * gather * (1 + .1 * Math.sin(t * 30)) * (q > .47 ? .5 : 1));
+  starBall.material.opacity = gather; starHalo.scale.setScalar(.01 + 14 * gather); starHalo.material.opacity = gather * .4;
+  const k = nova ? smooth(.52, .78, q) : 1;
+  novaShell.visible = nova && q > .52 && k < 1;
+  novaShell.position.copy(coreW); novaShell.scale.setScalar(.1 + 85 * (1 - Math.pow(1 - k, 3)));
+  novaMat.uniforms.uFade.value = (1 - k) * (1 - k) * .75;
+  novaLight.position.copy(coreW); novaLight.intensity = nova ? 500 * gather + 9000 * env(q, .52, .54, .6, .8) : 0;
+  floorGlow.scale.setScalar(1 + 4 * (nova ? env(q, .52, .55, .7, .9) : 0));
+
+  if (FLY.state === 'ground') dragon.position.set(home.x, 7 * W8.riseX, home.z + 30 * dash);
+
+  impacts.forEach(o => {
+    if (o.t >= 1) return;
+    o.t = Math.min(1, o.t + dt / (o.size > 50 ? 1.6 : .9));
+    const e = 1 - Math.pow(1 - o.t, 3);
+    o.ringM.scale.setScalar(o.size * e + .01); o.ringM.material.opacity = (1 - o.t) * .9;
+    o.fl.scale.setScalar(Math.min(o.size, 34) * (.6 + e * .6)); o.fl.material.opacity = (1 - o.t) * (1 - o.t) * (o.size > 40 ? .5 : 1);
+    if (o.t >= 1) o.ringM.visible = o.fl.visible = false;
+  });
+}
+
+function updateAmbient(dt, t) {
+  const boost = act ? .6 : 0;
+  const cBoost = act === 'breath' ? -.35 : boost; // dim the rest so the charge wave on the back reads clearly
+  crystalMats.forEach((m, i) => m.emissiveIntensity = m.userData.base * (.85 + .2 * Math.sin(t * 2 + i * 1.5) + cBoost));
+  skinMats.forEach(m => m.emissiveIntensity = m.userData.base * (.9 + .12 * Math.sin(t * .8) + boost * .5));
+  if (FX.coreGlow) {
+    FX.coreGlow.material.opacity = .55 + .15 * Math.sin(t * 2.2) + boost * .3;
+    FX.coreLight.intensity = 26 + 8 * Math.sin(t * 2.2) + boost * 30;
+  }
+  ['L', 'R'].forEach(s => {
+    const a = FX['aura' + s]; if (!a) return;
+    a.material.opacity = .32 + .1 * Math.sin(t * 7) + boost * .3;
+    FX['fxHand' + s].getWorldPosition(_w);
+    if (dragon.scale.x > .5) for (let i = 0; i < 2; i++) emit(V(_w.x + r2() * .5, _w.y + r2() * .4, _w.z + r2() * .5), V(r2() * .6, 1.4 + Math.random() * 1.4, r2() * .6), Math.random() < .5 ? 0x8f7bff : 0x6fd6ff, .9 + Math.random() * .5, -.5, .5);
+  });
+  if (FX.tailGlow) FX.tailGlow.material.opacity = .4 + .15 * Math.sin(t * 3);
+  for (let i = 0; i < DUST; i++) { let y = dPos[i * 3 + 1] + dt * (.3 + (i % 5) * .12); if (y > 36) y = 0; dPos[i * 3 + 1] = y; }
+  dGeo.attributes.position.needsUpdate = true;
+  floorGlow.position.x = dragon.position.x; floorGlow.position.z = dragon.position.z;
+  floorGlow.material.opacity = (.4 + .08 * Math.sin(t * 1.1) + boost * .3) * dragon.scale.x * (1 - .75 * clamp01(dragon.position.y / 20));
+  key.position.set(dragon.position.x - 20, 40, dragon.position.z + 34); key.target.position.copy(dragon.position);
+}
+
+/* ---------- ui ---------- */
+const VIEWS = { front: [0, 11, 54], side: [54, 11, 0], back: [0, 11, -54], iso: [36, 22, 42] };
+document.querySelectorAll('[data-view]').forEach(b => b.onclick = () => { camGoal = V(...VIEWS[b.dataset.view]).add(dragon.position); tgtGoal = V(0, 10.5, 0).add(dragon.position); });
+skillBtns.forEach(b => b.onclick = () => startSkill(b.dataset.act));
+flyBtn.onclick = toggleFly;
+addEventListener('keydown', e => {
+  const i = '123456'.indexOf(e.key); if (i >= 0) startSkill(Object.keys(MOVES)[i]);
+  if (e.key === 'f' || e.key === 'F') toggleFly();
+});
+controls.addEventListener('start', () => { camGoal = tgtGoal = null; });
+const scaleBtn = document.getElementById('scale');
+scaleBtn.onclick = () => { scaleGrp.visible = !scaleGrp.visible; scaleBtn.classList.toggle('on', scaleGrp.visible); };
+document.getElementById('download').onclick = () => { const a = document.createElement('a'); a.href = MODEL_URL; a.download = 'galaxy_dragon.glb'; a.click(); };
+scene.add(key.target);
+
+/* ---------- loop ---------- */
+const clock = new THREE.Clock(), flashEl = document.getElementById('flash');
+const focus = V(0, 10, 0), lastFocus = V(0, 10, 0);
+let simT = 0;
+function animate() {
+  requestAnimationFrame(animate);
+  const raw = clock.getDelta();
+  watchPerf(raw);
+  frame(Math.min(raw, .05));
+}
+function frame(dt) {
+  simT += dt; const t = simT;
+  gTime.value = t;
+  if (act) { actT += dt; if (actT >= MOVES[act].dur) { act = null; actT = 0; skillBtns.forEach(b => b.classList.remove('on')); } }
+  if (capTimer > 0 && capTimer !== Infinity && (capTimer -= dt) <= 0) capEl.classList.remove('on');
+  if (ready) { updateFly(dt); pose(t); updateSkills(dt, t); updateAmbient(dt, t); }
+  updateSpectacle(dt);
+  updateParticles(dt);
+  // the camera rides along while the dragon is airborne (orbit controls still work around it)
+  focus.copy(dragon.position).setY(dragon.position.y + 10);
+  if (FLY.state !== 'ground') {
+    const d = focus.clone().sub(lastFocus);
+    controls.target.add(d); camera.position.add(d);
+    if (camGoal) { camGoal.add(d); tgtGoal.add(d); }
+  }
+  lastFocus.copy(focus);
+  if (camGoal) {
+    const k = 1 - Math.exp(-dt * 3);
+    camera.position.lerp(camGoal, k); controls.target.lerp(tgtGoal, k);
+    if (camera.position.distanceTo(camGoal) < .05) camGoal = tgtGoal = null;
+  }
+  controls.update();
+  flash = Math.max(0, flash - dt * 1.6); flashEl.style.opacity = Math.min(.9, flash);
+  camShake *= Math.exp(-dt * 4);
+  const shake = V(r2() * camShake, r2() * camShake, 0);
+  camera.position.add(shake);
+  composer.render();
+  camera.position.sub(shake);
+}
+animate();
+</script>
+</body>
+</html>
